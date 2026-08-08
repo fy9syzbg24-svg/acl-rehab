@@ -144,16 +144,16 @@ export async function load() {
     // seeded data syncs UP to the repo on first connect.
     seed(state.data, localCase);
     state.data.settings.seeded = true;
-    stampAll(state.data, DEVICE_ID);
-    queueSave();
-  } else if (hadContent && !alreadySynced) {
-    // Existing data that predates sync (or a Mac gaining a caseFile field):
-    // one baseline timestamp so a first merge treats it as real, not unknown.
-    stampAll(state.data, DEVICE_ID);
     queueSave();
   } else if (hadSchema < SCHEMA || seededCase) {
     queueSave();
   }
+
+  // Baseline-stamp anything on a populated device that has no timestamp yet.
+  // Runs unconditionally (it only fills gaps) so that records introduced by a
+  // LATER version — caseFile was one — get stamped and pushed rather than
+  // sitting invisible to sync forever.
+  if (hadContent) stampAll(state.data, DEVICE_ID);
   // A fresh device with no local content (a new iPhone) is deliberately left
   // UNSTAMPED and unseeded: its records default to time 0, so the first sync
   // pulls the real data down wholesale instead of a blank default winning.

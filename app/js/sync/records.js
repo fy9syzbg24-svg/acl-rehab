@@ -12,6 +12,7 @@
 // Key grammar — a flat string per record, stable across devices:
 //
 //   s|<settingKey>            settings
+//   k|<caseFileKey>           clinical history (case, timeline, hep, sources)
 //   d|<iso>                   a day's own fields (check-in, notes…), not entries
 //   e|<iso>|<entryId>         one logged exercise row
 //   m|<id>                    a measurement / test result
@@ -30,7 +31,11 @@ const DAY_FIELDS = ['checkin', 'checklist', 'notes', 'source', 'seeded'];
 // name -> the array in the doc, for the id-keyed collections
 const ID_LISTS = { m: 'measurements', r: 'mrss', c: 'customExercises' };
 // name -> the plain key/value map in the doc
-const KEY_MAPS = { s: 'settings', g: 'planGoals', f: 'planFocus' };
+// caseFile is HERE for a reason: it is data, not code. Leaving it out meant
+// the merge engine did not carry it, so a device without a clinical history
+// (any phone) pushed a document lacking it and silently wiped the server copy.
+// Any new top-level key must be registered here or it will not survive a sync.
+const KEY_MAPS = { s: 'settings', g: 'planGoals', f: 'planFocus', k: 'caseFile' };
 // name -> [parent, allowed sub-maps]
 const SUB_MAPS = { b: ['melbourne', ['phases', 'measures']], p: ['program', ['stage', 'band', 'weeklyTarget']] };
 

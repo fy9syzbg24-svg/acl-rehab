@@ -191,5 +191,43 @@ section('a fresh device against a populated server pulls it all');
   check('entries arrived', entriesOf(res.doc, '2026-08-07'), ['e1', 'e2']);
 }
 
+section('REGRESSION: every top-level data key must be syncable');
+{
+  // caseFile was absent from the record maps, so a phone that had never seen
+  // it pushed a document without it and wiped the server's copy.
+  const withCase = stampAll({
+    ...base(),
+    caseFile: { case: { legs: { left: { procedure: 'ACLR' } } }, timeline: [1, 2], hep: { label: 'x' } },
+  }, 'mac', t(0));
+  const keys = [...collectRecords(withCase).keys()];
+  check('caseFile decomposes into records', keys.filter((k) => k.startsWith('k|')).sort(),
+    ['k|case', 'k|hep', 'k|timeline']);
+
+  // A phone with no clinical history must RECEIVE it, not erase it.
+  const phone = { schema: 6, settings: {}, days: {}, measurements: [], _sync: { v: 1, rec: {}, del: {} } };
+  const pulled = mergeDocs(phone, withCase).doc;
+  check('phone receives the case file', !!pulled.caseFile?.case?.legs?.left, true);
+
+  // …and pushing back from the phone must not remove it from the server.
+  const server = mergeDocs(clone(withCase), pulled).doc;
+  check('server keeps it after the phone pushes', !!server.caseFile?.case?.legs?.left, true);
+  check('timeline survives too', server.caseFile.timeline, [1, 2]);
+}
+
+// Guard against the next one: anything at the top level of a real document
+// that is neither metadata nor a registered collection is invisible to sync.
+section('no unregistered top-level keys');
+{
+  const KNOWN = new Set([
+    'schema', '_sync',                                   // metadata
+    'settings', 'planGoals', 'planFocus', 'caseFile',    // key maps
+    'melbourne', 'program',                              // sub maps
+    'measurements', 'mrss', 'customExercises',           // id lists
+    'days',                                              // days + entries
+  ]);
+  const doc = { ...base(), caseFile: {} };
+  check('all top-level keys are registered', Object.keys(doc).filter((k) => !KNOWN.has(k)), []);
+}
+
 console.log('\n' + (fails.length ? `FAILURES: ${fails.join(', ')}` : 'ALL PASS'));
 process.exit(fails.length ? 1 : 0);
