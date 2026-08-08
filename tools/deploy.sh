@@ -32,7 +32,7 @@ HTML
 touch "$STAGE/.nojekyll"
 
 # Dev-only harness never ships.
-rm -f "$STAGE/dev-tests.html" "$STAGE/dev-tests.js" "$STAGE/data/case.local.js"
+rm -f "$STAGE"/dev-*.html "$STAGE"/dev-*.js "$STAGE/data/case.local.js"
 
 WORK=$(mktemp -d)
 git worktree add -q --detach "$WORK"
