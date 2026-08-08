@@ -902,8 +902,15 @@ ol.steps li { font-size: .82rem; margin: .18rem 0; }
   font-style: normal; font-weight: 800; font-size: 12px; color: transparent;
 }
 .supprow.on .supptick { background: var(--warn); border-color: var(--warn); color: #fff; }
+/* Taken rows go green — the amber tick alone read as "greyed out" rather than
+   "done", which is the opposite of the intent. */
+.supprow.on {
+  background: var(--good-soft);
+  border-radius: 8px;
+  border-bottom-color: transparent;
+}
 .suppname { flex: 1; min-width: 0; font-size: .92rem; font-weight: 500; }
-.supprow.on .suppname { color: var(--ink-3); }
+.supprow.on .suppname { color: color-mix(in srgb, var(--good) 72%, var(--ink)); font-weight: 560; }
 .suppdel { flex: none; color: var(--ink-3); font-size: .78rem; padding: .25rem .3rem; border-radius: 6px; }
 .suppdel:hover { background: var(--bad-soft); color: var(--bad); }
 
@@ -955,3 +962,41 @@ ol.steps li { font-size: .82rem; margin: .18rem 0; }
 .prnspacer { flex: 1 1 auto; }
 .prnrow { padding: .45rem .6rem; margin-bottom: .4rem; }
 .prndoses { display: inline-flex; gap: .25rem; flex-wrap: wrap; }
+
+/* as-needed: one stable grid, plus a fill that slides as the wait elapses */
+.prnrow { position: relative; overflow: hidden; }
+.prnfill {
+  position: absolute; inset: 0 auto 0 0; z-index: 0;
+  background: color-mix(in srgb, var(--warn) 13%, transparent);
+  transition: width 1.2s linear; pointer-events: none;
+}
+/* The fill exists to show time REMAINING. Once clear there is nothing to
+   show, and a full-width wash read as "this row is selected". */
+.prnrow.clear .prnfill { opacity: 0; }
+.prngrid {
+  position: relative; z-index: 1;
+  display: grid; align-items: center; gap: .2rem .5rem;
+  grid-template-columns: auto 1fr auto;
+  grid-template-areas:
+    "name dose actions"
+    "status status actions"
+    "doses doses doses";
+}
+.prnname { grid-area: name; }
+.prndose { grid-area: dose; justify-self: start; }
+.prnstatus { grid-area: status; display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; }
+.prnactions { grid-area: actions; display: flex; align-items: center; gap: .35rem; }
+.prndoses { grid-area: doses; display: flex; gap: .3rem; flex-wrap: wrap; align-items: center; margin-top: .1rem; }
+.dosechip b { font-weight: 700; }
+.dosetotal { font-family: var(--mono); }
+
+/* wide enough: name, status and actions all on one line */
+@media (min-width: 520px) {
+  .prngrid {
+    grid-template-columns: auto auto 1fr auto;
+    grid-template-areas:
+      "name dose status actions"
+      "doses doses doses doses";
+  }
+  .prnstatus { justify-self: start; }
+}

@@ -134,6 +134,20 @@ export function prnStatus(med, now = new Date()) {
   return { clear: msLeft <= 0, last, lastAt, nextAt, msLeft };
 }
 
+/** Sum a day's doses when they share a unit, so a split dose reads as one. */
+function totalFor(rows) {
+  let sum = 0; let unit = null; let ok = true;
+  for (const r of rows) {
+    const m = /^\s*([\d.]+)\s*([a-zA-Z]*)/.exec(r.dose || '');
+    if (!m) { ok = false; break; }
+    const u = (m[2] || '').toLowerCase();
+    if (unit === null) unit = u; else if (unit !== u) { ok = false; break; }
+    sum += Number(m[1]);
+  }
+  if (!ok || !sum) return '';
+  return `= ${Number(sum.toFixed(2))}${unit || ''} today`;
+}
+
 function humanLeft(ms) {
   const m = Math.max(0, Math.round(ms / 60000));
   const h = Math.floor(m / 60);
@@ -214,21 +228,34 @@ function renderPrn(ctx, iso) {
         const st = prnStatus(m);
         const onThisDate = doses().filter((x) => x.medId === m.id && String(x.at).slice(0, 10) === iso)
           .sort((a, b) => String(a.at).localeCompare(String(b.at)));
+        // Fixed structure regardless of state: the row wrapped differently
+        // depending on whether there was a countdown or a logged dose, so the
+        // same medication looked like a different component at different times
+        // of day. Grid, not flex-wrap.
+        const pctElapsed = (!st.last || st.clear) ? 0
+          : Math.max(0, Math.min(100, 100 - (st.msLeft / ((Number(m.waitHours) || 1) * 3600e3)) * 100));
         return `
-        <div class="prnrow ${st.clear ? 'clear' : 'waiting'}">
-          <div class="prnline">
+        <div class="prnrow ${st.clear ? 'clear' : 'waiting'}" data-prn-row="${esc(m.id)}">
+          <i class="prnfill" style="width:${pctElapsed.toFixed(1)}%"></i>
+          <div class="prngrid">
             <span class="prnname">${esc(m.name)}</span>
-            <span class="tiny muted">${esc(m.dose || '')}${m.waitHours ? ` · ${esc(String(m.waitHours))}h` : ''}</span>
-            ${!st.last || st.clear
-              ? '<span class="pill good">clear</span>'
-              : `<span class="pill warn">${esc(humanLeft(st.msLeft))}</span>
-                 <span class="tiny muted">until ${esc(hhmm(st.nextAt))}${
-                   localIso(st.nextAt) !== localIso(st.lastAt) ? '+1' : ''}</span>`}
-            <span class="prnspacer"></span>
-            ${onThisDate.length ? `<span class="prndoses">${onThisDate.map((x) => `
-              <span class="dosechip" data-dosedel="${esc(x.id)}" title="Tap to remove">${esc(hhmm(new Date(x.at)))}</span>`).join('')}</span>` : ''}
-            <button class="btn sm ${st.clear ? 'primary' : ''}" data-prn-dose="${esc(m.id)}">Log</button>
-            ${ctx.suppEdit ? `<span class="suppdel" data-prndel="${esc(m.id)}" role="button" aria-label="Remove">✕</span>` : ''}
+            <span class="prndose tiny muted">${esc(m.dose || '')}${m.waitHours ? ` · ${esc(String(m.waitHours))}h` : ''}</span>
+            <span class="prnstatus" data-prn-status="${esc(m.id)}">
+              ${!st.last || st.clear
+                ? '<span class="pill good">clear</span>'
+                : `<span class="pill warn">${esc(humanLeft(st.msLeft))}</span>
+                   <span class="tiny muted">until ${esc(hhmm(st.nextAt))}${
+                     localIso(st.nextAt) !== localIso(st.lastAt) ? '+1' : ''}</span>`}
+            </span>
+            <span class="prnactions">
+              <button class="btn sm ${st.clear ? 'primary' : ''}" data-prn-dose="${esc(m.id)}">Log</button>
+              ${ctx.suppEdit ? `<span class="suppdel" data-prndel="${esc(m.id)}" role="button" aria-label="Remove">✕</span>` : ''}
+            </span>
+            ${onThisDate.length ? `<span class="prndoses">
+              ${onThisDate.map((x) => `<span class="dosechip" data-dosedel="${esc(x.id)}" title="Tap to remove">
+                <b>${esc(hhmm(new Date(x.at)))}</b>${x.dose ? ` · ${esc(x.dose)}` : ''}</span>`).join('')}
+              ${onThisDate.length > 1 ? `<span class="dosetotal tiny muted">${esc(totalFor(onThisDate))}</span>` : ''}
+            </span>` : ''}
           </div>
         </div>`;
       }).join('')
@@ -312,8 +339,42 @@ function bindDragReorder(root, rerender) {
   });
 }
 
+let prnTimer = null;
+
+/** Advance the countdowns in place. A full re-render every few seconds would
+ *  fight anything you were typing, so this only touches the two elements. */
+function startPrnTicker(root) {
+  clearInterval(prnTimer);
+  const tick = () => {
+    const rows = root.querySelectorAll('[data-prn-row]');
+    if (!rows.length) return clearInterval(prnTimer);
+    rows.forEach((el) => {
+      const med = (state.data.prnMeds || []).find((m) => m.id === el.dataset.prnRow);
+      if (!med) return;
+      const st = prnStatus(med);
+      const fill = el.querySelector('.prnfill');
+      const status = el.querySelector('[data-prn-status]');
+      const pct = (!st.last || st.clear) ? 0
+        : Math.max(0, Math.min(100, 100 - (st.msLeft / ((Number(med.waitHours) || 1) * 3600e3)) * 100));
+      if (fill) fill.style.width = `${pct.toFixed(1)}%`;
+      el.classList.toggle('clear', st.clear || !st.last);
+      el.classList.toggle('waiting', !!st.last && !st.clear);
+      if (status) {
+        status.innerHTML = (!st.last || st.clear)
+          ? '<span class="pill good">clear</span>'
+          : `<span class="pill warn">${humanLeft(st.msLeft)}</span>
+             <span class="tiny muted">until ${hhmm(st.nextAt)}${
+               localIso(st.nextAt) !== localIso(st.lastAt) ? '+1' : ''}</span>`;
+      }
+    });
+  };
+  prnTimer = setInterval(tick, 15000);
+  tick();
+}
+
 export function bindSupplements(root, ctx, rerender) {
   const iso = ctx.date || todayIso();
+  startPrnTicker(root);
   bindDatePill(root, iso, (next) => { ctx.date = next; rerender(); });
 
   if (ctx.suppEdit) bindDragReorder(root, rerender);
