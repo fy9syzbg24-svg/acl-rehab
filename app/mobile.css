@@ -13,15 +13,23 @@
 
 :root {
   --mtop-h: 54px;
-  --mtab-h: 56px;
+  --mtab-h: 50px;
   --safe-t: env(safe-area-inset-top, 0px);
   --safe-b: env(safe-area-inset-bottom, 0px);
 }
 
+/* Pin to the real viewport rather than trusting a height unit.
+   In an installed standalone PWA with a black-translucent status bar, iOS
+   reports 100dvh TALLER than the visible area, which pushed the fixed tab bar
+   below the fold and left dead space above the home indicator. `position:
+   fixed; inset: 0` is measured against the actual visual viewport, so the bar
+   lands exactly on the bottom edge. */
+html { height: 100%; }
 body.mobile {
   margin: 0;
   padding: 0;
-  height: 100dvh;          /* dvh tracks Safari's bars and the keyboard */
+  position: fixed;
+  inset: 0;
   overflow: hidden;
   overscroll-behavior: none;
   -webkit-tap-highlight-color: transparent;
@@ -97,7 +105,7 @@ body.mobile {
 }
 .mtabs button {
   height: var(--mtab-h);
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
   border: 0; background: none; color: var(--ink-3);
   font: inherit; font-size: .58rem; font-weight: 600;
   padding: 0 2px;
@@ -166,4 +174,48 @@ body.mobile #modal-root .sheet {
 body.mobile .toast {
   bottom: calc(var(--mtab-h) + var(--safe-b) + .7rem) !important;
   left: .7rem !important; right: .7rem !important;
+}
+
+
+/* ------------------------------------------------------------- iPad --- */
+/* An 11-inch iPad Pro is 834pt wide in portrait, 1194 landscape — far past
+   the desktop breakpoints in styles.css, so the CONTENT already lays out in
+   its roomy multi-column form. What needs adjusting is only the chrome:
+   centre the reading column, and stop the five tabs stretching across a
+   metre of glass. */
+@media (min-width: 700px) {
+  :root { --mtop-h: 58px; --mtab-h: 56px; }
+
+  .mview {
+    padding: 1rem 1.25rem 2rem;
+  }
+  /* the app's own .view max-width takes over inside; just don't fight it */
+  .mview > * { max-width: 1080px; margin-left: auto; margin-right: auto; }
+
+  .mtabs {
+    /* a centred island rather than a full-width strip */
+    display: flex; justify-content: center; gap: .25rem;
+    padding-left: max(1rem, env(safe-area-inset-left));
+    padding-right: max(1rem, env(safe-area-inset-right));
+  }
+  .mtabs button {
+    flex: 0 1 150px;
+    flex-direction: row; gap: .45rem;
+    font-size: .78rem;
+  }
+  .mtabs button svg { width: 19px; height: 19px; }
+
+  .mtitle { font-size: 1.15rem; }
+  .mpostop { font-size: .72rem; }
+
+  /* Touch targets stay finger-sized, but the iPad has room for denser forms
+     than a phone, so let the desktop grids breathe again. */
+  body.mobile .card-body { padding: 1rem; }
+}
+
+/* Landscape on either device: the header eats too much of a short viewport. */
+@media (orientation: landscape) and (max-height: 500px) {
+  :root { --mtop-h: 44px; --mtab-h: 44px; }
+  .mtabs button span { display: none; }
+  .mtabs button svg { width: 22px; height: 22px; }
 }
