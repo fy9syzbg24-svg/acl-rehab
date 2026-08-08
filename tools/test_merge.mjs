@@ -229,5 +229,39 @@ section('no unregistered top-level keys');
   check('all top-level keys are registered', Object.keys(doc).filter((k) => !KNOWN.has(k)), []);
 }
 
+section('REGRESSION: a repair must tombstone, or sync undoes it');
+{
+  // Duplicates existed on the server. A device cleaned them up locally but
+  // recorded no tombstones, so the next merge saw records it had "never heard
+  // of" and pulled every one of them back.
+  const server = stampAll({
+    ...base(),
+    supplements: [
+      { id: 'sup_fiber', name: 'Fiber' },
+      { id: 'aaa111', name: 'Fiber' },
+      { id: 'bbb222', name: 'Fiber' },
+    ],
+  }, 'mac', t(0));
+
+  // WRONG: delete quietly, no tombstone.
+  const quiet = clone(server);
+  quiet.supplements = quiet.supplements.filter((x) => x.id === 'sup_fiber');
+  const undone = mergeDocs(quiet, server).doc;
+  check('a quiet delete gets resurrected', undone.supplements.length, 3);
+
+  // RIGHT: express the repair as a stamped mutation.
+  const fixed = clone(server);
+  const before = new Map([...collectRecords(fixed)].map(([k, v]) => [k, fingerprint(v)]));
+  fixed.supplements = fixed.supplements.filter((x) => x.id === 'sup_fiber');
+  stampChanges(fixed, before, 'mac', t(1000));
+  check('tombstones written', Object.keys(fixed._sync.del).filter((k) => k.startsWith('u|')).sort(),
+    ['u|aaa111', 'u|bbb222']);
+
+  const held = mergeDocs(fixed, server).doc;
+  check('repair survives a merge with the old server', held.supplements.map((x) => x.id), ['sup_fiber']);
+  const onServer = mergeDocs(clone(server), fixed).doc;
+  check('and propagates to the server', onServer.supplements.map((x) => x.id), ['sup_fiber']);
+}
+
 console.log('\n' + (fails.length ? `FAILURES: ${fails.join(', ')}` : 'ALL PASS'));
 process.exit(fails.length ? 1 : 0);

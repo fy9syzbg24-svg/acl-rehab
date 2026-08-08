@@ -160,6 +160,13 @@ export async function load() {
   if (seedSupplements(state.data)) queueSave();
 
   if (hadContent) stampAll(state.data, DEVICE_ID);
+
+  // Collapse duplicate supplements — but THROUGH the stamping path, so the
+  // removed ids get tombstones. Doing it inside migrate() deleted them
+  // locally with no tombstone, so the next sync saw records this device had
+  // never heard of and pulled all of them back. Repairs must be expressed as
+  // mutations, not as quiet edits to the document.
+  repair(() => dedupeSupplements(state.data));
   // A fresh device with no local content (a new iPhone) is deliberately left
   // UNSTAMPED and unseeded: its records default to time 0, so the first sync
   // pulls the real data down wholesale instead of a blank default winning.
@@ -187,10 +194,6 @@ function migrate(d) {
   out.supplements = out.supplements || [];
   out.prnMeds = out.prnMeds || [];
   out.doses = out.doses || [];
-  // Seeded rows used random ids, so the Mac and the phone each created their
-  // own ten and sync — correctly — kept all twenty. Collapse by name; the
-  // repair is deterministic, so both devices land on the same result.
-  dedupeSupplements(out);
   out.program = { stage: {}, band: {}, weeklyTarget: {}, ...(d.program || {}) };
   out.program.stage = out.program.stage || {};
   out.program.band = out.program.band || {};
@@ -340,6 +343,21 @@ export async function runSync(reason = 'manual') {
 
 const scheduleSync = debounce(() => { runSync('edit'); }, 2500);
 
+
+/**
+ * Apply a one-off repair the way a user edit is applied: snapshot, mutate,
+ * stamp. Anything it deletes gets a tombstone, so the fix travels to the
+ * other devices instead of being undone by the next sync.
+ */
+function repair(fn) {
+  const before = new Map();
+  for (const [k, v] of collectRecords(state.data)) before.set(k, fingerprint(v));
+  const changed = fn();
+  if (!changed) return false;
+  stampChanges(state.data, before, DEVICE_ID);
+  queueSave();
+  return true;
+}
 
 /** Mutate then persist then re-render. */
 export function update(fn) {

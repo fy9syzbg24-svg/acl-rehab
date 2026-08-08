@@ -138,6 +138,19 @@ Settings → **Force update the app** is the manual escape hatch: it unregisters
 the worker, clears the caches and reloads with a cache-busting query, while
 deliberately leaving IndexedDB and localStorage alone.
 
+## Repairs must be expressed as mutations
+
+A migration that quietly edits the document leaves no tombstones, so the next
+sync sees records the device has "never heard of" and pulls every one of them
+back. The supplement dedupe did exactly this: it ran inside `migrate()`,
+removed twenty duplicates locally, and sync restored them — twice, ending at
+thirty.
+
+Anything that DELETES during a repair must go through the stamping path
+(`repair()` in store.js), which snapshots, mutates and calls `stampChanges` so
+the removals become tombstones and travel. There is a test asserting a quiet
+delete gets resurrected and a stamped one does not.
+
 ## Adding anything to the document
 
 Any new top-level key MUST be registered in `app/js/sync/records.js`. An unregistered
