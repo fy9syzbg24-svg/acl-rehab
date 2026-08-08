@@ -111,17 +111,17 @@ export function renderToday(ctx) {
       <header>
         <h2>Today's session</h2>
         <div class="row" style="gap:.25rem">
-          <button class="btn sm ${seg === 'rehab' ? 'primary' : ''}" data-seg="rehab">Rehab program <span class="mono">${countDone(REHAB_PROGRAM, doneIds)}</span></button>
-          <button class="btn sm ${seg === 'gym' ? 'primary' : ''}" data-seg="gym">Open chain <span class="mono">${countDone(GYM_PROGRAM, doneIds)}</span></button>
+          <button class="btn sm ${seg === 'rehab' ? 'primary' : ''}" data-seg="rehab"><span class="lbl-full">Rehab program</span><span class="lbl-short">Rehab</span> <span class="mono">${countDone(REHAB_PROGRAM, doneIds)}</span></button>
+          <button class="btn sm ${seg === 'gym' ? 'primary' : ''}" data-seg="gym"><span class="lbl-full">Open chain</span><span class="lbl-short">Gym</span> <span class="mono">${countDone(GYM_PROGRAM, doneIds)}</span></button>
           ${(() => {
             const g = goalGroups(iso);
             if (!g.length) return '';
             const met = g.filter((x) => x.met).length;
             return `<button class="btn sm ${seg === 'goals' ? 'primary' : ''}" data-seg="goals">
-              By goal <span class="mono">${met}/${g.length}</span></button>`;
+              <span class="lbl-full">By goal</span><span class="lbl-short">Goals</span> <span class="mono">${met}/${g.length}</span></button>`;
           })()}
-          <button class="btn sm ${seg === 'extra' ? 'primary' : ''}" data-seg="extra">Anything else <span class="mono">${extras.length}</span></button>
-          <button class="btn sm ${seg === 'done' ? 'primary' : ''} ${nDone ? 'has-done' : ''}" data-seg="done">Completed today <span class="mono">${nDone}</span></button>
+          <button class="btn sm ${seg === 'extra' ? 'primary' : ''}" data-seg="extra"><span class="lbl-full">Anything else</span><span class="lbl-short">Other</span> <span class="mono">${extras.length}</span></button>
+          <button class="btn sm ${seg === 'done' ? 'primary' : ''} ${nDone ? 'has-done' : ''}" data-seg="done"><span class="lbl-full">Completed today</span><span class="lbl-short">Completed</span> <span class="mono">${nDone}</span></button>
         </div>
       </header>
       <div class="card-body tight">

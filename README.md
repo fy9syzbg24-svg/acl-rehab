@@ -178,6 +178,36 @@ Settings → **Force update the app** is the manual escape hatch: it unregisters
 the worker, clears the caches and reloads with a cache-busting query, while
 deliberately leaving IndexedDB and localStorage alone.
 
+## Design language
+
+Learned from his corrections, one screenshot at a time. Follow these before
+adding any surface; each one exists because its violation was called out.
+
+- **Hero blocks centre on a phone; data stays left.** A header that INTRODUCES
+  a section — title with subtitle and badge stacked beneath — reads centred
+  (`header.hero`, ≤640px). Rows, tables and logging surfaces stay left. His
+  words: "left aligned sometimes works, but not in these two examples."
+- **Controls are constant.** Nothing appears, disappears, or changes identity
+  with state. The pattern is the "today"/"this week" pill: always rendered,
+  dimmed and inert when inactive. A pill that becomes a borderless button on
+  the next tap is two objects and reads as plain text.
+- **Monospace is for numbers.** A phrase in mono ("not tested yet") reads as
+  code. Test with /\d/ where content varies.
+- **Chrome icons are drawn SVG, never emoji characters.** iOS renders ⚙ as a
+  3-D sticker.
+- **Inputs are sized by class, never inline font-size** — an inline size beats
+  the 16px floor and iOS zooms the page on focus (`.in-num`, `.sel-sm`).
+- **Segment labels shorten on a phone, in his words:** Rehab, Gym, Goals,
+  Other, Completed (`.lbl-full` / `.lbl-short`). Full wording everywhere else.
+- **Sub-tab rows scroll on one line** (`.tabrow`; Tests pins its action beside
+  them with `.panelbar`). Today's session segments deliberately WRAP instead —
+  all five stay visible.
+- **Numbers pin, labels wrap.** A count and its input sit in a fixed grid
+  column (`.targetrow`), never in a flex row that rewraps per label length.
+- **The header places chip, title and gear by explicit grid column,** not
+  source order, so even a cache holding mixed deploy generations renders the
+  name whole and centred.
+
 ## His arrangement IS the default
 
 Anything Reuben curates in the running app — the supplement list, its grouping

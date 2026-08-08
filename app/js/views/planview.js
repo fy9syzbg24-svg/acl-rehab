@@ -68,7 +68,7 @@ export function renderPlan(ctx) {
   return `
   <div class="stack">
     <section class="card">
-      <header><h2>6-month protocol</h2><span class="sub">August 2026 → January 2027 · goal-based, not date-based</span></header>
+      <header class="hero"><h2>6-month protocol</h2><span class="sub">August 2026 → January 2027 · goal-based, not date-based</span></header>
       <div class="card-body">
         <div class="monthstrip">
           ${PLAN_MONTHS.map((m) => {
@@ -92,7 +92,7 @@ function monthCard(m) {
   const c = monthCompletion(m);
   return `
   <section class="card">
-    <header>
+    <header class="hero">
       <div>
         <h2>${esc(m.name)} · ${esc(m.monthLabel)}</h2>
         <div class="sub">${esc(m.title)}</div>

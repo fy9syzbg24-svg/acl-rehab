@@ -103,7 +103,7 @@ export function renderMelbourne(ctx) {
   return `
   <div class="stack">
     <section class="card">
-      <header><h2>Melbourne ACL Rehabilitation Guide 2.0</h2><span class="sub">criteria-driven — the criteria set the pace, not the calendar</span></header>
+      <header class="hero"><h2>Melbourne ACL Rehabilitation Guide 2.0</h2><span class="sub">criteria-driven — the criteria set the pace, not the calendar</span></header>
       <div class="card-body">
         <div class="callout warn small" style="margin-bottom:.8rem"><strong>Bilateral reconstruction.</strong> ${esc(BILATERAL_NOTE)}</div>
         <div class="tabrow">

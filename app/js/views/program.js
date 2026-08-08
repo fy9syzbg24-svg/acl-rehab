@@ -11,7 +11,7 @@ export function renderProgram(ctx) {
   return `
   <div class="stack">
     <section class="card">
-      <header>
+      <header class="hero">
         <div>
           <h2>${esc(PROGRAM_SOURCE.title)}</h2>
           <div class="sub">${esc(PROGRAM_SOURCE.clinician)}${PROGRAM_SOURCE.updated ? ` · updated ${esc(fmtDate(PROGRAM_SOURCE.updated))}` : ''}</div>
