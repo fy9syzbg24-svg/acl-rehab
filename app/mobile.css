@@ -229,9 +229,17 @@ body.mobile .toast {
   body.mobile .card-body { padding: 1rem; }
 }
 
-/* Landscape on either device: the header eats too much of a short viewport. */
+/* Landscape on a phone: the chrome must give height back to the content, but
+   a landscape phone has width to spare — so keep the labels and put them
+   BESIDE the icon rather than dropping them. Bare icons left the bar
+   unreadable, which is what iOS itself avoids by switching to this layout. */
 @media (orientation: landscape) and (max-height: 500px) {
-  :root { --mtop-h: 44px; --mtab-h: 44px; }
-  .mtabs button span { display: none; }
-  .mtabs button svg { width: 22px; height: 22px; }
+  :root { --mtop-h: 44px; --mtab-h: 46px; }
+  .mtabs button {
+    flex-direction: row; gap: .4rem;
+    font-size: .72rem;
+  }
+  .mtabs button svg { width: 19px; height: 19px; }
+  .mtitle { font-size: .95rem; }
+  .mview { padding-top: .5rem; }
 }
