@@ -124,6 +124,20 @@ The countdown runs from the most recent dose regardless of date, which is what
 makes a wait crossing midnight read correctly the next morning. Logging a dose
 early is allowed and recorded — the log is a record of what happened.
 
+## The service worker's precache list is GENERATED
+
+`tools/gen_shell.py` rebuilds it from the real import graph, and `deploy.sh`
+runs it on every deploy. Never hand-edit `SHELL_ASSETS`. A view added and not
+listed is missing offline and updates on a different schedule from everything
+else — that is exactly what happened to `supplements.js`, and it is the same
+class of mistake as forgetting to register a record for sync.
+
+Navigations revalidate in the background too, so the shell HTML (and therefore
+the tab bar) can change without waiting for the cache generation to roll.
+Settings → **Force update the app** is the manual escape hatch: it unregisters
+the worker, clears the caches and reloads with a cache-busting query, while
+deliberately leaving IndexedDB and localStorage alone.
+
 ## Adding anything to the document
 
 Any new top-level key MUST be registered in `app/js/sync/records.js`. An unregistered
