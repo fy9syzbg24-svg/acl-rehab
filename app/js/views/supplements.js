@@ -25,11 +25,17 @@ import { renderDatePill, bindDatePill, openModal, closeModal, toast } from '../c
 
 export const WHENS = [['morning', 'Morning'], ['anytime', 'Anytime'], ['evening', 'Evening']];
 
-// His curated list as of Aug 2026 — Fiber and Vitamin C are anytime, not morning.
+// Reuben's own arrangement, read back out of the app (Aug 2026).
+//
+// THE RULE: whatever he has arranged in the app IS the default. This list only
+// ever seeds a device that has never had one — `settings.suppsSeeded` means it
+// never runs twice, so an update can never reorder, regroup or re-add anything
+// he has curated. When these defaults are refreshed, they are copied FROM the
+// live data, not imposed on it.
 const DEFAULTS = [
   ['Ritalin XR', 'morning'], ['Creatine Morning', 'morning'],
-  ['Fiber', 'anytime'], ['Vitamin C', 'anytime'],
   ['Multivitamin', 'morning'], ['Collagen', 'morning'], ['Prozac', 'morning'],
+  ['Fiber', 'anytime'], ['Vitamin C', 'anytime'],
   ['Magnesium evening', 'evening'], ['Creatine Evening', 'evening'], ['Statin', 'evening'],
 ];
 
@@ -44,6 +50,7 @@ const PRN_SEED = ['Naproxen', 'Tylenol', 'Ibuprofen'];
 
 export function seedPrnMeds(d) {
   if (d.settings?.prnSeeded) return false;
+  if ((d.prnMeds || []).length) { (d.settings ||= {}).prnSeeded = true; return false; }
   d.prnMeds = d.prnMeds || [];
   const have = new Set(d.prnMeds.map((m) => m.id));
   let added = 0;
@@ -64,6 +71,8 @@ export function suppId(name) {
 
 export function seedSupplements(d) {
   if (d.settings?.suppsSeeded) return false;      // he may legitimately empty the list
+  // Belt and braces: a list that already exists is his, flag or no flag.
+  if ((d.supplements || []).length) { (d.settings ||= {}).suppsSeeded = true; return false; }
   d.supplements = d.supplements || [];
   const have = new Set(d.supplements.map((s) => s.id));
   let added = 0;
@@ -100,10 +109,16 @@ export function activeOn(item, iso) {
   return normSpans(item).some((s) => s.from <= iso && (!s.until || iso < s.until));
 }
 
+const byOrder = (a, b) => (a.order ?? 0) - (b.order ?? 0)
+  // Records are merged independently, so two devices can land on the same
+  // order number. Breaking the tie on id keeps every device showing the same
+  // sequence instead of each picking its own.
+  || String(a.id).localeCompare(String(b.id));
+
 export function listFor(iso) {
   return (state.data.supplements || [])
     .filter((s) => activeOn(s, iso))
-    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    .sort(byOrder);
 }
 
 const ticksOn = (iso) => (getDay(iso)?.supps) || {};
@@ -216,8 +231,7 @@ export function renderSupplements(ctx) {
 }
 
 function renderPrn(ctx, iso) {
-  const meds = (state.data.prnMeds || []).filter((m) => activeOn(m, iso))
-    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  const meds = (state.data.prnMeds || []).filter((m) => activeOn(m, iso)).sort(byOrder);
   const today = todayIso();
 
   return `

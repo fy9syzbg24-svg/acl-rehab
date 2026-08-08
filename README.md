@@ -138,6 +138,26 @@ Settings → **Force update the app** is the manual escape hatch: it unregisters
 the worker, clears the caches and reloads with a cache-busting query, while
 deliberately leaving IndexedDB and localStorage alone.
 
+## His arrangement IS the default
+
+Anything Reuben curates in the running app — the supplement list, its grouping
+and order, the as-needed medications, units, theme — is the source of truth. Code
+defaults exist only to seed a device that has never had any, and they are
+refreshed by copying FROM the live data, never by imposing on it.
+
+Practically:
+
+- `seedSupplements` / `seedPrnMeds` run once, gated on `settings.suppsSeeded` /
+  `prnSeeded`, and additionally refuse to run at all if a list already exists —
+  so a lost flag cannot overwrite a curated list.
+- Adding a new item to `DEFAULTS` will NOT appear on his devices. That is the
+  intended trade: his arrangement outranks a later idea of mine.
+- Before changing those constants, read the live list out of the sync repo and
+  copy it. Do not reorder from memory.
+
+`order` is per record, so two devices renumbering independently can collide.
+Sorting breaks ties on id (`byOrder`) so every device shows the same sequence.
+
 ## Network frugality
 
 The app is used on mobile data, so redundant traffic is a bug:
