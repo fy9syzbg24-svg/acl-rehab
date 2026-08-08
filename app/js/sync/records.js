@@ -19,6 +19,7 @@
 //   r|<id>                    an MRSS score
 //   c|<id>                    a custom exercise
 //   u|<id>                    a supplement in the list
+//   n|<id>  o|<id>            an as-needed medication / one logged dose
 //   g|<key>  f|<key>          plan goals / plan focus ticks
 //   b|<sub>|<key>             melbourne.phases / .measures
 //   p|<sub>|<key>             program.stage / .band / .weeklyTarget
@@ -30,7 +31,8 @@ export const SYNC_VERSION = 1;
 const DAY_FIELDS = ['checkin', 'checklist', 'notes', 'source', 'seeded', 'supps'];
 
 // name -> the array in the doc, for the id-keyed collections
-const ID_LISTS = { m: 'measurements', r: 'mrss', c: 'customExercises', u: 'supplements' };
+const ID_LISTS = { m: 'measurements', r: 'mrss', c: 'customExercises',
+                   u: 'supplements', n: 'prnMeds', o: 'doses' };
 // name -> the plain key/value map in the doc
 // caseFile is HERE for a reason: it is data, not code. Leaving it out meant
 // the merge engine did not carry it, so a device without a clinical history

@@ -274,3 +274,28 @@ body.mobile .weekcats.centred:has(> :nth-child(7)) { grid-template-columns: repe
 body.mobile .datepill-wrap { gap: .35rem; }
 body.mobile .dp-date { font-size: .92rem; }
 body.mobile .dp-done { display: none; }   /* "Completed today" already counts it */
+
+/* --------------------------------------------- Today: tighter still --- */
+/* The timeline sat in a box far taller than its content: the phase labels
+   were spaced for a desktop-width road. Roughly 0.6x the height, and the bar
+   is centred in its box rather than riding the top edge. */
+/* Top padding has to CONTAIN the month labels — they are positioned above the
+   road, so trimming it clipped them out through the top of the card. */
+body.mobile .journey { padding: 1.6rem 1.4rem .4rem; }
+body.mobile .jroad { margin-top: .2rem; }
+body.mobile .jphases { height: 10px; margin-top: .35rem; }
+body.mobile .jphase { font-size: .58rem; }
+body.mobile .jnode .jname { font-size: .7rem; }
+body.mobile .jnode .jsub { font-size: .58rem; }
+
+/* the week cadence fits three across on a phone */
+body.mobile .weekcats.centred { grid-template-columns: repeat(3, 1fr); gap: .3rem; }
+body.mobile .weekcat.tappable { padding: .3rem .35rem; }
+body.mobile .weekcat.tappable .wclabel { font-size: .6rem; }
+body.mobile .weekcat.tappable .wchead { flex-direction: column; align-items: flex-start; gap: 0; }
+body.mobile .weekcats.centred:has(> :nth-child(4)) { grid-template-columns: repeat(3, 1fr); }
+body.mobile .weekcats.centred:has(> :nth-child(7)) { grid-template-columns: repeat(4, 1fr); }
+
+/* date centred in the row, "today" pushed to the right edge */
+body.mobile .datepill-wrap { position: relative; justify-content: center; }
+body.mobile .dp-today { position: absolute; right: 0; top: 50%; transform: translateY(-50%); }

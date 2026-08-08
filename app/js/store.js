@@ -7,14 +7,14 @@ import { hydrateProgramSource } from '../data/program.js';
 import { monthForDate } from '../data/plan.js';
 import { EXERCISE_BY_ID } from '../data/exercises.js';
 import { CATEGORIES } from '../data/measurements.js';
-import { seedSupplements } from './views/supplements.js';
+import { seedSupplements, dedupeSupplements } from './views/supplements.js';
 import { collectRecords, fingerprint } from './sync/records.js';
 import { stampChanges, stampAll, pendingCount } from './sync/merge.js';
 import { readLocalDoc, writeLocalDoc, SERVER_MODE } from './sync/local-store.js';
 import { syncNow } from './sync/engine.js';
 import { isConfigured, getConfig } from './sync/config.js';
 
-const SCHEMA = 6;   // 6 adds per-record sync metadata (_sync) and caseFile
+const SCHEMA = 7;   // 7 adds supplements/doses; 6 added _sync and caseFile
 
 /**
  * A stable id for THIS device, kept out of the synced document on purpose —
@@ -54,6 +54,8 @@ function blank() {
     mrss: [],
     customExercises: [],
     supplements: [],
+    prnMeds: [],
+    doses: [],
     // Clinician program: which progression step you're on, and your current
     // band colour, per program item.
     program: { stage: {}, band: {}, weeklyTarget: {} },
@@ -183,6 +185,12 @@ function migrate(d) {
   out.mrss = out.mrss || [];
   out.customExercises = out.customExercises || [];
   out.supplements = out.supplements || [];
+  out.prnMeds = out.prnMeds || [];
+  out.doses = out.doses || [];
+  // Seeded rows used random ids, so the Mac and the phone each created their
+  // own ten and sync — correctly — kept all twenty. Collapse by name; the
+  // repair is deterministic, so both devices land on the same result.
+  dedupeSupplements(out);
   out.program = { stage: {}, band: {}, weeklyTarget: {}, ...(d.program || {}) };
   out.program.stage = out.program.stage || {};
   out.program.band = out.program.band || {};

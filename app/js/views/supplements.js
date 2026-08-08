@@ -1,145 +1,265 @@
-// Supplements — what you take, and whether you took it today.
+// Supplements and as-needed medication.
 //
-// Replaces the Notes-app checklist, which had to be unticked by hand every day
-// and kept no history. Here the LIST and the DAILY TICKS are separate things:
+// Two separate things live here:
 //
-//   state.data.supplements        the list itself — id, name, when, active
-//   state.data.days[iso].supps    { [suppId]: true } for that day only
+//   supplements[]   a daily checklist — take it or you don't
+//   prnMeds[] + doses[]   as-needed drugs where the QUESTION is "when may I
+//                         take another?", so each dose is timestamped
 //
-// So a new day starts clean automatically, and every past day stays on record.
-// Both are registered in sync/records.js, so the list and the ticks travel
-// between devices like everything else.
+// THE HISTORY RULE
+// Adding or removing a supplement must never rewrite the past. So membership
+// is not a boolean, it is a list of date SPANS: {from, until}. A supplement
+// shows on date D if any span covers D. Deleting closes the open span at
+// today; re-adding opens a new one. Yesterday keeps whatever was true
+// yesterday, which is the whole point of keeping a log.
+//
+// SEEDED IDS ARE DETERMINISTIC
+// The first version used uid() for the seeded list. The Mac seeded ten rows
+// and the phone seeded ten more with different ids, and sync — correctly —
+// kept all twenty. Anything seeded independently on multiple devices must
+// derive its id from its content so every device produces the same record.
 
-import { esc, todayIso, uid, addDays } from '../util.js';
+import { esc, todayIso, uid, addDays, fmtDate } from '../util.js';
 import { state, update, ensureDay, getDay } from '../store.js';
+import { renderDatePill, bindDatePill, openModal, closeModal, toast } from '../components.js';
 
-// His current list, in the order he keeps it. Seeded once, then his to edit.
+export const WHENS = [['morning', 'Morning'], ['anytime', 'Anytime'], ['evening', 'Evening']];
+
 const DEFAULTS = [
-  ['Ritalin XR', 'morning'],
-  ['Creatine Morning', 'morning'],
-  ['Fiber', 'morning'],
-  ['Vitamin C', 'morning'],
-  ['Multivitamin', 'morning'],
-  ['Collagen', 'morning'],
+  ['Ritalin XR', 'morning'], ['Creatine Morning', 'morning'], ['Fiber', 'morning'],
+  ['Vitamin C', 'morning'], ['Multivitamin', 'morning'], ['Collagen', 'morning'],
   ['Prozac', 'morning'],
-  ['Magnesium evening', 'evening'],
-  ['Creatine Evening', 'evening'],
-  ['Statin', 'evening'],
+  ['Magnesium evening', 'evening'], ['Creatine Evening', 'evening'], ['Statin', 'evening'],
 ];
 
+/** Stable id from a name — the same on every device, so seeding cannot duplicate. */
+export function suppId(name) {
+  return 'sup_' + String(name).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+}
+
 export function seedSupplements(d) {
-  if (Array.isArray(d.supplements) && d.supplements.length) return false;
-  d.supplements = DEFAULTS.map(([name, when], i) => ({
-    id: uid(), name, when, order: i, active: true,
-  }));
+  if (d.settings?.suppsSeeded) return false;      // he may legitimately empty the list
+  d.supplements = d.supplements || [];
+  const have = new Set(d.supplements.map((s) => s.id));
+  let added = 0;
+  DEFAULTS.forEach(([name, when], i) => {
+    const id = suppId(name);
+    if (have.has(id)) return;
+    d.supplements.push({ id, name, when, order: i, spans: [{ from: '1970-01-01', until: null }] });
+    added++;
+  });
+  (d.settings ||= {}).suppsSeeded = true;
+  return added > 0;
+}
+
+/**
+ * One-time repair for documents seeded before ids were deterministic: collapse
+ * duplicates by name, keep the union of their spans, and remap the day ticks.
+ * Deterministic, so both devices compute the same result and converge.
+ */
+export function dedupeSupplements(d) {
+  const list = d.supplements || [];
+  if (!list.length) return false;
+  const byId = new Map();
+  const remap = new Map();
+  for (const s of [...list].sort((a, b) => String(a.id).localeCompare(String(b.id)))) {
+    const canon = suppId(s.name);
+    remap.set(s.id, canon);
+    const prev = byId.get(canon);
+    if (!prev) {
+      byId.set(canon, { ...s, id: canon, spans: normSpans(s) });
+    } else {
+      prev.spans = mergeSpans([...prev.spans, ...normSpans(s)]);
+      if (prev.active === false && s.active !== false) prev.active = true;
+    }
+  }
+  const next = [...byId.values()].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  const changed = next.length !== list.length || next.some((s, i) => s.id !== list[i]?.id);
+  if (!changed) return false;
+  d.supplements = next;
+  for (const day of Object.values(d.days || {})) {
+    if (!day.supps) continue;
+    const out = {};
+    for (const [k, v] of Object.entries(day.supps)) {
+      if (v) out[remap.get(k) || k] = true;
+    }
+    day.supps = out;
+  }
   return true;
 }
 
-const listOf = () => (state.data.supplements || [])
-  .filter((s) => s.active !== false)
-  .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+// A pre-spans row: `active:false` meant removed, otherwise always present.
+function normSpans(s) {
+  if (Array.isArray(s.spans) && s.spans.length) return s.spans;
+  return s.active === false ? [] : [{ from: '1970-01-01', until: null }];
+}
+function mergeSpans(spans) {
+  const open = spans.some((x) => !x.until);
+  const from = spans.map((x) => x.from).sort()[0] || '1970-01-01';
+  return open ? [{ from, until: null }] : spans;
+}
 
-const tickedOn = (iso) => (getDay(iso)?.supps) || {};
+/** Was this item on the list on that date? */
+export function activeOn(item, iso) {
+  return normSpans(item).some((s) => s.from <= iso && (!s.until || iso < s.until));
+}
 
-/** How many of the current list were taken on a given day. */
+export function listFor(iso) {
+  return (state.data.supplements || [])
+    .filter((s) => activeOn(s, iso))
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+}
+
+const ticksOn = (iso) => (getDay(iso)?.supps) || {};
+
 export function suppScore(iso) {
-  const list = listOf();
+  const list = listFor(iso);
   if (!list.length) return null;
-  const t = tickedOn(iso);
+  const t = ticksOn(iso);
   return { taken: list.filter((s) => t[s.id]).length, total: list.length };
 }
 
+// ----------------------------------------------------------------- PRN ---
+const doses = () => state.data.doses || [];
+const dosesFor = (medId) => doses().filter((x) => x.medId === medId)
+  .sort((a, b) => String(b.at).localeCompare(String(a.at)));
+
+/**
+ * When may the next dose be taken, and how long is left.
+ * Computed from the most recent dose regardless of date, so a wait that runs
+ * past midnight still reads correctly on the following day.
+ */
+export function prnStatus(med, now = new Date()) {
+  const last = dosesFor(med.id)[0];
+  if (!last) return { clear: true, last: null };
+  const lastAt = new Date(last.at);
+  const nextAt = new Date(lastAt.getTime() + (Number(med.waitHours) || 0) * 3600e3);
+  const msLeft = nextAt - now;
+  return { clear: msLeft <= 0, last, lastAt, nextAt, msLeft };
+}
+
+function humanLeft(ms) {
+  const m = Math.max(0, Math.round(ms / 60000));
+  const h = Math.floor(m / 60);
+  return h ? `${h}h ${m % 60}m` : `${m}m`;
+}
+const hhmm = (d) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+const localIso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+// --------------------------------------------------------------- render ---
 export function renderSupplements(ctx) {
   const iso = ctx.date || todayIso();
-  const list = listOf();
-  const ticks = tickedOn(iso);
-  const isToday = iso === todayIso();
+  const list = listFor(iso);
+  const ticks = ticksOn(iso);
   const score = suppScore(iso);
 
-  const group = (when) => {
-    const rows = list.filter((s) => (s.when || 'morning') === when);
+  const group = ([key, label]) => {
+    const rows = list.filter((s) => (s.when || 'anytime') === key);
     if (!rows.length) return '';
+    const done = rows.every((s) => ticks[s.id]);
+    // A finished group folds itself away so the next one is what you see.
+    const open = ctx.suppOpen?.[key] ?? !done;
     return `
-      <div class="section-title" style="margin:.9rem 0 .45rem">${when === 'morning' ? 'Morning' : 'Evening'}</div>
-      <div class="supplist">
-        ${rows.map((s) => `
-          <button class="supprow ${ticks[s.id] ? 'on' : ''}" data-supp="${esc(s.id)}">
-            <i class="supptick">${ticks[s.id] ? '✓' : ''}</i>
-            <span class="suppname">${esc(s.name)}</span>
-            <span class="suppdel" data-suppdel="${esc(s.id)}" role="button" aria-label="Remove ${esc(s.name)}">✕</span>
-          </button>`).join('')}
+      <div class="suppgroup ${done ? 'done' : ''}">
+        <button class="suppgrouphead" data-suppgroup="${key}">
+          <span class="sg-caret">${open ? '▾' : '▸'}</span>
+          <span class="sg-label">${label}</span>
+          <span class="tiny mono">${rows.filter((s) => ticks[s.id]).length}/${rows.length}</span>
+          ${done ? '<span class="pill good tiny">all taken</span>' : ''}
+        </button>
+        ${open ? `<div class="supplist">
+          ${rows.map((s) => `
+            <button class="supprow ${ticks[s.id] ? 'on' : ''}" data-supp="${esc(s.id)}">
+              <i class="supptick">${ticks[s.id] ? '✓' : ''}</i>
+              <span class="suppname">${esc(s.name)}</span>
+              ${ctx.suppEdit ? `<span class="suppdel" data-suppdel="${esc(s.id)}" role="button" aria-label="Remove">✕</span>` : ''}
+            </button>`).join('')}
+        </div>` : ''}
       </div>`;
   };
 
   return `
   <div class="stack">
+    ${renderDatePill(iso, { showDone: false })}
+
     <section class="card">
       <header>
         <h2>Supplements</h2>
-        <span class="sub">${esc(isToday ? 'today' : new Date(iso + 'T00:00').toDateString())}</span>
+        <span class="row" style="gap:.4rem;align-items:center">
+          ${score ? `<span class="sub mono">${score.taken}/${score.total}</span>` : ''}
+          <button class="btn sm ${ctx.suppEdit ? 'primary' : ''}" data-supp-edit>${ctx.suppEdit ? 'Done' : 'Edit'}</button>
+        </span>
       </header>
       <div class="card-body">
-        ${score ? `
-          <div class="suppscore">
-            <div class="bar ${score.taken === score.total ? 'good' : ''}">
-              <i style="width:${score.total ? (score.taken / score.total) * 100 : 0}%"></i>
-            </div>
-            <span class="tiny mono">${score.taken}/${score.total}</span>
-          </div>` : ''}
-
-        ${list.length ? group('morning') + group('evening')
-          : '<div class="tiny muted">No supplements yet — add one below.</div>'}
-
-        <div class="row" style="margin-top:1rem;gap:.4rem">
-          <label class="fld" style="flex:1;min-width:160px">Add a supplement
-            <input id="supp-new" placeholder="e.g. Vitamin D" autocomplete="off">
-          </label>
-          <label class="fld" style="width:120px">When
-            <select id="supp-when">
-              <option value="morning">Morning</option>
-              <option value="evening">Evening</option>
-            </select>
-          </label>
-          <button class="btn primary" data-supp-add>Add</button>
-        </div>
-        <div class="tiny muted" style="margin-top:.4rem">
-          Ticks are per day and reset themselves — yesterday stays on record.
-        </div>
+        ${score ? `<div class="suppscore"><div class="bar ${score.taken === score.total ? 'good' : ''}">
+          <i style="width:${score.total ? (score.taken / score.total) * 100 : 0}%"></i></div></div>` : ''}
+        ${list.length ? WHENS.map(group).join('')
+          : '<div class="tiny muted">Nothing on the list for this day.</div>'}
+        <button class="btn sm" data-supp-add style="margin-top:.8rem">+ Add a supplement</button>
       </div>
     </section>
 
-    ${historyCard(iso)}
+    ${renderPrn(ctx, iso)}
   </div>`;
 }
 
-/** A fortnight of adherence, so the log is visible rather than just stored. */
-function historyCard(iso) {
-  const days = Array.from({ length: 14 }, (_, i) => addDays(iso, -(13 - i)));
-  const rows = days.map((d) => ({ d, s: suppScore(d) })).filter((r) => r.s);
-  if (!rows.length) return '';
-  const anyTaken = rows.some((r) => r.s.taken > 0);
+function renderPrn(ctx, iso) {
+  const meds = (state.data.prnMeds || []).filter((m) => activeOn(m, iso))
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  const today = todayIso();
+
   return `
   <section class="card">
-    <header><h2>Last 14 days</h2><span class="sub">what you actually took</span></header>
+    <header><h2>As needed</h2><span class="sub">timed doses — aspirin, naproxen, paracetamol…</span></header>
     <div class="card-body">
-      ${anyTaken ? `<div class="suppgrid">
-        ${rows.map((r) => {
-          const p = r.s.total ? r.s.taken / r.s.total : 0;
-          const cls = p === 1 ? 'full' : p > 0 ? 'part' : '';
-          return `<div class="suppday ${cls}" title="${esc(r.d)} — ${r.s.taken}/${r.s.total}">
-            <span class="tiny">${esc(r.d.slice(8))}</span>
-          </div>`;
-        }).join('')}
-      </div>` : '<div class="tiny muted">Nothing ticked yet.</div>'}
+      ${meds.length ? meds.map((m) => {
+        const st = prnStatus(m);
+        const onThisDate = doses().filter((x) => x.medId === m.id && String(x.at).slice(0, 10) === iso)
+          .sort((a, b) => String(a.at).localeCompare(String(b.at)));
+        return `
+        <div class="prnrow ${st.clear ? 'clear' : 'waiting'}">
+          <div class="prnhead">
+            <span class="prnname">${esc(m.name)}</span>
+            <span class="tiny muted">${esc(m.dose || '')}${m.waitHours ? ` · every ${esc(String(m.waitHours))}h` : ''}</span>
+          </div>
+          <div class="prnstate">
+            ${!st.last ? '<span class="pill good">clear to take</span>'
+              : st.clear ? `<span class="pill good">clear to take</span>
+                  <span class="tiny muted">last ${esc(hhmm(st.lastAt))}</span>`
+              : `<span class="pill warn">${esc(humanLeft(st.msLeft))} to go</span>
+                 <span class="tiny muted">clear at ${esc(hhmm(st.nextAt))}${
+                   localIso(st.nextAt) !== localIso(st.lastAt) ? ' tomorrow' : ''}</span>`}
+            <button class="btn sm ${st.clear ? 'primary' : ''}" data-prn-dose="${esc(m.id)}">Log a dose</button>
+            <span class="suppdel" data-prndel="${esc(m.id)}" role="button" aria-label="Remove">✕</span>
+          </div>
+          ${onThisDate.length ? `<div class="prndoses">
+            ${onThisDate.map((x) => `<span class="dosechip" data-dosedel="${esc(x.id)}" title="Tap to remove">
+              ${esc(hhmm(new Date(x.at)))}${x.dose ? ` · ${esc(x.dose)}` : ''}</span>`).join('')}
+          </div>` : `<div class="tiny muted">${iso === today ? 'None today.' : 'None on this day.'}</div>`}
+        </div>`;
+      }).join('')
+      : '<div class="tiny muted">Nothing added yet. Useful for anything with a minimum gap between doses.</div>'}
+      <button class="btn sm" data-prn-add style="margin-top:.8rem">+ Add an as-needed medication</button>
     </div>
   </section>`;
 }
 
+// ----------------------------------------------------------------- bind ---
 export function bindSupplements(root, ctx, rerender) {
   const iso = ctx.date || todayIso();
+  bindDatePill(root, iso, (next) => { ctx.date = next; rerender(); });
+
+  root.querySelectorAll('[data-suppgroup]').forEach((b) => b.addEventListener('click', () => {
+    const k = b.dataset.suppgroup;
+    const list = listFor(iso).filter((s) => (s.when || 'anytime') === k);
+    const done = list.every((s) => ticksOn(iso)[s.id]);
+    ctx.suppOpen = { ...(ctx.suppOpen || {}) };
+    ctx.suppOpen[k] = !(ctx.suppOpen[k] ?? !done);
+    rerender();
+  }));
 
   root.querySelectorAll('[data-supp]').forEach((b) => b.addEventListener('click', (ev) => {
-    if (ev.target.closest('[data-suppdel]')) return;      // the ✕ handles itself
+    if (ev.target.closest('[data-suppdel]')) return;
     const id = b.dataset.supp;
     update(() => {
       const day = ensureDay(iso);
@@ -153,31 +273,156 @@ export function bindSupplements(root, ctx, rerender) {
     ev.stopPropagation();
     const id = x.dataset.suppdel;
     const s = (state.data.supplements || []).find((y) => y.id === id);
-    if (!s || !confirm(`Remove "${s.name}" from the list?\n\nPast days keep whatever you already ticked.`)) return;
-    update((d) => {
-      // Soft-delete: past days reference this id, and a tombstoned record would
-      // make their history unreadable.
-      const row = (d.supplements || []).find((y) => y.id === id);
-      if (row) row.active = false;
+    if (!s) return;
+    if (!confirm(`Remove "${s.name}" from ${fmtDate(iso)} onwards?\n\nEarlier days keep it exactly as they are.`)) return;
+    update(() => {
+      const row = state.data.supplements.find((y) => y.id === id);
+      row.spans = normSpans(row).map((sp) => (sp.until ? sp : { ...sp, until: iso }));
     });
     rerender();
   }));
 
-  root.querySelector('[data-supp-add]')?.addEventListener('click', () => {
-    const input = root.querySelector('#supp-new');
-    const name = input.value.trim();
-    if (!name) return;
-    const when = root.querySelector('#supp-when').value;
-    update((d) => {
-      d.supplements = d.supplements || [];
-      const max = d.supplements.reduce((n, s) => Math.max(n, s.order ?? 0), -1);
-      d.supplements.push({ id: uid(), name, when, order: max + 1, active: true });
-    });
-    input.value = '';
+  root.querySelector('[data-supp-edit]')?.addEventListener('click', () => {
+    ctx.suppEdit = !ctx.suppEdit;
     rerender();
   });
+  root.querySelector('[data-supp-add]')?.addEventListener('click', () => addSupplementSheet(iso, rerender));
+  root.querySelector('[data-prn-add]')?.addEventListener('click', () => addPrnSheet(iso, rerender));
 
-  root.querySelector('#supp-new')?.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') root.querySelector('[data-supp-add]')?.click();
+  root.querySelectorAll('[data-prndel]').forEach((x) => x.addEventListener('click', () => {
+    const id = x.dataset.prndel;
+    const m = (state.data.prnMeds || []).find((y) => y.id === id);
+    if (!m || !confirm(`Remove "${m.name}" from ${fmtDate(iso)} onwards?\n\nLogged doses stay in the history.`)) return;
+    update(() => {
+      const row = state.data.prnMeds.find((y) => y.id === id);
+      row.spans = normSpans(row).map((sp) => (sp.until ? sp : { ...sp, until: iso }));
+    });
+    rerender();
+  }));
+
+  root.querySelectorAll('[data-prn-dose]').forEach((b) => b.addEventListener('click', () => {
+    const med = (state.data.prnMeds || []).find((m) => m.id === b.dataset.prnDose);
+    if (med) logDoseSheet(med, iso, rerender);
+  }));
+
+  root.querySelectorAll('[data-dosedel]').forEach((c) => c.addEventListener('click', () => {
+    if (!confirm('Remove this dose from the log?')) return;
+    update((d) => { d.doses = (d.doses || []).filter((x) => x.id !== c.dataset.dosedel); });
+    rerender();
+  }));
+}
+
+// ---------------------------------------------------------------- sheets ---
+function addSupplementSheet(iso, rerender) {
+  openModal({
+    title: 'Add a supplement',
+    body: `
+      <label class="fld">Name<input id="sa-name" placeholder="e.g. Vitamin D" autocomplete="off"></label>
+      <label class="fld" style="margin-top:.6rem">When
+        <select id="sa-when">${WHENS.map(([k, l]) => `<option value="${k}">${l}</option>`).join('')}</select>
+      </label>
+      <div class="tiny muted" style="margin-top:.6rem">
+        Added from <strong>${esc(fmtDate(iso))}</strong> onwards. Earlier days are untouched.
+      </div>`,
+    footer: '<button class="btn" data-close>Cancel</button><button class="btn primary" data-save>Add</button>',
+    onMount(m) {
+      const save = () => {
+        const name = m.querySelector('#sa-name').value.trim();
+        if (!name) return;
+        const when = m.querySelector('#sa-when').value;
+        const id = suppId(name);
+        update((d) => {
+          d.supplements = d.supplements || [];
+          const existing = d.supplements.find((s) => s.id === id);
+          if (existing) {
+            // Re-adding: open a NEW span from today. The gap while it was off
+            // the list stays off in the history.
+            existing.spans = [...normSpans(existing), { from: iso, until: null }];
+            existing.when = when;
+          } else {
+            const max = d.supplements.reduce((n, s) => Math.max(n, s.order ?? 0), -1);
+            d.supplements.push({ id, name, when, order: max + 1, spans: [{ from: iso, until: null }] });
+          }
+        });
+        closeModal(); rerender();
+      };
+      m.querySelector('[data-save]').addEventListener('click', save);
+      m.querySelector('#sa-name').addEventListener('keydown', (e) => { if (e.key === 'Enter') save(); });
+    },
+  });
+}
+
+function addPrnSheet(iso, rerender) {
+  openModal({
+    title: 'Add an as-needed medication',
+    body: `
+      <div class="grid2">
+        <label class="fld">Name<input id="pa-name" placeholder="e.g. Naproxen" autocomplete="off"></label>
+        <label class="fld">Usual dose<input id="pa-dose" placeholder="e.g. 500mg" autocomplete="off"></label>
+      </div>
+      <label class="fld" style="margin-top:.6rem;max-width:220px">Minimum hours between doses
+        <input id="pa-wait" type="number" step="0.5" min="0" placeholder="e.g. 8">
+      </label>
+      <div class="tiny muted" style="margin-top:.6rem">
+        The countdown runs from your last dose, so a wait that crosses midnight still
+        reads correctly the next day.
+      </div>`,
+    footer: '<button class="btn" data-close>Cancel</button><button class="btn primary" data-save>Add</button>',
+    onMount(m) {
+      m.querySelector('[data-save]').addEventListener('click', () => {
+        const name = m.querySelector('#pa-name').value.trim();
+        if (!name) return;
+        update((d) => {
+          d.prnMeds = d.prnMeds || [];
+          const id = 'prn_' + suppId(name).slice(4);
+          const existing = d.prnMeds.find((x) => x.id === id);
+          const row = {
+            id, name,
+            dose: m.querySelector('#pa-dose').value.trim(),
+            waitHours: Number(m.querySelector('#pa-wait').value) || 0,
+            order: d.prnMeds.length,
+            spans: [{ from: iso, until: null }],
+          };
+          if (existing) Object.assign(existing, row, { spans: [...normSpans(existing), { from: iso, until: null }] });
+          else d.prnMeds.push(row);
+        });
+        closeModal(); rerender();
+      });
+    },
+  });
+}
+
+function logDoseSheet(med, iso, rerender) {
+  const st = prnStatus(med);
+  const now = new Date();
+  openModal({
+    title: `${med.name} — log a dose`,
+    body: `
+      ${!st.clear ? `<div class="callout warn small" style="margin-bottom:.7rem">
+        <strong>${esc(humanLeft(st.msLeft))} early.</strong> Clear at ${esc(hhmm(st.nextAt))}.
+        Logging it anyway is fine — every dose belongs in the record.
+      </div>` : ''}
+      <div class="grid2">
+        <label class="fld">Time<input id="pd-time" type="time" value="${esc(hhmm(now))}"></label>
+        <label class="fld">Dose<input id="pd-dose" value="${esc(med.dose || '')}" autocomplete="off"></label>
+      </div>
+      <div class="tiny muted" style="margin-top:.6rem">Recorded on ${esc(fmtDate(iso))}.</div>`,
+    footer: '<button class="btn" data-close>Cancel</button><button class="btn primary" data-save>Log it</button>',
+    onMount(m) {
+      m.querySelector('[data-save]').addEventListener('click', () => {
+        const [hh, mm] = (m.querySelector('#pd-time').value || hhmm(now)).split(':').map(Number);
+        const at = `${iso}T${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:00`;
+        update((d) => {
+          d.doses = d.doses || [];
+          d.doses.push({ id: uid(), medId: med.id, at, dose: m.querySelector('#pd-dose').value.trim() });
+        });
+        closeModal();
+        const after = prnStatus(med);
+        toast(after.clear
+          ? `✅ <b>${esc(med.name)} logged</b>`
+          : `✅ <b>${esc(med.name)} logged</b><br><span>next dose clear at ${esc(hhmm(after.nextAt))}</span>`);
+        rerender();
+      });
+    },
   });
 }

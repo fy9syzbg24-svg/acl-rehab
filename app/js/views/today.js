@@ -8,7 +8,7 @@ import { CATEGORIES, MEASURE_BY_ID, UNIT_LABEL } from '../../data/measurements.j
 import { REHAB_PROGRAM, GYM_PROGRAM, PROGRAM_SOURCE, BAND_BY_ID, THERABAND } from '../../data/program.js';
 import { CLINIC_HEP } from '../../data/history.js';
 import { dayCategories, dayTags } from './week.js';
-import { openExercisePicker, allExercises, exerciseById, openMeasureEntry, loadBars, thumb, iconTile, openPicture } from '../components.js';
+import { openExercisePicker, allExercises, exerciseById, openMeasureEntry, loadBars, thumb, iconTile, openPicture, renderDatePill } from '../components.js';
 import { renderMonthBoard, bindMonthBoard, shortCat } from './monthboard.js';
 import { renderJourney, bindJourney } from './journey.js';
 import { computeInsights } from '../insights.js';
@@ -53,7 +53,7 @@ export function renderToday(ctx) {
 
   return `
   <div class="stack">
-    ${dateNav(iso, month, completedList(entries).length)}
+    ${renderDatePill(iso, { done: completedList(entries).length })}
 
     ${renderJourney(ctx)}
 
@@ -246,34 +246,6 @@ function weekBar(iso) {
 }
 
 // ------------------------------------------------------------ date header --
-function dateNav(iso, month, n) {
-  const isToday = iso === todayIso();
-  // A single centred pill: chevrons, a calendar icon that opens the picker,
-  // and the date. "Month 1/6" lived here too and was noise — the month is
-  // already the headline of the board below.
-  //
-  // The "today" control is ALWAYS rendered, just disabled when you are already
-  // there. It used to appear only when you had navigated away, so it read as
-  // something arriving unexpectedly rather than a control that is simply
-  // inactive.
-  return `<div class="datepill-wrap">
-    <div class="datepill">
-      <button class="dp-arrow" data-nav="-1" aria-label="Previous day">‹</button>
-      <span class="dp-mid">
-        <span class="dp-cal" aria-hidden="true">
-          <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
-        </span>
-        <span class="dp-date">${esc(fmtDate(iso))}</span>
-        <input type="date" data-jump value="${iso}" aria-label="Jump to a date">
-      </span>
-      <button class="dp-arrow" data-nav="1" aria-label="Next day">›</button>
-    </div>
-    <button class="dp-today ${isToday ? 'is-today' : ''}" data-nav="today"
-            ${isToday ? 'disabled aria-disabled="true"' : ''}>today</button>
-    ${n ? `<span class="pill good dp-done">${n} done</span>` : ''}
-  </div>`;
-}
-
 function insightsRow(iso) {
   const list = computeInsights(iso);
   if (!list.length) return '';

@@ -101,13 +101,28 @@ shaped the way it is — changing any of them back reintroduces a real bug.
   until the second launch.
 - **iOS caches Home Screen icon artwork.** Changing the icon needs remove + re-add.
 
-## Supplements
+## Supplements and as-needed medication
 
-`app/js/views/supplements.js`. The LIST (`state.data.supplements`) and the daily
-TICKS (`days[iso].supps`) are separate on purpose: a new day starts clean by
-itself and every past day stays on record, which is what the Notes-app checklist
-it replaces could not do. Removing a supplement is a soft delete (`active:
-false`) because past days reference its id.
+`app/js/views/supplements.js`. The LIST and the daily TICKS
+(`days[iso].supps`) are separate on purpose: a new day starts clean by itself
+and every past day stays on record.
+
+**History is never rewritten.** Membership is a list of date spans
+(`{from, until}`), not a boolean. Removing closes the open span at that date;
+re-adding opens a new one. So yesterday keeps whatever was true yesterday, and
+the window while something was off the list stays off.
+
+**Seeded ids must be deterministic.** The first version used `uid()`, so the
+Mac seeded ten rows and the phone seeded ten more and sync — correctly — kept
+all twenty. Ids now derive from the name (`suppId()`); `dedupeSupplements()`
+repairs documents created before that, deterministically so both devices
+converge on the same result.
+
+As-needed drugs (`prnMeds` + `doses`) are a different shape: each dose is
+timestamped, so the question "when may I take another?" can be answered.
+The countdown runs from the most recent dose regardless of date, which is what
+makes a wait crossing midnight read correctly the next morning. Logging a dose
+early is allowed and recorded — the log is a record of what happened.
 
 ## Adding anything to the document
 

@@ -1,6 +1,6 @@
 // Shared UI pieces: modal, exercise picker, measurement entry, charts.
 
-import { esc, el, round, fromIso, fmtDate, fmtDateNum, toIso, addDays } from './util.js';
+import { esc, el, round, fromIso, fmtDate, fmtDateNum, toIso, addDays, todayIso } from './util.js';
 import { EXERCISES, EXERCISE_BY_ID } from '../data/exercises.js';
 import { CATEGORIES, MEASURES, MEASURE_BY_ID, UNIT_LABEL } from '../data/measurements.js';
 import { REHAB_PROGRAM, BAND_BY_ID } from '../data/program.js';
@@ -448,4 +448,42 @@ export function heatmap(endIso, weeks, levelFor) {
     cols.push(`<div class="heat-col">${cells.join('')}</div>`);
   }
   return `<div class="heat">${cols.join('')}</div>`;
+}
+
+// ------------------------------------------------------------- date pill ---
+/**
+ * The shared date control: chevrons, a calendar icon that opens the native
+ * picker, and the date. Used by Today and Supplements so history browsing
+ * behaves identically in both.
+ */
+export function renderDatePill(iso, { done = 0, showDone = true } = {}) {
+  const isToday = iso === todayIso();
+  return `<div class="datepill-wrap">
+    <div class="datepill">
+      <button class="dp-arrow" data-nav="-1" aria-label="Previous day">‹</button>
+      <span class="dp-mid">
+        <span class="dp-cal" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+        </span>
+        <span class="dp-date">${esc(fmtDate(iso))}</span>
+        <input type="date" data-jump value="${iso}" aria-label="Jump to a date">
+      </span>
+      <button class="dp-arrow" data-nav="1" aria-label="Next day">›</button>
+    </div>
+    <button class="dp-today ${isToday ? 'is-today' : ''}" data-nav="today"
+            ${isToday ? 'disabled aria-disabled="true"' : ''}>today</button>
+    ${showDone && done ? `<span class="pill good dp-done">${done} done</span>` : ''}
+  </div>`;
+}
+
+/** Wire the pill. `onChange(newIso)` receives the chosen date. */
+export function bindDatePill(root, iso, onChange) {
+  root.querySelectorAll('[data-nav]').forEach((b) => b.addEventListener('click', () => {
+    const d = b.dataset.nav;
+    if (d === 'today') return onChange(todayIso());
+    onChange(addDays(iso, Number(d)));
+  }));
+  root.querySelector('[data-jump]')?.addEventListener('change', (e) => {
+    if (e.target.value) onChange(e.target.value);
+  });
 }
