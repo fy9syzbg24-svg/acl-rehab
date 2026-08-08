@@ -296,6 +296,4 @@ body.mobile .weekcat.tappable .wchead { flex-direction: column; align-items: fle
 body.mobile .weekcats.centred:has(> :nth-child(4)) { grid-template-columns: repeat(3, 1fr); }
 body.mobile .weekcats.centred:has(> :nth-child(7)) { grid-template-columns: repeat(4, 1fr); }
 
-/* date centred in the row, "today" pushed to the right edge */
-body.mobile .datepill-wrap { position: relative; justify-content: center; }
-body.mobile .dp-today { position: absolute; right: 0; top: 50%; transform: translateY(-50%); }
+/* date centring now lives in styles.css so it applies at every width */

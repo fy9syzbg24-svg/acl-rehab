@@ -25,12 +25,37 @@ import { renderDatePill, bindDatePill, openModal, closeModal, toast } from '../c
 
 export const WHENS = [['morning', 'Morning'], ['anytime', 'Anytime'], ['evening', 'Evening']];
 
+// His curated list as of Aug 2026 — Fiber and Vitamin C are anytime, not morning.
 const DEFAULTS = [
-  ['Ritalin XR', 'morning'], ['Creatine Morning', 'morning'], ['Fiber', 'morning'],
-  ['Vitamin C', 'morning'], ['Multivitamin', 'morning'], ['Collagen', 'morning'],
-  ['Prozac', 'morning'],
+  ['Ritalin XR', 'morning'], ['Creatine Morning', 'morning'],
+  ['Fiber', 'anytime'], ['Vitamin C', 'anytime'],
+  ['Multivitamin', 'morning'], ['Collagen', 'morning'], ['Prozac', 'morning'],
   ['Magnesium evening', 'evening'], ['Creatine Evening', 'evening'], ['Statin', 'evening'],
 ];
+
+// Common as-needed drugs, offered in the add sheet and seeded once.
+export const PRN_PRESETS = [
+  ['Naproxen', '200mg', 12],
+  ['Tylenol', '1000mg', 6],
+  ['Ibuprofen', '600mg', 6],
+  ['Aspirin', '81mg', 12],
+];
+const PRN_SEED = ['Naproxen', 'Tylenol', 'Ibuprofen'];
+
+export function seedPrnMeds(d) {
+  if (d.settings?.prnSeeded) return false;
+  d.prnMeds = d.prnMeds || [];
+  const have = new Set(d.prnMeds.map((m) => m.id));
+  let added = 0;
+  PRN_PRESETS.filter(([n]) => PRN_SEED.includes(n)).forEach(([name, dose, waitHours], i) => {
+    const id = 'prn_' + suppId(name).slice(4);
+    if (have.has(id)) return;
+    d.prnMeds.push({ id, name, dose, waitHours, order: i, spans: [{ from: '1970-01-01', until: null }] });
+    added++;
+  });
+  (d.settings ||= {}).prnSeeded = true;
+  return added > 0;
+}
 
 /** Stable id from a name — the same on every device, so seeding cannot duplicate. */
 export function suppId(name) {
@@ -52,41 +77,12 @@ export function seedSupplements(d) {
   return added > 0;
 }
 
-/**
- * One-time repair for documents seeded before ids were deterministic: collapse
- * duplicates by name, keep the union of their spans, and remap the day ticks.
- * Deterministic, so both devices compute the same result and converge.
- */
-export function dedupeSupplements(d) {
-  const list = d.supplements || [];
-  if (!list.length) return false;
-  const byId = new Map();
-  const remap = new Map();
-  for (const s of [...list].sort((a, b) => String(a.id).localeCompare(String(b.id)))) {
-    const canon = suppId(s.name);
-    remap.set(s.id, canon);
-    const prev = byId.get(canon);
-    if (!prev) {
-      byId.set(canon, { ...s, id: canon, spans: normSpans(s) });
-    } else {
-      prev.spans = mergeSpans([...prev.spans, ...normSpans(s)]);
-      if (prev.active === false && s.active !== false) prev.active = true;
-    }
-  }
-  const next = [...byId.values()].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-  const changed = next.length !== list.length || next.some((s, i) => s.id !== list[i]?.id);
-  if (!changed) return false;
-  d.supplements = next;
-  for (const day of Object.values(d.days || {})) {
-    if (!day.supps) continue;
-    const out = {};
-    for (const [k, v] of Object.entries(day.supps)) {
-      if (v) out[remap.get(k) || k] = true;
-    }
-    day.supps = out;
-  }
-  return true;
-}
+// The old dedupeSupplements() has been REMOVED on purpose. It collapsed rows by
+// name, which is now wrong: the same supplement may legitimately appear twice
+// (a morning dose and an evening one). The duplicate seeding it existed to
+// repair was fixed at the source — seeded ids are deterministic — and the
+// shared copy carries tombstones for the old random ids, so any stale device
+// converges by pulling those rather than by re-deriving the fix locally.
 
 // A pre-spans row: `active:false` meant removed, otherwise always present.
 function normSpans(s) {
@@ -155,7 +151,8 @@ export function renderSupplements(ctx) {
 
   const group = ([key, label]) => {
     const rows = list.filter((s) => (s.when || 'anytime') === key);
-    if (!rows.length) return '';
+    // While editing, keep empty groups on screen so you can drag INTO them.
+    if (!rows.length && !ctx.suppEdit) return '';
     const done = rows.every((s) => ticks[s.id]);
     // A finished group folds itself away so the next one is what you see.
     const open = ctx.suppOpen?.[key] ?? !done;
@@ -167,13 +164,14 @@ export function renderSupplements(ctx) {
           <span class="tiny mono">${rows.filter((s) => ticks[s.id]).length}/${rows.length}</span>
           ${done ? '<span class="pill good tiny">all taken</span>' : ''}
         </button>
-        ${open ? `<div class="supplist">
+        ${open ? `<div class="supplist ${ctx.suppEdit ? 'editing' : ''}" data-dropzone="${key}">
           ${rows.map((s) => `
-            <button class="supprow ${ticks[s.id] ? 'on' : ''}" data-supp="${esc(s.id)}">
+            <div class="supprow ${ticks[s.id] ? 'on' : ''}" data-supp="${esc(s.id)}" data-row="${esc(s.id)}">
+              ${ctx.suppEdit ? '<span class="supphandle" data-drag aria-label="Drag to reorder">≡</span>' : ''}
               <i class="supptick">${ticks[s.id] ? '✓' : ''}</i>
               <span class="suppname">${esc(s.name)}</span>
               ${ctx.suppEdit ? `<span class="suppdel" data-suppdel="${esc(s.id)}" role="button" aria-label="Remove">✕</span>` : ''}
-            </button>`).join('')}
+            </div>`).join('')}
         </div>` : ''}
       </div>`;
   };
@@ -218,24 +216,20 @@ function renderPrn(ctx, iso) {
           .sort((a, b) => String(a.at).localeCompare(String(b.at)));
         return `
         <div class="prnrow ${st.clear ? 'clear' : 'waiting'}">
-          <div class="prnhead">
+          <div class="prnline">
             <span class="prnname">${esc(m.name)}</span>
-            <span class="tiny muted">${esc(m.dose || '')}${m.waitHours ? ` · every ${esc(String(m.waitHours))}h` : ''}</span>
+            <span class="tiny muted">${esc(m.dose || '')}${m.waitHours ? ` · ${esc(String(m.waitHours))}h` : ''}</span>
+            ${!st.last || st.clear
+              ? '<span class="pill good">clear</span>'
+              : `<span class="pill warn">${esc(humanLeft(st.msLeft))}</span>
+                 <span class="tiny muted">until ${esc(hhmm(st.nextAt))}${
+                   localIso(st.nextAt) !== localIso(st.lastAt) ? '+1' : ''}</span>`}
+            <span class="prnspacer"></span>
+            ${onThisDate.length ? `<span class="prndoses">${onThisDate.map((x) => `
+              <span class="dosechip" data-dosedel="${esc(x.id)}" title="Tap to remove">${esc(hhmm(new Date(x.at)))}</span>`).join('')}</span>` : ''}
+            <button class="btn sm ${st.clear ? 'primary' : ''}" data-prn-dose="${esc(m.id)}">Log</button>
+            ${ctx.suppEdit ? `<span class="suppdel" data-prndel="${esc(m.id)}" role="button" aria-label="Remove">✕</span>` : ''}
           </div>
-          <div class="prnstate">
-            ${!st.last ? '<span class="pill good">clear to take</span>'
-              : st.clear ? `<span class="pill good">clear to take</span>
-                  <span class="tiny muted">last ${esc(hhmm(st.lastAt))}</span>`
-              : `<span class="pill warn">${esc(humanLeft(st.msLeft))} to go</span>
-                 <span class="tiny muted">clear at ${esc(hhmm(st.nextAt))}${
-                   localIso(st.nextAt) !== localIso(st.lastAt) ? ' tomorrow' : ''}</span>`}
-            <button class="btn sm ${st.clear ? 'primary' : ''}" data-prn-dose="${esc(m.id)}">Log a dose</button>
-            <span class="suppdel" data-prndel="${esc(m.id)}" role="button" aria-label="Remove">✕</span>
-          </div>
-          ${onThisDate.length ? `<div class="prndoses">
-            ${onThisDate.map((x) => `<span class="dosechip" data-dosedel="${esc(x.id)}" title="Tap to remove">
-              ${esc(hhmm(new Date(x.at)))}${x.dose ? ` · ${esc(x.dose)}` : ''}</span>`).join('')}
-          </div>` : `<div class="tiny muted">${iso === today ? 'None today.' : 'None on this day.'}</div>`}
         </div>`;
       }).join('')
       : '<div class="tiny muted">Nothing added yet. Useful for anything with a minimum gap between doses.</div>'}
@@ -245,9 +239,84 @@ function renderPrn(ctx, iso) {
 }
 
 // ----------------------------------------------------------------- bind ---
+/**
+ * Reordering by drag, built on pointer events.
+ *
+ * HTML5 drag-and-drop does not work with a finger on iOS, so this tracks the
+ * pointer directly: the row under it is found with elementFromPoint and the
+ * dragged row is moved before or after it live. Dropping into another group's
+ * list also changes `when`, which is what makes "move it to evening" a drag
+ * rather than a form field.
+ */
+function bindDragReorder(root, rerender) {
+  let dragging = null;
+  let startY = 0;
+
+  const rowUnder = (x, y) => {
+    const el = document.elementFromPoint(x, y);
+    return el ? el.closest('[data-row]') : null;
+  };
+  const zoneUnder = (x, y) => {
+    const el = document.elementFromPoint(x, y);
+    return el ? el.closest('[data-dropzone]') : null;
+  };
+
+  root.querySelectorAll('[data-drag]').forEach((h) => {
+    h.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dragging = h.closest('[data-row]');
+      startY = e.clientY;
+      dragging.classList.add('dragging');
+      h.setPointerCapture(e.pointerId);
+    });
+
+    h.addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      e.preventDefault();
+      const over = rowUnder(e.clientX, e.clientY);
+      if (over && over !== dragging) {
+        const r = over.getBoundingClientRect();
+        const after = e.clientY > r.top + r.height / 2;
+        over.parentNode.insertBefore(dragging, after ? over.nextSibling : over);
+      } else {
+        // Not over a row — maybe over an empty group's list.
+        const zone = zoneUnder(e.clientX, e.clientY);
+        if (zone && !zone.contains(dragging)) zone.appendChild(dragging);
+      }
+    });
+
+    const finish = (e) => {
+      if (!dragging) return;
+      dragging.classList.remove('dragging');
+      const moved = dragging;
+      dragging = null;
+      try { h.releasePointerCapture(e.pointerId); } catch { /* already gone */ }
+      // Commit the DOM order back to the document, in one mutation.
+      update((d) => {
+        let order = 0;
+        root.querySelectorAll('[data-dropzone]').forEach((zone) => {
+          const when = zone.dataset.dropzone;
+          zone.querySelectorAll('[data-row]').forEach((el) => {
+            const row = (d.supplements || []).find((x) => x.id === el.dataset.row);
+            if (!row) return;
+            row.order = order++;
+            row.when = when;
+          });
+        });
+      });
+      rerender();
+    };
+    h.addEventListener('pointerup', finish);
+    h.addEventListener('pointercancel', finish);
+  });
+}
+
 export function bindSupplements(root, ctx, rerender) {
   const iso = ctx.date || todayIso();
   bindDatePill(root, iso, (next) => { ctx.date = next; rerender(); });
+
+  if (ctx.suppEdit) bindDragReorder(root, rerender);
 
   root.querySelectorAll('[data-suppgroup]').forEach((b) => b.addEventListener('click', () => {
     const k = b.dataset.suppgroup;
@@ -330,19 +399,13 @@ function addSupplementSheet(iso, rerender) {
         const name = m.querySelector('#sa-name').value.trim();
         if (!name) return;
         const when = m.querySelector('#sa-when').value;
-        const id = suppId(name);
         update((d) => {
           d.supplements = d.supplements || [];
-          const existing = d.supplements.find((s) => s.id === id);
-          if (existing) {
-            // Re-adding: open a NEW span from today. The gap while it was off
-            // the list stays off in the history.
-            existing.spans = [...normSpans(existing), { from: iso, until: null }];
-            existing.when = when;
-          } else {
-            const max = d.supplements.reduce((n, s) => Math.max(n, s.order ?? 0), -1);
-            d.supplements.push({ id, name, when, order: max + 1, spans: [{ from: iso, until: null }] });
-          }
+          // Always a NEW row, even if the name already exists — the same
+          // supplement is often taken morning AND evening, and merging them
+          // made the second one silently move the first.
+          const max = d.supplements.reduce((n, s) => Math.max(n, s.order ?? 0), -1);
+          d.supplements.push({ id: uid(), name, when, order: max + 1, spans: [{ from: iso, until: null }] });
         });
         closeModal(); rerender();
       };
@@ -356,7 +419,13 @@ function addPrnSheet(iso, rerender) {
   openModal({
     title: 'Add an as-needed medication',
     body: `
-      <div class="grid2">
+      <label class="fld">Start from a common one
+        <select id="pa-preset">
+          <option value="">— choose, or type your own below —</option>
+          ${PRN_PRESETS.map(([n, d, h], i) => `<option value="${i}">${esc(n)} ${esc(d)} · every ${h}h</option>`).join('')}
+        </select>
+      </label>
+      <div class="grid2" style="margin-top:.6rem">
         <label class="fld">Name<input id="pa-name" placeholder="e.g. Naproxen" autocomplete="off"></label>
         <label class="fld">Usual dose<input id="pa-dose" placeholder="e.g. 500mg" autocomplete="off"></label>
       </div>
@@ -369,22 +438,26 @@ function addPrnSheet(iso, rerender) {
       </div>`,
     footer: '<button class="btn" data-close>Cancel</button><button class="btn primary" data-save>Add</button>',
     onMount(m) {
+      m.querySelector('#pa-preset').addEventListener('change', (e) => {
+        const preset = PRN_PRESETS[Number(e.target.value)];
+        if (!preset) return;
+        m.querySelector('#pa-name').value = preset[0];
+        m.querySelector('#pa-dose').value = preset[1];
+        m.querySelector('#pa-wait').value = String(preset[2]);
+      });
       m.querySelector('[data-save]').addEventListener('click', () => {
         const name = m.querySelector('#pa-name').value.trim();
         if (!name) return;
         update((d) => {
           d.prnMeds = d.prnMeds || [];
-          const id = 'prn_' + suppId(name).slice(4);
-          const existing = d.prnMeds.find((x) => x.id === id);
           const row = {
-            id, name,
+            id: uid(), name,
             dose: m.querySelector('#pa-dose').value.trim(),
             waitHours: Number(m.querySelector('#pa-wait').value) || 0,
             order: d.prnMeds.length,
             spans: [{ from: iso, until: null }],
           };
-          if (existing) Object.assign(existing, row, { spans: [...normSpans(existing), { from: iso, until: null }] });
-          else d.prnMeds.push(row);
+          d.prnMeds.push(row);
         });
         closeModal(); rerender();
       });

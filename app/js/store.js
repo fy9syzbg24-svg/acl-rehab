@@ -7,7 +7,7 @@ import { hydrateProgramSource } from '../data/program.js';
 import { monthForDate } from '../data/plan.js';
 import { EXERCISE_BY_ID } from '../data/exercises.js';
 import { CATEGORIES } from '../data/measurements.js';
-import { seedSupplements, dedupeSupplements } from './views/supplements.js';
+import { seedSupplements, seedPrnMeds } from './views/supplements.js';
 import { collectRecords, fingerprint } from './sync/records.js';
 import { stampChanges, stampAll, pendingCount } from './sync/merge.js';
 import { readLocalDoc, writeLocalDoc, SERVER_MODE } from './sync/local-store.js';
@@ -158,15 +158,10 @@ export async function load() {
   // LATER version — caseFile was one — get stamped and pushed rather than
   // sitting invisible to sync forever.
   if (seedSupplements(state.data)) queueSave();
+  if (seedPrnMeds(state.data)) queueSave();
 
   if (hadContent) stampAll(state.data, DEVICE_ID);
 
-  // Collapse duplicate supplements — but THROUGH the stamping path, so the
-  // removed ids get tombstones. Doing it inside migrate() deleted them
-  // locally with no tombstone, so the next sync saw records this device had
-  // never heard of and pulled all of them back. Repairs must be expressed as
-  // mutations, not as quiet edits to the document.
-  repair(() => dedupeSupplements(state.data));
   // A fresh device with no local content (a new iPhone) is deliberately left
   // UNSTAMPED and unseeded: its records default to time 0, so the first sync
   // pulls the real data down wholesale instead of a blank default winning.

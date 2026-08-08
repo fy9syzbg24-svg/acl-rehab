@@ -844,7 +844,15 @@ ol.steps li { font-size: .82rem; margin: .18rem 0; }
 /* ------------------------------------------------------------ date pill --- */
 /* One centred control instead of a full-width card: chevrons, a calendar icon
    that opens the picker, and the date. */
-.datepill-wrap { display: flex; align-items: center; justify-content: center; gap: .45rem; flex-wrap: wrap; }
+.datepill-wrap {
+  position: relative;
+  display: flex; align-items: center; justify-content: center;
+  gap: .45rem; min-height: 44px;
+}
+/* Absolute, so the DATE is centred on the screen rather than the whole group
+   being centred with the date pushed left by its siblings. */
+.datepill-wrap .dp-today { position: absolute; right: 0; top: 50%; transform: translateY(-50%); }
+.datepill-wrap .dp-done { position: absolute; left: 0; top: 50%; transform: translateY(-50%); }
 .datepill {
   display: inline-flex; align-items: center; gap: .1rem;
   background: var(--panel); border: 1px solid var(--line);
@@ -931,3 +939,19 @@ ol.steps li { font-size: .82rem; margin: .18rem 0; }
 }
 .suppday.part { background: color-mix(in srgb, var(--warn) 26%, transparent); color: var(--ink-2); }
 .suppday.full { background: color-mix(in srgb, var(--good) 34%, transparent); color: var(--ink); }
+
+/* drag-to-reorder, and the compact as-needed row */
+.supphandle {
+  flex: none; width: 26px; text-align: center; cursor: grab;
+  color: var(--ink-3); font-size: 1rem; line-height: 1;
+  touch-action: none;            /* or the page scrolls instead of dragging */
+  user-select: none;
+}
+.supplist.editing { min-height: 44px; }
+.supprow.dragging { opacity: .6; background: var(--accent-soft); border-radius: 8px; }
+.suppgroup.done .supplist.editing { opacity: 1; }
+
+.prnline { display: flex; align-items: center; gap: .45rem; flex-wrap: wrap; }
+.prnspacer { flex: 1 1 auto; }
+.prnrow { padding: .45rem .6rem; margin-bottom: .4rem; }
+.prndoses { display: inline-flex; gap: .25rem; flex-wrap: wrap; }
