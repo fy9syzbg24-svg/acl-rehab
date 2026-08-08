@@ -39,6 +39,10 @@ function syncCard() {
       <button class="btn" data-sy-disconnect>Disconnect this Mac</button>
       <span class="tiny muted">device <span class="mono">${esc(DEVICE_ID)}</span> · build <span class="mono" id="build-id">…</span></span>
     </div>
+    <details class="disc" style="margin-top:.7rem">
+      <summary>Screen diagnostics</summary>
+      <pre class="tiny mono" id="geo-report" style="white-space:pre-wrap;line-height:1.5;margin:.4rem 0 0">measuring…</pre>
+    </details>
     ${syncState.lastError ? `<div class="callout warn small" style="margin-top:.6rem">
       Last sync failed (${esc(syncState.lastError.reason || 'error')}). Your data is safe here and
       will upload on the next attempt.</div>` : ''}
@@ -220,6 +224,36 @@ export function renderSettings() {
 export function bindSettings(root, ctx, rerender) {
   // Which build is this device actually running? The installed app caches its
   // shell, so "did my change land?" is otherwise guesswork.
+  // Report the real viewport geometry. If the installed app is letterboxed by
+  // iOS, innerHeight will be visibly SHORTER than screen.height and the insets
+  // will read 0 — which is the difference between "my CSS is wrong" and "iOS
+  // never gave us the space".
+  const geo = root.querySelector('#geo-report');
+  if (geo) {
+    const probe = document.createElement('div');
+    probe.style.cssText = 'position:fixed;top:0;left:0;width:0;height:0;'
+      + 'padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);';
+    document.body.appendChild(probe);
+    const cs = getComputedStyle(probe);
+    const insetTop = cs.paddingTop, insetBottom = cs.paddingBottom;
+    probe.remove();
+    const vv = window.visualViewport;
+    const standalone = window.navigator.standalone === true
+      || window.matchMedia('(display-mode: standalone)').matches;
+    const lost = window.screen.height - window.innerHeight;
+    geo.textContent = [
+      `screen.height      ${window.screen.height}`,
+      `window.innerHeight ${window.innerHeight}`,
+      `visualViewport     ${vv ? Math.round(vv.height) : 'n/a'}`,
+      `UNUSED at bottom   ${lost}px   <- the band`,
+      `safe-area top      ${insetTop}`,
+      `safe-area bottom   ${insetBottom}`,
+      `standalone         ${standalone}`,
+      `--safe-b applied   ${getComputedStyle(document.documentElement).getPropertyValue('--safe-b').trim() || '(desktop)'}`,
+      `devicePixelRatio   ${window.devicePixelRatio}`,
+    ].join('\n');
+  }
+
   const buildEl = root.querySelector('#build-id');
   if (buildEl) {
     (async () => {
