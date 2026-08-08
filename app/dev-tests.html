@@ -1,0 +1,45 @@
+<!doctype html>
+<!-- Dev-only test harness. There is no Node on this Mac, so the merge tests
+     run in a browser instead: open http://localhost:8757/dev-tests.html
+     Not part of the app, and excluded from the PWA's offline cache. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sync tests</title>
+<style>
+  body { font: 13px/1.55 ui-monospace, Menlo, monospace; background:#0e1116; color:#e8ebf0; padding:1.2rem; }
+  .ok { color:#3fbd85 } .fail { color:#f0736a } h2 { color:#5c92ff; font-size:13px; margin:1.1rem 0 .3rem }
+  #done { font-size:15px; font-weight:700; margin-top:1rem }
+</style>
+</head>
+<body>
+<div id="out"></div>
+<script type="module">
+const out = document.getElementById('out');
+const esc = (s) => String(s).replace(/[<&]/g, (c) => ({ '<': '&lt;', '&': '&amp;' }[c]));
+let fails = [];
+window.__done = false;
+
+console.log = (...a) => {
+  const line = a.join(' ');
+  const cls = line.includes('FAIL') ? 'fail' : line.includes('  ok ') ? 'ok' : '';
+  if (/^\S/.test(line) && line.trim() && !line.startsWith('ALL') && !line.startsWith('FAILURES'))
+    out.insertAdjacentHTML('beforeend', `<h2>${esc(line)}</h2>`);
+  else out.insertAdjacentHTML('beforeend', `<div class="${cls}">${esc(line)}</div>`);
+};
+window.process = { exit(code) {
+  window.__failCount = code;
+  window.__done = true;
+  out.insertAdjacentHTML('beforeend',
+    `<div id="done" class="${code ? 'fail' : 'ok'}">${code ? 'FAILED' : 'ALL PASS'}</div>`);
+} };
+
+try {
+  await import('./dev-tests.js');
+} catch (err) {
+  window.__done = true; window.__failCount = 1;
+  out.insertAdjacentHTML('beforeend', `<div class="fail">LOAD ERROR: ${esc(err.stack || err)}</div>`);
+}
+</script>
+</body>
+</html>
