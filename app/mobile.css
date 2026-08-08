@@ -39,26 +39,25 @@
    which older iOS reports more reliably than the display-mode query. */
 body.mobile.standalone { --safe-b: max(calc(env(safe-area-inset-bottom, 0px) - 26px), 6px); }
 
-/* Pin to the real viewport rather than trusting a height unit.
-   In an installed standalone PWA with a black-translucent status bar, iOS
-   reports 100dvh TALLER than the visible area, which pushed the fixed tab bar
-   below the fold and left dead space above the home indicator. `position:
-   fixed; inset: 0` is measured against the actual visual viewport, so the bar
-   lands exactly on the bottom edge. */
-html { height: 100%; }
+/* Let the DOCUMENT scroll.
+   The previous shell pinned the body and scrolled an inner box instead. That
+   fought iOS on two fronts: Safari only collapses its toolbars when the
+   document itself scrolls (so they never went away), and asking iOS to lay out
+   a full-screen fixed box is not the structure it expects — which is where the
+   dead band at the bottom came from. Normal document flow with a sticky header
+   and a fixed tab bar is the conventional arrangement, and iOS handles the
+   safe areas itself. */
 body.mobile {
   margin: 0;
   padding: 0;
-  position: fixed;
-  inset: 0;
-  overflow: hidden;
-  overscroll-behavior: none;
+  min-height: 100%;
+  overflow-x: hidden;
   -webkit-tap-highlight-color: transparent;
 }
 
 /* --------------------------------------------------------------- top bar --- */
 .mtop {
-  position: fixed; inset: 0 0 auto 0; z-index: 40;
+  position: sticky; top: 0; z-index: 40;
   padding-top: var(--safe-t);
   background: color-mix(in srgb, var(--panel) 92%, transparent);
   backdrop-filter: saturate(180%) blur(14px);
@@ -101,16 +100,11 @@ body.mobile {
 }
 .micon.on { color: var(--accent); border-color: var(--accent); }
 
-/* -------------------------------------------------------- scrolling body --- */
+/* ------------------------------------------------------------- content --- */
+/* In normal flow now. The sticky header sits above it; the fixed tab bar
+   overlays the bottom, so reserve its height as padding. */
 .mview {
-  position: fixed;
-  top: calc(var(--mtop-h) + var(--safe-t));
-  bottom: calc(var(--mtab-h) + var(--safe-b));
-  left: 0; right: 0;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior-y: contain;    /* the chrome never rubber-bands */
-  padding: .7rem .7rem 1.5rem;
+  padding: .7rem .7rem calc(var(--mtab-h) + var(--safe-b) + 1.2rem);
   max-width: none;                   /* override .view's desktop centring */
   margin: 0;
 }

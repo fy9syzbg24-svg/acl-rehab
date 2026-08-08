@@ -58,7 +58,7 @@ if (!VIEWS[ctx.view]) ctx.view = 'today';
 let lastView = null;
 
 function paint() {
-  const y = viewEl.scrollTop;
+  const y = window.scrollY;      // the document scrolls now, not an inner box
   const [render, bind] = VIEWS[ctx.view] || VIEWS.today;
   viewEl.innerHTML = render(ctx);
   bind?.(viewEl, ctx, paint);
@@ -68,7 +68,7 @@ function paint() {
   document.getElementById('nav-settings')?.classList.toggle('on', ctx.view === 'settings');
   // Re-rendering in place keeps your scroll position; changing tab starts at
   // the top. The scrolling element is the middle region, not the document.
-  viewEl.scrollTop = ctx.view === lastView ? y : 0;
+  window.scrollTo({ top: ctx.view === lastView ? y : 0 });
   lastView = ctx.view;
   paintChrome();
 }
