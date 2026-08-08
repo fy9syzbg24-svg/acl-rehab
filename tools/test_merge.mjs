@@ -222,10 +222,10 @@ section('no unregistered top-level keys');
     'schema', '_sync',                                   // metadata
     'settings', 'planGoals', 'planFocus', 'caseFile',    // key maps
     'melbourne', 'program',                              // sub maps
-    'measurements', 'mrss', 'customExercises',           // id lists
+    'measurements', 'mrss', 'customExercises', 'supplements',  // id lists
     'days',                                              // days + entries
   ]);
-  const doc = { ...base(), caseFile: {} };
+  const doc = { ...base(), caseFile: {}, supplements: [] };
   check('all top-level keys are registered', Object.keys(doc).filter((k) => !KNOWN.has(k)), []);
 }
 

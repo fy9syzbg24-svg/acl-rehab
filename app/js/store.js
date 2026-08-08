@@ -7,6 +7,7 @@ import { hydrateProgramSource } from '../data/program.js';
 import { monthForDate } from '../data/plan.js';
 import { EXERCISE_BY_ID } from '../data/exercises.js';
 import { CATEGORIES } from '../data/measurements.js';
+import { seedSupplements } from './views/supplements.js';
 import { collectRecords, fingerprint } from './sync/records.js';
 import { stampChanges, stampAll, pendingCount } from './sync/merge.js';
 import { readLocalDoc, writeLocalDoc, SERVER_MODE } from './sync/local-store.js';
@@ -52,6 +53,7 @@ function blank() {
     melbourne: { phases: {}, measures: {} },
     mrss: [],
     customExercises: [],
+    supplements: [],
     // Clinician program: which progression step you're on, and your current
     // band colour, per program item.
     program: { stage: {}, band: {}, weeklyTarget: {} },
@@ -153,6 +155,8 @@ export async function load() {
   // Runs unconditionally (it only fills gaps) so that records introduced by a
   // LATER version — caseFile was one — get stamped and pushed rather than
   // sitting invisible to sync forever.
+  if (seedSupplements(state.data)) queueSave();
+
   if (hadContent) stampAll(state.data, DEVICE_ID);
   // A fresh device with no local content (a new iPhone) is deliberately left
   // UNSTAMPED and unseeded: its records default to time 0, so the first sync
@@ -178,6 +182,7 @@ function migrate(d) {
   out.planFocus = out.planFocus || {};
   out.mrss = out.mrss || [];
   out.customExercises = out.customExercises || [];
+  out.supplements = out.supplements || [];
   out.program = { stage: {}, band: {}, weeklyTarget: {}, ...(d.program || {}) };
   out.program.stage = out.program.stage || {};
   out.program.band = out.program.band || {};

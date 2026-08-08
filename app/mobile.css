@@ -244,3 +244,33 @@ body.mobile .toast {
   .mtitle { font-size: .95rem; }
   .mview { padding-top: .5rem; }
 }
+
+/* --------------------------------------------- mobile density (Today) --- */
+/* The top of Today was three tall cards before any content: timeline, week
+   cadence, month board. Each is squeezed here rather than removed, so nothing
+   is lost — it just stops costing a screen and a half before you can log. */
+
+/* 1. the six-month timeline */
+body.mobile .journey { padding: .9rem 1.5rem 1.1rem; }
+body.mobile .jphases { height: 12px; margin-top: 1.15rem; }
+body.mobile .jnode .jname { font-size: .72rem; }
+
+/* 2. the week cadence — tighter chips, and it stays readable past three goals */
+body.mobile .weekcats.centred {
+  display: grid; grid-template-columns: 1fr 1fr; gap: .35rem;
+}
+body.mobile .weekcat.tappable { padding: .35rem .45rem; gap: .18rem; }
+body.mobile .weekcat.tappable .wclabel { font-size: .68rem; }
+body.mobile .weekcat.tappable .pips i { height: 5px; }
+/* Months with more targets (September has more than three) would otherwise
+   run the card down the screen; from four onwards go three-up and smaller. */
+body.mobile .weekcats.centred:has(> :nth-child(4)) {
+  grid-template-columns: repeat(3, 1fr);
+}
+body.mobile .weekcats.centred:has(> :nth-child(4)) .wclabel { font-size: .62rem; }
+body.mobile .weekcats.centred:has(> :nth-child(7)) { grid-template-columns: repeat(4, 1fr); }
+
+/* 3. date pill */
+body.mobile .datepill-wrap { gap: .35rem; }
+body.mobile .dp-date { font-size: .92rem; }
+body.mobile .dp-done { display: none; }   /* "Completed today" already counts it */

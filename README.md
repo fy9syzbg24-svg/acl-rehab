@@ -101,6 +101,14 @@ shaped the way it is — changing any of them back reintroduces a real bug.
   until the second launch.
 - **iOS caches Home Screen icon artwork.** Changing the icon needs remove + re-add.
 
+## Supplements
+
+`app/js/views/supplements.js`. The LIST (`state.data.supplements`) and the daily
+TICKS (`days[iso].supps`) are separate on purpose: a new day starts clean by
+itself and every past day stays on record, which is what the Notes-app checklist
+it replaces could not do. Removing a supplement is a soft delete (`active:
+false`) because past days reference its id.
+
 ## Adding anything to the document
 
 Any new top-level key MUST be registered in `app/js/sync/records.js`. An unregistered

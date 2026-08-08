@@ -55,7 +55,7 @@ export function renderMonthBoard(ctx) {
       </span>
     </button>
 
-    ${ctx.openBoard === false ? '' : `<div class="card-body board-body">
+    ${boardClosed(ctx) ? '' : `<div class="card-body board-body">
       ${markerBlock(goals, el)}
       ${weekBlock(month, iso)}
       ${focusBlock(month, iso)}
@@ -102,6 +102,19 @@ function markerBlock(goals, el) {
       </div>`;
     }).join('')}
   </div>`;
+}
+
+/**
+ * Is the month board collapsed?
+ *
+ * Default differs by device on purpose: on a phone the expanded board pushes
+ * everything else off the screen, so it starts closed and opens on tap. On a
+ * desktop there is room, so it starts open. Once you touch the chevron your
+ * choice wins for the session either way.
+ */
+function boardClosed(ctx) {
+  if (ctx.openBoard !== undefined) return ctx.openBoard === false;
+  return document.body.classList.contains('mobile');
 }
 
 // ------------------------------------------------------------- this week ---
@@ -190,7 +203,7 @@ function carriedBlock(current) {
 
 export function bindMonthBoard(root, ctx, rerender) {
   root.querySelector('[data-panel="board"]')?.addEventListener('click', () => {
-    ctx.openBoard = ctx.openBoard === false;
+    ctx.openBoard = boardClosed(ctx);
     rerender();
   });
 

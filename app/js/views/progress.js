@@ -6,8 +6,10 @@ import { heatmap, lineChart } from '../components.js';
 import { monthCompletion } from './planview.js';
 import { renderWeekPanel, bindWeekPanel } from './week.js';
 import { renderMeasuresPanel, bindMeasuresPanel } from './measures.js';
+import { renderMelbourne, bindMelbourne } from './melbourneview.js';
 
-const TABS = [['week', 'This week'], ['history', 'History'], ['tests', 'Tests & VALD'], ['clinical', 'Clinical notes']];
+const TABS = [['week', 'This week'], ['history', 'History'], ['tests', 'Tests & VALD'],
+              ['melbourne', 'Melbourne'], ['clinical', 'Clinical notes']];
 
 export function renderProgress(ctx) {
   const tab = ctx.gtab || 'week';
@@ -18,11 +20,13 @@ export function renderProgress(ctx) {
     ${tab === 'week' ? renderWeekPanel(ctx) : ''}
     ${tab === 'history' ? renderHistoryPanel(ctx) : ''}
     ${tab === 'tests' ? renderMeasuresPanel(ctx) : ''}
+    ${tab === 'melbourne' ? renderMelbourne(ctx) : ''}
     ${tab === 'clinical' ? renderClinicalPanel() : ''}
   </div>`;
 }
 
 export function bindProgress(root, ctx, rerender) {
+  if ((ctx.gtab || 'week') === 'melbourne') bindMelbourne(root, ctx, rerender);
   root.querySelectorAll('[data-gtab]').forEach((b) => b.addEventListener('click', () => {
     ctx.gtab = b.dataset.gtab;
     rerender();

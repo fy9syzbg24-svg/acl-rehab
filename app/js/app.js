@@ -3,7 +3,7 @@ import { esc, todayIso, postOp, fmtDate } from './util.js';
 import { renderToday, bindToday } from './views/today.js';
 import { renderProgram, bindProgram } from './views/program.js';
 import { renderPlan, bindPlan } from './views/planview.js';
-import { renderMelbourne, bindMelbourne } from './views/melbourneview.js';
+import { renderSupplements, bindSupplements } from './views/supplements.js';
 import { renderProgress, bindProgress } from './views/progress.js';
 import { renderSettings, bindSettings } from './views/settings.js';
 import { toast } from './components.js';
@@ -12,7 +12,7 @@ const VIEWS = {
   today: [renderToday, bindToday],
   program: [renderProgram, bindProgram],
   plan: [renderPlan, bindPlan],
-  melbourne: [renderMelbourne, bindMelbourne],
+  supplements: [renderSupplements, bindSupplements],
   progress: [renderProgress, bindProgress],
   settings: [renderSettings, bindSettings],
 };

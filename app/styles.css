@@ -840,3 +840,66 @@ ol.steps li { font-size: .82rem; margin: .18rem 0; }
   .weekcats.centred { display: flex; flex-wrap: wrap; gap: .5rem; }
   .weekcats.centred .weekcat { flex: 0 1 210px; }
 }
+
+/* ------------------------------------------------------------ date pill --- */
+/* One centred control instead of a full-width card: chevrons, a calendar icon
+   that opens the picker, and the date. */
+.datepill-wrap { display: flex; align-items: center; justify-content: center; gap: .45rem; flex-wrap: wrap; }
+.datepill {
+  display: inline-flex; align-items: center; gap: .1rem;
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: 100px; padding: .2rem .3rem;
+}
+.dp-arrow {
+  width: 38px; height: 38px; border: 0; border-radius: 100px;
+  background: none; color: var(--ink-2); font-size: 1.15rem; line-height: 1; cursor: pointer;
+}
+.dp-arrow:hover { background: var(--line-2); color: var(--ink); }
+.dp-mid { position: relative; display: inline-flex; align-items: center; gap: .4rem; padding: 0 .55rem; }
+.dp-cal { display: inline-flex; color: var(--ink-3); }
+.dp-cal svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; }
+.dp-date { font-weight: 640; font-size: .95rem; white-space: nowrap; }
+.dp-mid input[type=date] {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  opacity: 0; border: 0; padding: 0; cursor: pointer;
+}
+.dp-today {
+  border: 1px solid var(--line); background: var(--panel); color: var(--ink-2);
+  border-radius: 100px; padding: .3rem .7rem; font: inherit; font-size: .74rem; font-weight: 600;
+  cursor: pointer;
+}
+.dp-today:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+/* Always present, inert when you are already on today — so it never appears
+   from nowhere, it just stops being clickable. */
+.dp-today.is-today { opacity: .32; cursor: default; }
+
+/* --------------------------------------------------- supplements ---------- */
+.suppscore { display: flex; align-items: center; gap: .55rem; margin-bottom: .3rem; }
+.suppscore .bar { flex: 1; }
+.supplist { display: flex; flex-direction: column; gap: .35rem; }
+.supprow {
+  display: flex; align-items: center; gap: .65rem;
+  border: 1px solid var(--line); border-radius: 11px;
+  padding: .5rem .6rem; background: var(--panel);
+  font: inherit; text-align: left; width: 100%; cursor: pointer; min-height: 48px;
+}
+.supprow:hover { border-color: var(--accent); }
+.supprow.on { background: var(--good-soft); border-color: color-mix(in srgb, var(--good) 45%, var(--line)); }
+.supptick {
+  flex: none; width: 24px; height: 24px; border-radius: 50%;
+  border: 2px solid var(--line); display: grid; place-items: center;
+  font-style: normal; font-weight: 800; font-size: 13px; color: transparent;
+}
+.supprow.on .supptick { background: var(--warn); border-color: var(--warn); color: #fff; }
+.suppname { flex: 1; min-width: 0; font-size: .88rem; font-weight: 550; }
+.supprow.on .suppname { color: color-mix(in srgb, var(--good) 70%, var(--ink)); }
+.suppdel { flex: none; color: var(--ink-3); font-size: .8rem; padding: .3rem .35rem; border-radius: 6px; }
+.suppdel:hover { background: var(--bad-soft); color: var(--bad); }
+
+.suppgrid { display: grid; grid-template-columns: repeat(7, 1fr); gap: .3rem; }
+.suppday {
+  aspect-ratio: 1; border-radius: 7px; display: grid; place-items: center;
+  background: var(--line-2); color: var(--ink-3); border: 1px solid transparent;
+}
+.suppday.part { background: color-mix(in srgb, var(--warn) 26%, transparent); color: var(--ink-2); }
+.suppday.full { background: color-mix(in srgb, var(--good) 34%, transparent); color: var(--ink); }

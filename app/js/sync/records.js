@@ -18,6 +18,7 @@
 //   m|<id>                    a measurement / test result
 //   r|<id>                    an MRSS score
 //   c|<id>                    a custom exercise
+//   u|<id>                    a supplement in the list
 //   g|<key>  f|<key>          plan goals / plan focus ticks
 //   b|<sub>|<key>             melbourne.phases / .measures
 //   p|<sub>|<key>             program.stage / .band / .weeklyTarget
@@ -26,10 +27,10 @@ export const SYNC_VERSION = 1;
 
 // A day's own fields. Entries are separate records so two devices can add
 // exercises to the same day without fighting over the whole day.
-const DAY_FIELDS = ['checkin', 'checklist', 'notes', 'source', 'seeded'];
+const DAY_FIELDS = ['checkin', 'checklist', 'notes', 'source', 'seeded', 'supps'];
 
 // name -> the array in the doc, for the id-keyed collections
-const ID_LISTS = { m: 'measurements', r: 'mrss', c: 'customExercises' };
+const ID_LISTS = { m: 'measurements', r: 'mrss', c: 'customExercises', u: 'supplements' };
 // name -> the plain key/value map in the doc
 // caseFile is HERE for a reason: it is data, not code. Leaving it out meant
 // the merge engine did not carry it, so a device without a clinical history

@@ -248,23 +248,30 @@ function weekBar(iso) {
 // ------------------------------------------------------------ date header --
 function dateNav(iso, month, n) {
   const isToday = iso === todayIso();
-  // One line, one date. The date used to appear twice — as text and again as a
-  // picker — which read as clutter and cost a whole row of height on the phone.
-  // The date IS the picker now: the input sits invisibly on top of the label.
-  return `<div class="card"><div class="card-body" style="padding:.4rem .6rem">
-    <div class="datebar centred">
-      <button class="icon-btn" data-nav="-1" aria-label="Previous day">‹</button>
-      <span class="datepick">
-        <span class="d">${esc(fmtDate(iso))}</span>
+  // A single centred pill: chevrons, a calendar icon that opens the picker,
+  // and the date. "Month 1/6" lived here too and was noise — the month is
+  // already the headline of the board below.
+  //
+  // The "today" control is ALWAYS rendered, just disabled when you are already
+  // there. It used to appear only when you had navigated away, so it read as
+  // something arriving unexpectedly rather than a control that is simply
+  // inactive.
+  return `<div class="datepill-wrap">
+    <div class="datepill">
+      <button class="dp-arrow" data-nav="-1" aria-label="Previous day">‹</button>
+      <span class="dp-mid">
+        <span class="dp-cal" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+        </span>
+        <span class="dp-date">${esc(fmtDate(iso))}</span>
         <input type="date" data-jump value="${iso}" aria-label="Jump to a date">
       </span>
-      <button class="icon-btn" data-nav="1" aria-label="Next day">›</button>
-      ${isToday ? '' : '<button class="btn sm ghost" data-nav="today">today</button>'}
-      <span class="spacer"></span>
-      ${n ? `<span class="pill good">${n} done</span>` : ''}
-      ${month ? `<span class="pill accent">${esc(month.name)}/6</span>` : ''}
+      <button class="dp-arrow" data-nav="1" aria-label="Next day">›</button>
     </div>
-  </div></div>`;
+    <button class="dp-today ${isToday ? 'is-today' : ''}" data-nav="today"
+            ${isToday ? 'disabled aria-disabled="true"' : ''}>today</button>
+    ${n ? `<span class="pill good dp-done">${n} done</span>` : ''}
+  </div>`;
 }
 
 function insightsRow(iso) {
