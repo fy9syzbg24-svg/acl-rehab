@@ -24,15 +24,21 @@
   --safe-b: 0px;
 }
 
+/* In standalone, reserve only PART of the 34pt inset.
+   The full inset leaves a finger-wide dead strip under the buttons. But it
+   cannot go to zero either: the bottom edge is the system's home-indicator
+   swipe zone, and a button there gets swallowed by the gesture. 12pt back
+   gives ~22pt of clearance — the buttons sit just above the indicator with
+   no wasted band. */
 @media (display-mode: standalone) {
-  :root { --safe-b: env(safe-area-inset-bottom, 0px); }
+  :root { --safe-b: max(calc(env(safe-area-inset-bottom, 0px) - 12px), 8px); }
 }
 @media (display-mode: fullscreen) {
-  :root { --safe-b: env(safe-area-inset-bottom, 0px); }
+  :root { --safe-b: max(calc(env(safe-area-inset-bottom, 0px) - 12px), 8px); }
 }
 /* Belt and braces: mobile.js also sets this class from navigator.standalone,
    which older iOS reports more reliably than the display-mode query. */
-body.mobile.standalone { --safe-b: env(safe-area-inset-bottom, 0px); }
+body.mobile.standalone { --safe-b: max(calc(env(safe-area-inset-bottom, 0px) - 12px), 8px); }
 
 /* Pin to the real viewport rather than trusting a height unit.
    In an installed standalone PWA with a black-translucent status bar, iOS
@@ -115,8 +121,10 @@ body.mobile {
   position: fixed; inset: auto 0 0 0; z-index: 40;
   display: grid; grid-template-columns: repeat(5, 1fr);
   padding-bottom: var(--safe-b);
-  background: color-mix(in srgb, var(--panel) 94%, transparent);
-  backdrop-filter: saturate(180%) blur(14px);
+  /* Nearly opaque on purpose: at 94% over a dark page the reserved strip below
+     the buttons looked like empty background rather than part of the bar. */
+  background: color-mix(in srgb, var(--panel) 99%, transparent);
+  backdrop-filter: saturate(180%) blur(18px);
   border-top: 1px solid var(--line);
 }
 .mtabs button {
