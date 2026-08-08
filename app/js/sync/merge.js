@@ -160,6 +160,22 @@ export function mergeDocs(local, remote, { now = Date.now() } = {}) {
   return { doc: out, pulled, pushed, deleted, changed };
 }
 
+/**
+ * The newest stamp anywhere in a document.
+ *
+ * Used as the "everything up to here is uploaded" cursor. Derived from the
+ * data rather than read off the clock at push time, so it cannot drift if the
+ * two happen at slightly different moments.
+ */
+export function maxStamp(doc) {
+  const s = doc?._sync;
+  if (!s) return 0;
+  let n = 0;
+  for (const t of Object.values(s.rec || {})) if (t > n) n = t;
+  for (const t of Object.values(s.del || {})) if (t > n) n = t;
+  return n;
+}
+
 /** Does this document hold anything the given remote state has not got? */
 export function hasPending(doc, lastPushedAt = 0) {
   const s = doc?._sync;

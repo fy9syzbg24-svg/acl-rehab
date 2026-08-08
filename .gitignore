@@ -17,3 +17,5 @@ app/dev-tests.*
 
 # Detailed README stays local: it describes your clinicians and history.
 README.local.md
+app/dev-merge.js
+app/dev-engine.js

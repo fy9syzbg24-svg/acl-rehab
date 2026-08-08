@@ -2,6 +2,50 @@ import { esc, todayIso, uid, num } from '../util.js';
 import { state, update, load } from '../store.js';
 import { CASE } from '../../data/history.js';
 import { toast } from '../components.js';
+import { runSync, syncState, pendingSyncCount, DEVICE_ID } from '../store.js';
+import { getConfig, setConfig, clearConfig, isConfigured } from '../sync/config.js';
+import { ghCheckAccess } from '../sync/github.js';
+
+function syncCard() {
+  const c = getConfig();
+  const pending = isConfigured() ? pendingSyncCount() : 0;
+  const last = c.lastSyncedAt ? new Date(c.lastSyncedAt).toLocaleString('en-AU', { dateStyle: 'medium', timeStyle: 'short' }) : 'never';
+  if (!isConfigured()) {
+    return `
+      <div class="callout small" style="margin-bottom:.8rem">
+        This Mac keeps its own complete copy of your log on disk and works with no
+        internet at all. Connecting adds a private GitHub repo as a relay, so your
+        iPhone can pick up changes when either device is online — neither needs the
+        other to be switched on.
+      </div>
+      <div class="grid3">
+        <label class="fld">GitHub user<input id="sy-owner" value="${esc(c.owner || '')}" autocomplete="off" spellcheck="false"></label>
+        <label class="fld">Repository<input id="sy-repo" value="${esc(c.repo || 'acl-rehab-data')}" autocomplete="off" spellcheck="false"></label>
+        <label class="fld">Access token<input id="sy-token" type="password" placeholder="github_pat_…" autocomplete="off" spellcheck="false"></label>
+      </div>
+      <div class="row" style="margin-top:.7rem"><button class="btn primary" data-sy-connect>Connect this Mac</button></div>
+      <div class="tiny muted" style="margin-top:.5rem">
+        The token is stored on this Mac only, outside your synced data, and is sent
+        nowhere except GitHub.
+      </div>`;
+  }
+  return `
+    <div class="callout good small" style="margin-bottom:.6rem">
+      <strong>Connected</strong> to ${esc(c.owner)}/${esc(c.repo)} · last synced ${esc(last)}.
+      ${pending ? `<strong>${pending}</strong> change${pending === 1 ? '' : 's'} waiting to upload.` : 'Everything is uploaded.'}
+    </div>
+    <div class="row">
+      <button class="btn primary" data-sy-sync>${syncState.running ? 'Syncing…' : 'Sync now'}</button>
+      <button class="btn" data-sy-disconnect>Disconnect this Mac</button>
+      <span class="tiny muted">device <span class="mono">${esc(DEVICE_ID)}</span></span>
+    </div>
+    ${syncState.lastError ? `<div class="callout warn small" style="margin-top:.6rem">
+      Last sync failed (${esc(syncState.lastError.reason || 'error')}). Your data is safe here and
+      will upload on the next attempt.</div>` : ''}
+    <div class="tiny muted" style="margin-top:.5rem">
+      Disconnecting only forgets the token — nothing is deleted from this Mac.
+    </div>`;
+}
 
 export function renderSettings() {
   const s = state.data.settings;
@@ -74,6 +118,13 @@ export function renderSettings() {
           <button class="btn danger" data-reseed>Re-add the seeded clinic sessions</button>
         </div>
         <div class="tiny muted" style="margin-top:.3rem">Use this if you deleted the seeded clinic entries and want them back.</div>
+      </div>
+    </section>
+
+    <section class="card">
+      <header><h2>Device sync</h2><span class="sub">share this log with your iPhone</span></header>
+      <div class="card-body">
+        ${syncCard()}
       </div>
     </section>
 
@@ -167,6 +218,40 @@ export function renderSettings() {
 }
 
 export function bindSettings(root, ctx, rerender) {
+  // ---- device sync ---------------------------------------------------
+  root.querySelector('[data-sy-connect]')?.addEventListener('click', async () => {
+    const owner = root.querySelector('#sy-owner').value.trim();
+    const repo = root.querySelector('#sy-repo').value.trim();
+    const token = root.querySelector('#sy-token').value.trim();
+    if (!owner || !repo || !token) return toast('⚠️ <b>Fill in all three</b>', 'warn');
+    toast('Checking access…');
+    const check = await ghCheckAccess({ owner, repo, token });
+    if (!check.ok) {
+      return toast(check.reason === 'bad-token' ? '⚠️ <b>Token rejected</b>'
+        : check.reason === 'no-repo' ? '⚠️ <b>Repo not found</b><br><span>check the name, and that the token can see it</span>'
+        : `⚠️ <b>${esc(check.reason)}</b>`, 'warn');
+    }
+    if (!check.private) toast('⚠️ <b>That repo is public</b><br><span>your log would be readable — use a private one</span>', 'warn');
+    setConfig({ owner, repo, token, path: 'state.json' });
+    const res = await runSync('connect');
+    toast(res.ok ? '✅ <b>Connected and synced</b>' : `⚠️ <b>Connected, but sync failed</b><br><span>${esc(res.reason || '')}</span>`, res.ok ? '' : 'warn');
+    rerender();
+  });
+
+  root.querySelector('[data-sy-sync]')?.addEventListener('click', async () => {
+    const res = await runSync('manual');
+    toast(res.ok
+      ? `✅ <b>Synced</b><br><span>${res.pulled || 0} in · ${res.pushed || 0} out</span>`
+      : `⚠️ <b>Sync failed</b><br><span>${esc(res.reason || '')}</span>`, res.ok ? '' : 'warn');
+    rerender();
+  });
+
+  root.querySelector('[data-sy-disconnect]')?.addEventListener('click', () => {
+    clearConfig();
+    toast('Disconnected — your data is still on this Mac');
+    rerender();
+  });
+
   // ---- PhysiApp sync -------------------------------------------------
   root.querySelectorAll('[data-pa]').forEach((inp) => {
     inp.addEventListener('change', () => {

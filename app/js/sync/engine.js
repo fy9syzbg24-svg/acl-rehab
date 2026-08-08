@@ -14,7 +14,7 @@
 
 import { getConfig, setConfig } from './config.js';
 import { ghGetFile, ghPutFile, ConflictError, GitHubError } from './github.js';
-import { mergeDocs } from './merge.js';
+import { mergeDocs, maxStamp } from './merge.js';
 
 const MAX_CONFLICT_RETRIES = 5;
 
@@ -34,7 +34,12 @@ function classifyFailure(err) {
  * @param opts.recordCount () => number, for the "created" result
  */
 export async function syncNow(getLocal, setLocal, opts = {}) {
-  const cfg = getConfig();
+  // The transport is injectable purely so the tests can drive outages,
+  // interruptions and concurrent writers deterministically.
+  const getFile = opts.getFile || ghGetFile;
+  const putFile = opts.putFile || ghPutFile;
+  const cfg = opts.config || getConfig();
+  const save = opts.setConfig || setConfig;
   if (!cfg.token || !cfg.owner || !cfg.repo) return { ok: false, reason: 'unconfigured' };
   const conn = { token: cfg.token, owner: cfg.owner, repo: cfg.repo, path: cfg.path || 'state.json' };
   const msg = `rehab sync from ${opts.deviceId || 'device'}`;
@@ -42,7 +47,7 @@ export async function syncNow(getLocal, setLocal, opts = {}) {
   // ---- 1. pull ------------------------------------------------------
   let pulled;
   try {
-    pulled = await ghGetFile(conn);
+    pulled = await getFile(conn);
   } catch (err) {
     return classifyFailure(err);
   }
@@ -50,8 +55,9 @@ export async function syncNow(getLocal, setLocal, opts = {}) {
   // ---- empty repo: create the file from what we have ----------------
   if (!pulled.doc) {
     try {
-      const put = await ghPutFile(conn, getLocal(), null, `rehab sync (init) from ${opts.deviceId || 'device'}`);
-      setConfig({ remoteSha: put.sha, lastSyncedAt: Date.now(), lastPushedAt: Date.now() });
+      const doc = getLocal();
+      const put = await putFile(conn, doc, null, `rehab sync (init) from ${opts.deviceId || 'device'}`);
+      save({ remoteSha: put.sha, lastSyncedAt: Date.now(), lastPushedAt: maxStamp(doc) });
       return { ok: true, created: true, pulled: 0, pushed: 'all', deleted: 0 };
     } catch (err) {
       // Lost a race to create it — fall through to the normal path next time.
@@ -70,7 +76,7 @@ export async function syncNow(getLocal, setLocal, opts = {}) {
 
   // ---- 3. push, only if we hold something remote does not -----------
   if (merge.pushed === 0) {
-    setConfig({ remoteSha: pulled.sha, lastSyncedAt: Date.now(), lastPushedAt: Date.now() });
+    save({ remoteSha: pulled.sha, lastSyncedAt: Date.now(), lastPushedAt: maxStamp(local) });
     return { ok: true, pulled: merge.pulled, pushed: 0, deleted: merge.deleted };
   }
 
@@ -78,8 +84,10 @@ export async function syncNow(getLocal, setLocal, opts = {}) {
   let toPush = local;
   for (let attempt = 0; attempt < MAX_CONFLICT_RETRIES; attempt++) {
     try {
-      const put = await ghPutFile(conn, toPush, sha, msg);
-      setConfig({ remoteSha: put.sha, lastSyncedAt: Date.now(), lastPushedAt: Date.now() });
+      const put = await putFile(conn, toPush, sha, msg);
+      // Cursor comes from what we actually pushed, so a later edit is always
+      // strictly newer and therefore still counted as pending.
+      save({ remoteSha: put.sha, lastSyncedAt: Date.now(), lastPushedAt: maxStamp(toPush) });
       return { ok: true, pulled: merge.pulled, pushed: merge.pushed, deleted: merge.deleted };
     } catch (err) {
       if (!(err instanceof ConflictError)) return classifyFailure(err);
@@ -87,7 +95,7 @@ export async function syncNow(getLocal, setLocal, opts = {}) {
       // in, and try again against the newer sha.
       let re;
       try {
-        re = await ghGetFile(conn);
+        re = await getFile(conn);
       } catch (e2) {
         return classifyFailure(e2);
       }

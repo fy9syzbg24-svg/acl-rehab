@@ -106,9 +106,17 @@ self.addEventListener('fetch', (event) => {
   if (req.mode === 'navigate') {
     event.respondWith((async () => {
       const cache = await caches.open(SHELL);
-      const cached = (await cache.match('./m.html')) || (await cache.match('./'));
-      if (cached) return cached;
-      try { return await fetch(req); } catch { return new Response('Offline', { status: 503 }); }
+      // Prefer the page actually asked for; only fall back to the mobile
+      // shell. Answering every navigation with m.html would mean any other
+      // page on this origin could never be reached.
+      const exact = await cache.match(req, { ignoreSearch: true });
+      if (exact) return exact;
+      try {
+        return await fetch(req);
+      } catch {
+        const shell = (await cache.match('./m.html')) || (await cache.match('./'));
+        return shell || new Response('Offline', { status: 503 });
+      }
     })());
     return;
   }

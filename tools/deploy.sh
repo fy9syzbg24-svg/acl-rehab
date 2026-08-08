@@ -37,13 +37,16 @@ rm -f "$STAGE/dev-tests.html" "$STAGE/dev-tests.js" "$STAGE/data/case.local.js"
 WORK=$(mktemp -d)
 git worktree add -q --detach "$WORK"
 pushd "$WORK" >/dev/null
-git checkout -q --orphan gh-pages
+# A uniquely named orphan each time: `--orphan gh-pages` fails outright once
+# the branch exists locally, which broke every deploy after the first.
+TMPBRANCH="deploy-$$-$SHA"
+git checkout -q --orphan "$TMPBRANCH"
 git rm -rqf . >/dev/null 2>&1 || true
 cp -R "$STAGE/." .
 git add -A
 git -c user.name="Reuben" -c user.email="reuben.moreland@gmail.com" \
     commit -q -m "Deploy $SHA"
-git push -q -f origin gh-pages
+git push -q -f origin "$TMPBRANCH":gh-pages
 popd >/dev/null
 git worktree remove --force "$WORK"
 

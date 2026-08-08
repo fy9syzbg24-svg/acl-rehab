@@ -428,7 +428,16 @@ document.addEventListener('visibilitychange', () => {
 
 load().then(() => {
   paint();
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js', { scope: './' }).catch(() => {});
+  if (!('serviceWorker' in navigator)) return;
+  if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+    // NEVER on the Mac. The worker claims every navigation in its scope and
+    // answers them with the mobile shell, which would hijack the desktop app
+    // (and this repo's test page) served from the same origin. Registering it
+    // here once already did exactly that, so also clean up after ourselves.
+    navigator.serviceWorker.getRegistrations()
+      .then((rs) => rs.forEach((r) => r.unregister()))
+      .catch(() => {});
+    return;
   }
+  navigator.serviceWorker.register('./sw.js', { scope: './' }).catch(() => {});
 });
