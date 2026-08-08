@@ -144,3 +144,38 @@ export function debounce(fn, ms) {
     t = setTimeout(() => fn(...args), ms);
   };
 }
+
+// ------------------------------------------------------------------ theme ---
+/**
+ * Apply the chosen theme. 'auto' removes the attribute so the CSS falls back to
+ * the device's own preference; 'light'/'dark' force it.
+ *
+ * Also updates <meta name="theme-color">, which is what iOS paints behind the
+ * status bar in an installed app — leaving it fixed makes a light theme look
+ * broken at the very top of the screen.
+ */
+export const THEME_KEY = 'rehab.theme';
+
+export function applyTheme(pref) {
+  const root = document.documentElement;
+  try { localStorage.setItem(THEME_KEY, pref || 'light'); } catch { /* private mode */ }
+  if (pref === 'light' || pref === 'dark') root.setAttribute('data-theme', pref);
+  else root.removeAttribute('data-theme');
+
+  const dark = pref === 'dark'
+    || (pref === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', dark ? '#0e1116' : '#f6f7f9');
+  return dark;
+}
+
+/**
+ * Apply the remembered theme synchronously at startup, before any data has
+ * loaded. Without this a device set to dark shows a dark flash while the
+ * document is read, then snaps to light.
+ */
+export function applyStoredTheme() {
+  let pref = 'light';
+  try { pref = localStorage.getItem(THEME_KEY) || 'light'; } catch { /* ignore */ }
+  return applyTheme(pref);
+}

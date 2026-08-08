@@ -79,6 +79,22 @@ export function renderSettings() {
     </section>
 
     <section class="card">
+      <header><h2>Appearance</h2></header>
+      <div class="card-body">
+        <div class="themepick">
+          ${[['auto', 'Automatic', 'follows your device'],
+             ['light', 'Light', ''],
+             ['dark', 'Dark', '']].map(([k, label, sub]) => `
+            <button class="themeopt ${(s.theme || 'light') === k ? 'on' : ''}" data-theme-set="${k}">
+              <span class="themeswatch ${k}"></span>
+              <span class="themelabel">${label}</span>
+              ${sub ? `<span class="tiny muted">${sub}</span>` : ''}
+            </button>`).join('')}
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
       <header><h2>Units &amp; body</h2></header>
       <div class="card-body">
         <div class="grid3">
@@ -417,6 +433,11 @@ export function bindSettings(root, ctx, rerender) {
       }
     });
   });
+
+  root.querySelectorAll('[data-theme-set]').forEach((b) => b.addEventListener('click', () => {
+    update((d) => { d.settings.theme = b.dataset.themeSet; });
+    rerender();
+  }));
 
   root.querySelectorAll('[data-set]').forEach((inp) => {
     inp.addEventListener('change', () => {

@@ -16,7 +16,7 @@
 import {
   state, subscribe, load, runSync, syncState, pendingSyncCount, onRemoteChange,
 } from './store.js';
-import { esc, todayIso, postOp } from './util.js';
+import { esc, todayIso, postOp, applyStoredTheme } from './util.js';
 import { renderToday, bindToday } from './views/today.js';
 import { renderProgram, bindProgram } from './views/program.js';
 import { renderPlan, bindPlan } from './views/planview.js';
@@ -24,6 +24,8 @@ import { renderSupplements, bindSupplements } from './views/supplements.js';
 import { renderProgress, bindProgress } from './views/progress.js';
 import { renderSettings, bindSettings } from './views/settings.js';
 import { isConfigured } from './sync/config.js';
+
+applyStoredTheme();   // before first paint, so there is no flash
 
 const VIEWS = {
   today: [renderToday, bindToday],
@@ -163,10 +165,16 @@ load().then(() => {
   });
 
   navigator.serviceWorker.register('./sw.js', { scope: './' }).then((reg) => {
-    // Check for a new version whenever the app comes back to the foreground,
-    // so reopening it is enough to pick one up.
+    // Check for a new version on foreground, but at most every 30 minutes —
+    // it is a network request, and a deploy is not something that happens
+    // between glances at the app.
+    const CHECK_GAP_MS = 30 * 60 * 1000;
+    let lastCheck = Date.now();
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') reg.update().catch(() => {});
+      if (document.visibilityState !== 'visible') return;
+      if (Date.now() - lastCheck < CHECK_GAP_MS) return;
+      lastCheck = Date.now();
+      reg.update().catch(() => {});
     });
   }).catch(() => {});
 });

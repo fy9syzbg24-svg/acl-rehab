@@ -1,7 +1,7 @@
 // State + persistence. The whole document is PUT back to the server on a
 // short debounce; the file on disk is the source of truth.
 
-import { debounce, uid, todayIso, weekStart, weekDays } from './util.js';
+import { debounce, uid, todayIso, weekStart, weekDays, applyTheme } from './util.js';
 import { CASE, hydrateCase, loadLocalCase } from '../data/history.js';
 import { hydrateProgramSource } from '../data/program.js';
 import { monthForDate } from '../data/plan.js';
@@ -44,6 +44,7 @@ function blank() {
       lengthUnit: 'cm',
       bodyweight: null,
       weeklyOverrides: {},
+      theme: 'light',
       seeded: false,
     },
     days: {},
@@ -79,7 +80,8 @@ export function subscribe(fn) {
   return () => listeners.delete(fn);
 }
 function emit() {
-  // A sync pull can replace caseFile, so repoint the live bindings first.
+  // A sync pull can replace caseFile or the theme, so repoint first.
+  applyTheme(state.data.settings?.theme || 'light');
   hydrateCase(state.data);
   hydrateProgramSource(state.data);
   for (const fn of listeners) fn();
@@ -302,9 +304,29 @@ export function pendingSyncCount() {
 }
 
 let syncing = false;
+let lastAutoSyncAt = 0;
+
+// How long to leave it between AUTOMATIC syncs that have nothing to send.
+// Opening the app used to fetch the whole document every time, which is real
+// mobile data spent to confirm nothing changed.
+const IDLE_SYNC_GAP_MS = 5 * 60 * 1000;
+
+// Reasons that must never be throttled. An edit has something to upload, a
+// reconnect may have a backlog, and the button is you asking directly.
+const ALWAYS_SYNC = new Set(['manual', 'edit', 'online']);
+
 export async function runSync(reason = 'manual') {
   if (!isConfigured() || state.readOnly) return { ok: false, reason: 'unconfigured' };
   if (syncing) return { ok: false, reason: 'busy' };
+
+  // Anything waiting to upload always goes, whatever the reason. Only an
+  // already-clean device is asked to wait — so a change you made can never sit
+  // unsent because of a timer.
+  if (!ALWAYS_SYNC.has(reason) && pendingSyncCount() === 0
+      && Date.now() - lastAutoSyncAt < IDLE_SYNC_GAP_MS) {
+    return { ok: true, skipped: 'recent' };
+  }
+  lastAutoSyncAt = Date.now();
   syncing = true;
   syncState.running = true;
   emit();

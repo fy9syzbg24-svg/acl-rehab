@@ -138,6 +138,22 @@ Settings → **Force update the app** is the manual escape hatch: it unregisters
 the worker, clears the caches and reloads with a cache-busting query, while
 deliberately leaving IndexedDB and localStorage alone.
 
+## Network frugality
+
+The app is used on mobile data, so redundant traffic is a bug:
+
+- **The shell cache is immutable within a deploy** (its name carries the commit
+  id), so cached assets are served with NO background refetch. An earlier
+  stale-while-revalidate re-downloaded all 32 modules on every launch just to
+  confirm nothing had changed. Updates arrive via the worker's version check.
+- **Idle syncs are throttled to one per 5 minutes**, but anything PENDING syncs
+  immediately whatever the reason — a change you made can never sit unsent
+  because of a timer. Manual, post-edit and reconnect syncs are never throttled.
+- **Update checks are at most half-hourly.**
+- **The countdown ticker runs only while the page is visible and only while
+  something is counting down**, at 60s, and stops itself when everything is
+  clear. It touches no network at all.
+
 ## Repairs must be expressed as mutations
 
 A migration that quietly edits the document leaves no tombstones, so the next

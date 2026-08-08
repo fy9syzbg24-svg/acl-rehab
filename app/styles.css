@@ -23,8 +23,13 @@
   --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
 }
 
+/* Dark palette, declared once and applied three ways:
+     - automatic: follows the device, unless you have chosen a theme
+     - forced dark: :root[data-theme="dark"]
+   The toggle in Settings writes data-theme; "Automatic" removes it. Keeping the
+   variables in a named block avoids the copy that would inevitably drift. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #0e1116;
     --panel: #171b21;
     --panel-2: #1c212a;
@@ -43,6 +48,25 @@
     --bad-soft: #2e1817;
     --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 4px 14px rgba(0, 0, 0, .25);
   }
+}
+:root[data-theme="dark"] {
+    --bg: #0e1116;
+    --panel: #171b21;
+    --panel-2: #1c212a;
+    --ink: #e8ebf0;
+    --ink-2: #a2abb8;
+    --ink-3: #737d8b;
+    --line: #262c35;
+    --line-2: #20252d;
+    --accent: #5c92ff;
+    --accent-soft: #1b2740;
+    --good: #3fbd85;
+    --good-soft: #14291f;
+    --warn: #e0a94a;
+    --warn-soft: #2d2413;
+    --bad: #f0736a;
+    --bad-soft: #2e1817;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 4px 14px rgba(0, 0, 0, .25);
 }
 
 * { box-sizing: border-box; }
@@ -1000,3 +1024,20 @@ ol.steps li { font-size: .82rem; margin: .18rem 0; }
   }
   .prnstatus { justify-self: start; }
 }
+
+/* theme picker */
+.themepick { display: flex; gap: .5rem; flex-wrap: wrap; }
+.themeopt {
+  flex: 1 1 130px; display: flex; flex-direction: column; align-items: flex-start; gap: .3rem;
+  border: 1px solid var(--line); border-radius: 12px; padding: .65rem .7rem;
+  background: var(--panel); font: inherit; cursor: pointer; text-align: left;
+}
+.themeopt:hover { border-color: var(--accent); }
+.themeopt.on { border-color: var(--accent); background: var(--accent-soft); }
+.themelabel { font-size: .88rem; font-weight: 600; }
+.themeswatch {
+  width: 100%; height: 26px; border-radius: 7px; border: 1px solid var(--line);
+}
+.themeswatch.light { background: linear-gradient(120deg, #ffffff 55%, #e8efff); }
+.themeswatch.dark { background: linear-gradient(120deg, #171b21 55%, #1b2740); }
+.themeswatch.auto { background: linear-gradient(120deg, #ffffff 48%, #171b21 52%); }

@@ -340,14 +340,29 @@ function bindDragReorder(root, rerender) {
 }
 
 let prnTimer = null;
+let prnVisHandler = null;
 
-/** Advance the countdowns in place. A full re-render every few seconds would
- *  fight anything you were typing, so this only touches the two elements. */
+/**
+ * Advance the countdowns in place.
+ *
+ * Deliberately frugal: it runs ONLY while the page is visible and only while
+ * something is actually counting down, and it stops itself once everything is
+ * clear. A timer ticking behind a closed Safari costs battery and buys nothing,
+ * and a full re-render every second would fight anything being typed. It also
+ * touches no network — every value here is computed from data already on the
+ * device.
+ */
 function startPrnTicker(root) {
-  clearInterval(prnTimer);
+  stopPrnTicker();
+
+  const waiting = () => (state.data.prnMeds || []).some((m) => {
+    const st = prnStatus(m);
+    return st.last && !st.clear;
+  });
+
   const tick = () => {
     const rows = root.querySelectorAll('[data-prn-row]');
-    if (!rows.length) return clearInterval(prnTimer);
+    if (!rows.length) return stopPrnTicker();
     rows.forEach((el) => {
       const med = (state.data.prnMeds || []).find((m) => m.id === el.dataset.prnRow);
       if (!med) return;
@@ -367,9 +382,31 @@ function startPrnTicker(root) {
                localIso(st.nextAt) !== localIso(st.lastAt) ? '+1' : ''}</span>`;
       }
     });
+    // Everything clear: nothing left to count, so stop until a dose is logged.
+    if (!waiting()) stopPrnTicker();
   };
-  prnTimer = setInterval(tick, 15000);
-  tick();
+
+  const resume = () => {
+    clearInterval(prnTimer);
+    prnTimer = null;
+    if (document.visibilityState !== 'visible' || !waiting()) return;
+    tick();
+    // A minute is plenty: the shortest thing shown is minutes remaining.
+    prnTimer = setInterval(tick, 60000);
+  };
+
+  prnVisHandler = resume;
+  document.addEventListener('visibilitychange', prnVisHandler);
+  resume();
+}
+
+function stopPrnTicker() {
+  clearInterval(prnTimer);
+  prnTimer = null;
+  if (prnVisHandler) {
+    document.removeEventListener('visibilitychange', prnVisHandler);
+    prnVisHandler = null;
+  }
 }
 
 export function bindSupplements(root, ctx, rerender) {

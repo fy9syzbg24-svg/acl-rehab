@@ -1,5 +1,5 @@
 import { load, state, subscribe } from './store.js';
-import { esc, todayIso, postOp, fmtDate } from './util.js';
+import { esc, todayIso, postOp, fmtDate, applyStoredTheme } from './util.js';
 import { renderToday, bindToday } from './views/today.js';
 import { renderProgram, bindProgram } from './views/program.js';
 import { renderPlan, bindPlan } from './views/planview.js';
@@ -7,6 +7,8 @@ import { renderSupplements, bindSupplements } from './views/supplements.js';
 import { renderProgress, bindProgress } from './views/progress.js';
 import { renderSettings, bindSettings } from './views/settings.js';
 import { toast } from './components.js';
+
+applyStoredTheme();   // before first paint, so there is no flash
 
 const VIEWS = {
   today: [renderToday, bindToday],

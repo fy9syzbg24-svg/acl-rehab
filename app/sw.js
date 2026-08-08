@@ -90,6 +90,10 @@ self.addEventListener('activate', (event) => {
   })());
 });
 
+// At most one shell re-check an hour, per worker lifetime.
+const SHELL_RECHECK_MS = 60 * 60 * 1000;
+let lastShellCheck = 0;
+
 const isMedia = (url) => /\/img\//.test(url.pathname) || /\.(png|jpe?g|webp|svg)$/i.test(url.pathname);
 
 self.addEventListener('fetch', (event) => {
@@ -112,15 +116,18 @@ self.addEventListener('fetch', (event) => {
       // page on this origin could never be reached.
       const exact = await cache.match(req, { ignoreSearch: true });
       if (exact) {
-        // Refresh the HTML in the background. Without this the shell — and so
-        // the tab bar — could only ever change when the cache generation
-        // rolled, which is why code updated but the menu did not.
-        event.waitUntil((async () => {
-          try {
-            const fresh = await fetch(new Request(req.url, { cache: 'reload' }));
-            if (fresh.ok) await cache.put(req, fresh);
-          } catch { /* offline: the cached shell is what makes launch work */ }
-        })());
+        // A safety net only, and at most hourly: the version check is what
+        // normally delivers updates, and refreshing the shell on every single
+        // navigation was needless traffic.
+        if (Date.now() - lastShellCheck > SHELL_RECHECK_MS) {
+          lastShellCheck = Date.now();
+          event.waitUntil((async () => {
+            try {
+              const fresh = await fetch(new Request(req.url, { cache: 'reload' }));
+              if (fresh.ok) await cache.put(req, fresh);
+            } catch { /* offline: the cached shell is what makes launch work */ }
+          })());
+        }
         return exact;
       }
       try {
@@ -150,20 +157,18 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Everything else (code, styles, data modules): cache-first — this is what
-  // guarantees a cold offline launch — with a background refresh when online.
+  // Everything else (code, styles, data modules): cache-first, and NO
+  // background refetch.
+  //
+  // The cache name carries the deploy id, so an entry inside a generation can
+  // never be stale — a new deploy builds a new cache from scratch. Revalidating
+  // each file anyway meant every launch quietly re-downloaded the entire app
+  // over mobile data to confirm nothing had changed. Updates arrive through the
+  // worker's own version check instead.
   event.respondWith((async () => {
     const cache = await caches.open(SHELL);
     const hit = await cache.match(req, { ignoreSearch: true });
-    if (hit) {
-      event.waitUntil((async () => {
-        try {
-          const fresh = await fetch(req);
-          if (fresh.ok) await cache.put(req, fresh);
-        } catch { /* offline: keep the cached copy */ }
-      })());
-      return hit;
-    }
+    if (hit) return hit;
     try {
       const res = await fetch(req);
       if (res.ok) cache.put(req, res.clone());
