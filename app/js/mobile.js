@@ -34,6 +34,14 @@ const VIEWS = {
   settings: [renderSettings, bindSettings],
 };
 
+// Only an installed app owns the space over the home indicator; in Safari the
+// browser's toolbar is already there. Getting this wrong leaves a dead strip
+// under the tab bar, so detect it both ways and let CSS key off the class.
+const STANDALONE = window.navigator.standalone === true
+  || window.matchMedia('(display-mode: standalone)').matches
+  || window.matchMedia('(display-mode: fullscreen)').matches;
+document.body.classList.toggle('standalone', STANDALONE);
+
 const viewEl = document.getElementById('view');
 
 const ctx = {

@@ -15,8 +15,24 @@
   --mtop-h: 54px;
   --mtab-h: 50px;
   --safe-t: env(safe-area-inset-top, 0px);
-  --safe-b: env(safe-area-inset-bottom, 0px);
+
+  /* The BOTTOM inset is only ours to reserve when the app owns the whole
+     screen. In Safari the browser's own toolbar already covers the home
+     indicator, so padding by the inset as well left a dead strip under the tab
+     bar — visible in portrait, and not in landscape where the inset is much
+     smaller. Hence: zero by default, the real inset only in standalone. */
+  --safe-b: 0px;
 }
+
+@media (display-mode: standalone) {
+  :root { --safe-b: env(safe-area-inset-bottom, 0px); }
+}
+@media (display-mode: fullscreen) {
+  :root { --safe-b: env(safe-area-inset-bottom, 0px); }
+}
+/* Belt and braces: mobile.js also sets this class from navigator.standalone,
+   which older iOS reports more reliably than the display-mode query. */
+body.mobile.standalone { --safe-b: env(safe-area-inset-bottom, 0px); }
 
 /* Pin to the real viewport rather than trusting a height unit.
    In an installed standalone PWA with a black-translucent status bar, iOS
