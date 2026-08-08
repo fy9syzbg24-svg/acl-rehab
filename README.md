@@ -62,7 +62,18 @@ interrupted sync safe to repeat.
 ## Mobile
 
 `app/m.html`, `mobile.css` and `js/mobile.js` are a purpose-built phone
-interface sharing all business logic with the desktop. `sw.js` precaches the
+interface sharing all business logic with the desktop.
+
+**The document scrolls — do not "fix" that.** An earlier version pinned the
+body and scrolled an inner container. It looked equivalent and was not: iOS
+only collapses Safari's toolbars when the document itself scrolls, and asking
+iOS to lay out a full-screen fixed box left a dead band at the bottom of the
+installed app that no amount of padding could reach. Sticky header, fixed tab
+bar, normal flow underneath.
+
+The deployed `index.html` is a COPY of `m.html`, not a redirect: iOS reads
+`apple-mobile-web-app-capable` and `-status-bar-style` from the exact page you
+Add to Home Screen, and a redirect stub carries neither. `sw.js` precaches the
 app shell so an installed PWA launches with no network; photos are cached
 lazily on first view rather than bloating the install.
 
