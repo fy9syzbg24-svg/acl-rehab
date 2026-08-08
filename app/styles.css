@@ -460,11 +460,21 @@ table.gridtbl th:first-child { text-align: left; }
   position: absolute; top: 50%; width: 9px; height: 9px; border-radius: 50%;
   transform: translate(-50%, -50%); background: var(--accent); pointer-events: none;
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+/* The pulse animates transform/opacity only — pure compositor work. Animating
+   box-shadow here made the page repaint at 60fps the whole time Today was on
+   screen, which on a phone is battery spent on a decoration. */
+.jyou::after {
+  content: ''; position: absolute; inset: -3px; border-radius: 50%;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 14%, transparent);
   animation: jpulse 2.2s ease-in-out infinite;
 }
 @keyframes jpulse {
-  0%, 100% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); }
-  50% { box-shadow: 0 0 0 7px color-mix(in srgb, var(--accent) 12%, transparent); }
+  0%, 100% { transform: scale(.8); opacity: 0; }
+  50% { transform: scale(1.15); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .jyou::after { animation: none; }
 }
 .jphases { position: relative; height: 14px; margin-top: 1.75rem; }
 .jphases span {

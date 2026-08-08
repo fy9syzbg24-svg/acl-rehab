@@ -1,6 +1,6 @@
 // Shared UI pieces: modal, exercise picker, measurement entry, charts.
 
-import { esc, el, round, fromIso, fmtDate, fmtDateNum, toIso, addDays, todayIso } from './util.js';
+import { esc, el, round, fromIso, fmtDate, fmtDateNum, addDays, todayIso } from './util.js';
 import { EXERCISES, EXERCISE_BY_ID } from '../data/exercises.js';
 import { CATEGORIES, MEASURES, MEASURE_BY_ID, UNIT_LABEL } from '../data/measurements.js';
 import { REHAB_PROGRAM, BAND_BY_ID } from '../data/program.js';

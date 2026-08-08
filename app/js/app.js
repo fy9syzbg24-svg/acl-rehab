@@ -1,5 +1,5 @@
 import { load, state, subscribe } from './store.js';
-import { esc, todayIso, postOp, fmtDate, applyStoredTheme } from './util.js';
+import { esc, todayIso, postOp, applyStoredTheme } from './util.js';
 import { renderToday, bindToday } from './views/today.js';
 import { renderProgram, bindProgram } from './views/program.js';
 import { renderPlan, bindPlan } from './views/planview.js';

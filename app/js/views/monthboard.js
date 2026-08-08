@@ -6,13 +6,11 @@
 //   What have I not touched this week?
 //   Is anything still outstanding from a month that has already ended?
 
-import { esc, todayIso, daysBetween, weekStart, weekDays, pct, round, fmtDate, uid } from '../util.js';
-import { state, update, getDay, hasCheckin, focusCoverage } from '../store.js';
+import { esc, todayIso, daysBetween, weekStart, pct, uid } from '../util.js';
+import { state, update, focusCoverage } from '../store.js';
 import { openMeasureEntry } from '../components.js';
 import { PLAN_MONTHS, monthForDate } from '../../data/plan.js';
-import { CATEGORIES } from '../../data/measurements.js';
 import { goalProgress } from './planview.js';
-import { dayCategories, dayTags } from './week.js';
 
 /** Fraction of the month gone, 0–1. */
 function monthElapsed(month, iso) {
@@ -57,7 +55,6 @@ export function renderMonthBoard(ctx) {
 
     ${boardClosed(ctx) ? '' : `<div class="card-body board-body">
       ${markerBlock(goals, el)}
-      ${weekBlock(month, iso)}
       ${focusBlock(month, iso)}
       ${carriedBlock(month)}
     </div>`}
@@ -117,13 +114,8 @@ function boardClosed(ctx) {
   return document.body.classList.contains('mobile');
 }
 
-// ------------------------------------------------------------- this week ---
-// The cadence bar moved to the top of Today (weekBar in today.js), where it is
-// seen before anything is logged and where each category can be tapped to log.
-// Rendering it here as well was just noise.
-function weekBlock() {
-  return '';
-}
+// The week cadence bar deliberately does NOT render here — it lives at the top
+// of Today (weekBar in today.js), where it is seen before anything is logged.
 
 // ------------------------------------------------------------ focus work ---
 function focusBlock(month, iso) {

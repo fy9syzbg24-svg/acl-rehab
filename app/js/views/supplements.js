@@ -19,13 +19,13 @@
 // kept all twenty. Anything seeded independently on multiple devices must
 // derive its id from its content so every device produces the same record.
 
-import { esc, todayIso, uid, addDays, fmtDate } from '../util.js';
+import { esc, todayIso, uid, fmtDate } from '../util.js';
 import { state, update, ensureDay, getDay } from '../store.js';
 import { renderDatePill, bindDatePill, openModal, closeModal, toast } from '../components.js';
 
 export const WHENS = [['morning', 'Morning'], ['anytime', 'Anytime'], ['evening', 'Evening']];
 
-// Reuben's own arrangement, read back out of the app (Aug 2026).
+// The owner's own arrangement, read back out of the app (Aug 2026).
 //
 // THE RULE: whatever he has arranged in the app IS the default. This list only
 // ever seeds a device that has never had one — `settings.suppsSeeded` means it

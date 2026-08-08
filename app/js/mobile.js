@@ -16,7 +16,7 @@
 import {
   state, subscribe, load, runSync, syncState, pendingSyncCount, onRemoteChange,
 } from './store.js';
-import { esc, todayIso, postOp, applyStoredTheme } from './util.js';
+import { todayIso, postOp, applyStoredTheme } from './util.js';
 import { renderToday, bindToday } from './views/today.js';
 import { renderProgram, bindProgram } from './views/program.js';
 import { renderPlan, bindPlan } from './views/planview.js';
@@ -80,6 +80,23 @@ function paint() {
   paintChrome();
 }
 
+// A sync with nothing to send can finish within a couple of frames, and a blue
+// dot shown that briefly reads as nothing having happened at all. Tapping the
+// button gets away with it because you are looking straight at it; a pull does
+// not, because your eye is on the content springing back. So the busy state is
+// held on screen for a beat regardless of how fast the sync actually was.
+const BUSY_MIN_MS = 750;
+let busyUntil = 0;
+let busyTimer = null;
+
+/** Show the chip as syncing now, and keep it that way long enough to be seen. */
+function holdBusy() {
+  busyUntil = Date.now() + BUSY_MIN_MS;
+  paintChrome();
+  clearTimeout(busyTimer);
+  busyTimer = setTimeout(() => { busyTimer = null; paintChrome(); }, BUSY_MIN_MS + 30);
+}
+
 function paintChrome() {
   const s = state.data.settings || {};
   const title = s.appTitle || 'Rehab';
@@ -102,7 +119,7 @@ function paintChrome() {
   dot.className = 'msync-dot';
   if (!isConfigured()) { label.textContent = 'Local'; return; }
   const pending = pendingSyncCount();
-  if (syncState.running) { dot.classList.add('busy'); label.textContent = 'Sync'; }
+  if (syncState.running || Date.now() < busyUntil) { dot.classList.add('busy'); label.textContent = 'Sync'; }
   else if (syncState.lastError) { dot.classList.add('err'); label.textContent = 'Retry'; }
   else if (pending) { dot.classList.add('pending'); label.textContent = String(pending); }
   else { dot.classList.add('ok'); label.textContent = 'Synced'; }
@@ -120,6 +137,106 @@ document.getElementById('sync-btn').addEventListener('click', async () => {
   await runSync('manual');
   paint();
 });
+
+// ----------------------------------------------------- pull down to sync ---
+// At the top of any page, pull down and let go: exactly what the sync button
+// does, without having to aim at it.
+//
+// Nothing new appears on screen. The header's sync chip already reports
+// running, pending and failed, so the gesture drives the control that is
+// already there rather than adding a second one beside it.
+//
+// The gesture is taken over outright rather than ridden on top of iOS's own.
+// An installed web app has its own pull-to-refresh and it RELOADS the page,
+// which would throw away the tab you were on and where you had scrolled to.
+// mobile.css contains the overscroll so iOS never acts on it, and the pull and
+// the spring back are drawn here instead.
+//
+// It costs nothing while you are not pulling. The non-passive touchmove
+// listener — the one that stops the browser scrolling on its fast path, and so
+// the one that would cost smoothness everywhere — is attached only for the
+// length of a touch that began at the very top, and only when sync is set up
+// at all.
+const PULL_TRIGGER = 72;    // finger travel that counts as "sync"
+const PULL_MAX = 110;       // furthest the content moves, however hard you pull
+
+let pullY0 = 0;
+let pullX0 = 0;
+let pullDy = 0;
+let pullWatching = false;   // the touchmove listener is attached
+let pulling = false;        // committed: this gesture is a pull, not a scroll
+
+const syncBtn = document.getElementById('sync-btn');
+
+const modalOpen = () => !!document.getElementById('modal-root')?.childElementCount;
+
+function pullTo(px) {
+  // Transform only: no layout and no repaint, so the pull is compositor work.
+  viewEl.style.transform = px > 0 ? `translate3d(0,${px.toFixed(1)}px,0)` : '';
+}
+
+function pullStop(fire) {
+  if (pullWatching) window.removeEventListener('touchmove', onPullMove);
+  pullWatching = false;
+  if (pulling) {
+    viewEl.classList.add('mspring');
+    pullTo(0);
+    viewEl.style.willChange = '';
+    setTimeout(() => viewEl.classList.remove('mspring'), 320);
+  }
+  pulling = false;
+  syncBtn.classList.remove('armed');
+  if (fire) {
+    holdBusy();                       // blue immediately, before the network answers
+    runSync('manual').then(() => paint());
+  }
+}
+
+function onPullMove(e) {
+  const t = e.touches[0];
+  if (!t) return;
+  pullDy = t.clientY - pullY0;
+  if (!pulling) {
+    // Decided once, early, and never revisited: a downward, mostly vertical
+    // move is a pull; anything else is an ordinary scroll and is handed back
+    // to the browser untouched.
+    if (pullDy < 0) { pullStop(false); return; }
+    if (pullDy < 4 || pullDy < Math.abs(t.clientX - pullX0)) return;
+    pulling = true;
+    viewEl.classList.remove('mspring');
+    viewEl.style.willChange = 'transform';
+  }
+  e.preventDefault();
+  // Damped: it gives less the further you pull, which is what makes it feel
+  // attached to your finger rather than sliding.
+  pullTo(PULL_MAX * (1 - Math.exp(-pullDy / (PULL_MAX * 1.1))));
+  // The chip lights up while your finger is still down, the moment you have
+  // pulled far enough — so you know letting go will sync BEFORE you commit,
+  // rather than having to catch a flash afterwards. Pull back up and it goes out.
+  syncBtn.classList.toggle('armed', pullDy >= PULL_TRIGGER);
+}
+
+window.addEventListener('touchstart', (e) => {
+  if (pullWatching || e.touches.length !== 1) return;
+  if (window.scrollY > 0 || !isConfigured() || modalOpen()) return;
+  // Gestures that belong to something else stay theirs: reordering a
+  // supplement, dragging a pain slider, swiping a wide table sideways.
+  if (e.target.closest?.('[data-drag], input[type=range], .scroll-x, table')) return;
+  pullY0 = e.touches[0].clientY;
+  pullX0 = e.touches[0].clientX;
+  pullDy = 0;
+  pullWatching = true;
+  window.addEventListener('touchmove', onPullMove, { passive: false });
+}, { passive: true });
+
+const pullRelease = () => { if (pullWatching) pullStop(pulling && pullDy >= PULL_TRIGGER); };
+window.addEventListener('touchend', pullRelease, { passive: true });
+// touchcancel honours the pull exactly as touchend does. iOS cancels a touch
+// when the system takes it over — a notification arriving, an edge gesture —
+// and treating that as "never happened" meant a pull you had completed could
+// silently do nothing. Syncing is idempotent, so acting on a committed pull is
+// always the safer of the two.
+window.addEventListener('touchcancel', pullRelease, { passive: true });
 
 window.addEventListener('hashchange', () => {
   const v = location.hash.slice(1);

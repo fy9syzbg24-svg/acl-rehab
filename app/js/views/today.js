@@ -1,8 +1,8 @@
 // The one place data goes in. Everything else in the app reads from here.
 
-import { esc, todayIso, addDays, fmtDate, fmtDateNum, uid, num, round, weekStart, weekDays } from '../util.js';
+import { esc, todayIso, addDays, fmtDateNum, uid, num, round, weekStart, weekDays } from '../util.js';
 import { state, update, ensureDay, getDay, lastEntry, maxLoad, loadSeries,
-         weekDots, weekCount, weeklyTargetInfo } from '../store.js';
+         weekDots, weeklyTargetInfo } from '../store.js';
 import { monthForDate } from '../../data/plan.js';
 import { CATEGORIES, MEASURE_BY_ID, UNIT_LABEL } from '../../data/measurements.js';
 import { REHAB_PROGRAM, GYM_PROGRAM, PROGRAM_SOURCE, BAND_BY_ID, THERABAND } from '../../data/program.js';
@@ -53,7 +53,7 @@ export function renderToday(ctx) {
 
   return `
   <div class="stack">
-    ${renderDatePill(iso, { done: completedList(entries).length })}
+    ${renderDatePill(iso, { done: nDone })}
 
     ${renderJourney(ctx)}
 

@@ -1,4 +1,4 @@
-import { esc, todayIso, uid, num } from '../util.js';
+import { esc, todayIso, num } from '../util.js';
 import { state, update, load } from '../store.js';
 import { CASE } from '../../data/history.js';
 import { toast } from '../components.js';
@@ -133,7 +133,8 @@ export function renderSettings() {
           <label class="btn" style="cursor:pointer">Import a backup<input type="file" accept="application/json" data-import hidden></label>
         </div>
         <div class="tiny muted" style="margin-top:.5rem">
-          The server also keeps the last 40 auto-backups in <span class="mono">data/backups/</span> — one per save.
+          The server also keeps rolling auto-backups in <span class="mono">data/backups/</span> —
+          one per save: the newest 300, plus everything from the last 7 days.
         </div>
         <div class="row" style="margin-top:.9rem">
           <button class="btn danger" data-reseed>Re-add the seeded clinic sessions</button>

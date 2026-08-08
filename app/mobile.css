@@ -297,3 +297,30 @@ body.mobile .weekcats.centred:has(> :nth-child(4)) { grid-template-columns: repe
 body.mobile .weekcats.centred:has(> :nth-child(7)) { grid-template-columns: repeat(4, 1fr); }
 
 /* date centring now lives in styles.css so it applies at every width */
+
+/* ------------------------------------------------- pull down to sync ----- */
+/* An installed iOS web app has its OWN pull-to-refresh, and it RELOADS — which
+   would throw away the tab you were on and where you had scrolled to. `contain`
+   stops iOS acting on the overscroll, so the gesture is ours to use (mobile.js).
+   The document still scrolls exactly as before, so Safari still collapses its
+   toolbars — the thing the shell is shaped around. */
+html, body.mobile { overscroll-behavior-y: contain; }
+
+/* Only the CONTENT moves. The header is sticky and the tab bar fixed, and both
+   sit outside #view, so neither follows the pull. The spring back is a
+   transform transition — compositor work, no repaint. */
+.mview.mspring { transition: transform .3s cubic-bezier(.22, 1, .36, 1); }
+@media (prefers-reduced-motion: reduce) {
+  .mview.mspring { transition: none; }
+}
+
+/* Pulled far enough to count: the sync chip lights up while your finger is
+   still down, so you know letting go will sync before you commit to it. It is
+   the same blue the chip already uses while syncing, so the armed state reads
+   as the start of that action rather than as a new colour to learn. */
+.msync.armed {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.msync.armed .msync-dot { background: var(--accent); }

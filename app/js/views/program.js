@@ -14,7 +14,7 @@ export function renderProgram(ctx) {
       <header>
         <div>
           <h2>${esc(PROGRAM_SOURCE.title)}</h2>
-          <div class="sub">${esc(PROGRAM_SOURCE.clinician)} · updated ${esc(fmtDate(PROGRAM_SOURCE.updated))}</div>
+          <div class="sub">${esc(PROGRAM_SOURCE.clinician)}${PROGRAM_SOURCE.updated ? ` · updated ${esc(fmtDate(PROGRAM_SOURCE.updated))}` : ''}</div>
         </div>
         <div class="row" style="gap:.25rem">
           <button class="btn sm ${tab === 'rehab' ? 'primary' : ''}" data-ptab="rehab">Rehab program</button>
@@ -23,9 +23,8 @@ export function renderProgram(ctx) {
       </header>
       <div class="card-body">
         <div class="callout small">
-          Videos of every exercise are at <strong>${esc(PROGRAM_SOURCE.videos)}</strong>,
-          code <strong class="mono">${esc(PROGRAM_SOURCE.code)}</strong>.
-          Tap any picture here to see it big with the full instructions.
+          ${PROGRAM_SOURCE.videos ? `Videos of every exercise are at <strong>${esc(PROGRAM_SOURCE.videos)}</strong>${PROGRAM_SOURCE.code ? `, code <strong class="mono">${esc(PROGRAM_SOURCE.code)}</strong>` : ''}.
+          ` : ''}Tap any picture here to see it big with the full instructions.
         </div>
       </div>
     </section>

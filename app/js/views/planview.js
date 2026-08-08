@@ -1,8 +1,8 @@
 import { esc, todayIso, pct, round, fmtDateNum, uid } from '../util.js';
-import { state, update, best, latest, measurementsFor, focusCoverage } from '../store.js';
+import { state, update, best, latest, focusCoverage } from '../store.js';
 import { PLAN_MONTHS, monthForDate } from '../../data/plan.js';
 import { MEASURE_BY_ID, UNIT_LABEL } from '../../data/measurements.js';
-import { openMeasureEntry, lineChart, unitFor } from '../components.js';
+import { openMeasureEntry } from '../components.js';
 import { toKg } from '../util.js';
 
 /** Progress on one month goal, as {p, detail, done}. */

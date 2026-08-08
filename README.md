@@ -77,6 +77,43 @@ Add to Home Screen, and a redirect stub carries neither. `sw.js` precaches the
 app shell so an installed PWA launches with no network; photos are cached
 lazily on first view rather than bloating the install.
 
+**Pull down at the top to sync.** The same action as the header's sync button,
+without aiming at it. No new indicator is drawn: the gesture drives the sync
+chip that is already there.
+
+Feedback comes in two stages, because one flash was not enough to read. The
+chip lights up **while your finger is still down**, the moment you have pulled
+far enough, so you know letting go will sync before you commit — pull back up
+and it goes out again. On release it shows the normal syncing state, held for a
+minimum of 750ms: a sync with nothing to send finishes within a couple of
+frames, and a blue dot shown that briefly reads as nothing having happened.
+Tapping the button gets away with it because you are looking straight at it; a
+pull does not, because your eye is on the content springing back.
+
+The gesture is taken over outright rather than ridden on top of iOS's, because
+an installed web app has its OWN pull-to-refresh and it RELOADS — which would
+throw away the tab you were on and where you had scrolled to.
+`overscroll-behavior-y: contain` stops iOS acting on the overscroll; the pull
+and the spring back are drawn in `mobile.js`. The document still scrolls
+normally, so Safari still collapses its toolbars.
+
+Only `#view` is transformed, never `body`: a transform on an ancestor makes
+`position: fixed` descendants position against it, which would break the fixed
+tab bar. The header and tab bar sit outside `#view`, so neither follows.
+
+The non-passive `touchmove` listener — the one that stops the browser scrolling
+on its fast path — is attached only for the length of a touch that began at the
+very top, and only when sync is configured, so ordinary scrolling never pays
+for it. The pull disarms on a first move that is upward or sideways, and stays
+out of gestures that belong to something else (`[data-drag]` reordering, range
+sliders, sideways-scrolling tables, and any open modal).
+
+`touchcancel` honours a completed pull exactly as `touchend` does. iOS cancels
+a touch when the system takes it over — a notification arriving, an edge
+gesture — and treating that as "never happened" meant a pull you had finished
+could silently do nothing. Syncing is idempotent, so acting on a committed pull
+is the safer of the two.
+
 Deploy with `tools/deploy.sh`, which stamps the service worker with the commit
 sha and pushes `app/` to the `gh-pages` branch.
 
@@ -100,6 +137,9 @@ shaped the way it is — changing any of them back reintroduces a real bug.
 - **The worker reloads once on `controllerchange`**, or a deploy would sit unused
   until the second launch.
 - **iOS caches Home Screen icon artwork.** Changing the icon needs remove + re-add.
+- **An installed web app has its own pull-to-refresh, and it RELOADS.** Left alone it
+  would discard the open tab and scroll position. `overscroll-behavior-y: contain`
+  disables it so the pull-to-sync gesture can own that overscroll.
 
 ## Supplements and as-needed medication
 
@@ -196,7 +236,7 @@ is a test asserting no unregistered top-level keys — keep it passing.
 
 ## Tests
 
-Open `/dev-tests.html` against a running server. 62 assertions across the merge
+Open `/dev-tests.html` against a running server. 71 assertions across the merge
 rules and the sync engine, including both devices editing offline, same-record
 conflicts, deletions propagating, stale devices failing to resurrect deleted
 records, backend outages and interrupted writes.

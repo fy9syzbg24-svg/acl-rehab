@@ -1,4 +1,4 @@
-import { esc, todayIso, addDays, fmtDate, fmtDateNum, postOp, daysBetween, num, round, pct } from '../util.js';
+import { esc, todayIso, addDays, fmtDate, fmtDateNum, daysBetween, num } from '../util.js';
 import { state, getDay, loggedDates, hasCheckin } from '../store.js';
 import { PLAN_MONTHS, monthForDate } from '../../data/plan.js';
 import { CASE, CLINIC_TIMELINE } from '../../data/history.js';
