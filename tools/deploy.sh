@@ -19,14 +19,16 @@ cp -R app/. "$STAGE/"
 sed -i '' "s/const SHELL_VERSION = '[^']*';/const SHELL_VERSION = '$SHA';/" "$STAGE/sw.js"
 
 # 2. index.html is the DESKTOP app. On Pages the phone should land on mobile,
-#    so keep the desktop one under its own name and redirect the root.
+#    so keep the desktop one under its own name and make the ROOT the mobile
+#    app itself.
+#
+#    It must be a COPY, not a redirect. iOS reads apple-mobile-web-app-capable
+#    and apple-mobile-web-app-status-bar-style from the exact page you Add to
+#    Home Screen. A redirect stub carries none of them, so iOS refused to
+#    extend the web view into the safe areas and letterboxed the app with black
+#    system bands top and bottom — which no CSS can fill.
 mv "$STAGE/index.html" "$STAGE/desktop.html"
-cat > "$STAGE/index.html" <<'HTML'
-<!doctype html><html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta http-equiv="refresh" content="0; url=./m.html"><title>Rehab tracker</title>
-</head><body><a href="./m.html">Open the app</a></body></html>
-HTML
+cp "$STAGE/m.html" "$STAGE/index.html"
 
 # 3. Stop Pages running the content through Jekyll (which drops _-prefixed files).
 touch "$STAGE/.nojekyll"

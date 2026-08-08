@@ -26,6 +26,7 @@ const MEDIA = 'media-v1';
 const SHELL_ASSETS = [
   './',
   './m.html',
+  './index.html',
   './manifest.webmanifest',
   './styles.css',
   './mobile.css',
