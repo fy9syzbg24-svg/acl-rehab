@@ -8,6 +8,10 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# The precache list is generated, never hand-edited: a view added and not
+# listed is missing offline and updates on its own schedule.
+python3 "$(dirname "$0")/gen_shell.py"
+
 SHA=$(git rev-parse --short HEAD)
 STAGE=$(mktemp -d)
 trap 'rm -rf "$STAGE"' EXIT

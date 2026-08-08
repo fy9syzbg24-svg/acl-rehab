@@ -130,6 +130,15 @@ export function renderSettings() {
       <header><h2>Device sync</h2><span class="sub">share this log with your iPhone</span></header>
       <div class="card-body">
         ${syncCard()}
+        <div class="row" style="margin-top:.9rem;gap:.5rem;flex-wrap:wrap;border-top:1px solid var(--line-2);padding-top:.8rem">
+          <button class="btn" data-app-refresh>Force update the app</button>
+          <span class="tiny muted" data-refresh-status></span>
+        </div>
+        <div class="tiny muted" style="margin-top:.35rem">
+          Re-downloads the app's files and reloads. <strong>Your data is not touched</strong> —
+          it lives in a separate store, and on the server. Use this if a change you expected
+          has not appeared; you never need to re-add the Home Screen icon.
+        </div>
       </div>
     </section>
 
@@ -236,6 +245,35 @@ export function bindSettings(root, ctx, rerender) {
   // iOS, innerHeight will be visibly SHORTER than screen.height and the insets
   // will read 0 — which is the difference between "my CSS is wrong" and "iOS
   // never gave us the space".
+  root.querySelector('[data-app-refresh]')?.addEventListener('click', async (ev) => {
+    const btn = ev.currentTarget;
+    const status = root.querySelector('[data-refresh-status]');
+    btn.disabled = true;
+    if (status) status.textContent = 'clearing…';
+    try {
+      // Deliberately NOT touching IndexedDB or localStorage: the first holds
+      // your log, the second your sync credentials. Only the cached copies of
+      // the app's own files go, which is what forces a clean re-download.
+      if ('serviceWorker' in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map((r) => r.unregister()));
+      }
+      if (window.caches) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map((k) => caches.delete(k)));
+      }
+      if (status) status.textContent = 'reloading…';
+      // Bust the HTTP cache too, or iOS can hand back the same HTML.
+      const u = new URL(location.href);
+      u.searchParams.set('u', Date.now().toString(36));
+      location.replace(u.toString());
+    } catch (err) {
+      btn.disabled = false;
+      if (status) status.textContent = '';
+      toast(`⚠️ <b>Could not clear the cache</b><br><span>${esc(String(err.message || err))}</span>`, 'warn');
+    }
+  });
+
   const geo = root.querySelector('#geo-report');
   if (geo) {
     const probe = document.createElement('div');

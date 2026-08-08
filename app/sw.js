@@ -33,39 +33,38 @@ const SHELL_ASSETS = [
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/apple-touch-icon.png',
-
-  './js/mobile.js',
+  './data/exercises.js',
+  './data/history.js',
+  './data/icons.js',
+  './data/measurements.js',
+  './data/melbourne.js',
+  './data/plan.js',
+  './data/program.js',
+  './data/questionnaires.js',
   './js/app.js',
-  './js/store.js',
-  './js/util.js',
   './js/components.js',
   './js/insights.js',
-  './js/views/today.js',
-  './js/views/program.js',
-  './js/views/planview.js',
-  './js/views/melbourneview.js',
-  './js/views/progress.js',
-  './js/views/settings.js',
-  './js/views/measures.js',
-  './js/views/week.js',
-  './js/views/monthboard.js',
-  './js/views/journey.js',
-  './js/sync/records.js',
-  './js/sync/merge.js',
+  './js/mobile.js',
+  './js/store.js',
   './js/sync/config.js',
+  './js/sync/engine.js',
+  './js/sync/github.js',
   './js/sync/idb.js',
   './js/sync/local-store.js',
-  './js/sync/github.js',
-  './js/sync/engine.js',
-
-  './data/history.js',
-  './data/plan.js',
-  './data/exercises.js',
-  './data/measurements.js',
-  './data/program.js',
-  './data/melbourne.js',
-  './data/questionnaires.js',
-  './data/icons.js',
+  './js/sync/merge.js',
+  './js/sync/records.js',
+  './js/util.js',
+  './js/views/journey.js',
+  './js/views/measures.js',
+  './js/views/melbourneview.js',
+  './js/views/monthboard.js',
+  './js/views/planview.js',
+  './js/views/program.js',
+  './js/views/progress.js',
+  './js/views/settings.js',
+  './js/views/supplements.js',
+  './js/views/today.js',
+  './js/views/week.js',
 ];
 
 self.addEventListener('install', (event) => {
@@ -112,7 +111,18 @@ self.addEventListener('fetch', (event) => {
       // shell. Answering every navigation with m.html would mean any other
       // page on this origin could never be reached.
       const exact = await cache.match(req, { ignoreSearch: true });
-      if (exact) return exact;
+      if (exact) {
+        // Refresh the HTML in the background. Without this the shell — and so
+        // the tab bar — could only ever change when the cache generation
+        // rolled, which is why code updated but the menu did not.
+        event.waitUntil((async () => {
+          try {
+            const fresh = await fetch(new Request(req.url, { cache: 'reload' }));
+            if (fresh.ok) await cache.put(req, fresh);
+          } catch { /* offline: the cached shell is what makes launch work */ }
+        })());
+        return exact;
+      }
       try {
         return await fetch(req);
       } catch {
