@@ -8,7 +8,7 @@ import { CATEGORIES, MEASURE_BY_ID, UNIT_LABEL } from '../../data/measurements.j
 import { REHAB_PROGRAM, GYM_PROGRAM, PROGRAM_SOURCE, BAND_BY_ID, THERABAND } from '../../data/program.js';
 import { CLINIC_HEP } from '../../data/history.js';
 import { dayCategories, dayTags } from './week.js';
-import { openExercisePicker, allExercises, exerciseById, openMeasureEntry, loadBars, thumb, iconTile, openPicture, openModal, closeModal } from '../components.js';
+import { openExercisePicker, allExercises, exerciseById, openMeasureEntry, loadBars, thumb, iconTile, openPicture } from '../components.js';
 import { renderMonthBoard, bindMonthBoard, shortCat } from './monthboard.js';
 import { renderJourney, bindJourney } from './journey.js';
 import { computeInsights } from '../insights.js';
@@ -36,73 +36,6 @@ function goalGroups(iso) {
                colour: CATEGORIES[t.cats[0]]?.color || 'var(--accent)' };
     })
     .sort((a, b) => (a.met - b.met) || (b.left - a.left));
-}
-
-/**
- * Tap a weekly category (Aerobic, Balance, Strength…) and get the exercises that
- * count towards it, ready to tick.
- *
- * The point is to remove the digging: the bar already says you are light on
- * aerobic, so the same bar should be what lets you fix it. Everything shown here
- * genuinely counts towards that target — the list comes from the same category
- * match the weekly tally uses, so ticking one always moves the pips.
- */
-export function openCategorySheet(target, iso, after) {
-  const cats = target.t.cats;
-  const month = monthForDate(iso);
-  const day = getDay(iso);
-
-  const pool = allExercises()
-    .filter((x) => cats.includes(x.cat))
-    // Keep it to what this month actually asks for, or the list becomes a catalogue.
-    .filter((x) => !month || !x.months || x.months.includes(month.n))
-    .map((x) => {
-      const mine = (day?.entries || []).filter((e) => e.ex === x.id);
-      return { x, mine, done: mine.length > 0 && mine.every((e) => e.logged) };
-    })
-    .sort((a, b) => (a.done - b.done) || a.x.name.localeCompare(b.x.name));
-
-  const body = `
-    <div class="callout small" style="margin-bottom:.7rem">
-      <strong>${target.hit} of ${target.goal}</strong> days this week.
-      ${target.met
-        ? 'Target met — anything more is a bonus.'
-        : `${target.left} more day${target.left === 1 ? '' : 's'} to hit it. Ticking any of these counts today.`}
-    </div>
-    ${pool.length ? `<div class="catlist">${pool.map((r) => `
-      <button class="catrow ${r.done ? 'done' : ''}" data-cat-ex="${esc(r.x.id)}">
-        <i class="catrow-tick">${r.done ? '✓' : ''}</i>
-        <span class="catrow-main">
-          <span class="catrow-name">${esc(r.x.name)}</span>
-          ${r.mine.length ? `<span class="catrow-sub">${esc(entryChips(r.mine).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim())}</span>` : ''}
-        </span>
-      </button>`).join('')}</div>`
-      : '<div class="tiny muted">Nothing in this month\u2019s plan matches. Use “Anything else” on Today.</div>'}`;
-
-  openModal({
-    title: target.t.label,
-    body,
-    onMount(root) {
-      root.querySelectorAll('[data-cat-ex]').forEach((btn) => {
-        btn.addEventListener('click', () => {
-          const exId = btn.dataset.catEx;
-          const ex = exerciseById(exId);
-          update(() => {
-            const d = ensureDay(iso);
-            const mine = d.entries.filter((e) => e.ex === exId && !e.pid);
-            if (!mine.length) d.entries.push(...newEntriesFor({ ex: exId, sides: ex?.perLeg ? 'each' : 'both' }, ex, true));
-            else {
-              const allDone = mine.every((e) => e.logged);
-              for (const e of mine) e.logged = !allDone;   // tap again to untick
-            }
-          });
-          closeModal();
-          toast(`\u2705 <b>${esc(ex?.name || exId)}</b><br><span>counts towards ${esc(target.label.toLowerCase())}</span>`);
-          after?.();
-        });
-      });
-    },
-  });
 }
 
 export function renderToday(ctx) {
@@ -174,7 +107,7 @@ export function renderToday(ctx) {
       </section>
     </div>
 
-    <section class="card">
+    <section class="card" id="session-card">
       <header>
         <h2>Today's session</h2>
         <div class="row" style="gap:.25rem">
@@ -255,13 +188,35 @@ function countDone(list, loggedIds) {
   return `${n}/${list.length}`;
 }
 
+/**
+ * Scroll the window, smoothly, without relying on `behavior: 'smooth'` —
+ * which is silently a no-op in some engines, so a jump that should be gentle
+ * simply does not happen at all.
+ */
+function scrollWindowTo(top, ms = 320) {
+  const start = window.scrollY;
+  const dist = Math.max(0, top) - start;
+  if (Math.abs(dist) < 2) return;
+  // rAF does not fire while the page is hidden, so an animation would simply
+  // never arrive. Jump instead of not moving at all.
+  if (document.visibilityState !== 'visible') { window.scrollTo(0, Math.max(0, top)); return; }
+  const t0 = performance.now();
+  const step = (now) => {
+    const k = Math.min(1, (now - t0) / ms);
+    const eased = k < 0.5 ? 2 * k * k : 1 - ((-2 * k + 2) ** 2) / 2;   // easeInOutQuad
+    window.scrollTo(0, start + dist * eased);
+    if (k < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
 // --------------------------------------------------------- week cadence ---
 /**
  * The week's cadence, at the top where it is seen before anything is logged.
  *
  * It used to sit far down inside the month board, which meant the one thing
  * that answers "what should I do today?" was the thing you had to dig for.
- * Each category is a button — see openCategorySheet.
+ * Each category is a button that jumps to the By goal tab below.
  */
 function weekBar(iso) {
   const groups = goalGroups(iso);
@@ -270,13 +225,13 @@ function weekBar(iso) {
   return `
   <div class="card weekbar-card">
     <div class="card-body" style="padding:.6rem .8rem">
-      <div class="section-title" style="margin:0 0 .5rem">This week
+      <div class="section-title centred" style="margin:0 0 .5rem">This week
         ${worst && worst.hit / worst.goal < 0.5
           ? `<span class="tiny" style="text-transform:none;letter-spacing:0;font-weight:450;color:var(--warn)">
               · light on ${esc(worst.label.toLowerCase())}</span>` : ''}
         <span class="tiny muted" style="text-transform:none;letter-spacing:0;font-weight:450"> · tap to log</span>
       </div>
-      <div class="weekcats">
+      <div class="weekcats centred">
         ${groups.map((g, i) => `
           <button class="weekcat tappable ${g.met ? 'met' : ''}" data-catgoal="${i}"
                   style="--c:${g.colour}" title="${esc(g.t.label)} — tap to log">
@@ -297,7 +252,7 @@ function dateNav(iso, month, n) {
   // picker — which read as clutter and cost a whole row of height on the phone.
   // The date IS the picker now: the input sits invisibly on top of the label.
   return `<div class="card"><div class="card-body" style="padding:.4rem .6rem">
-    <div class="datebar">
+    <div class="datebar centred">
       <button class="icon-btn" data-nav="-1" aria-label="Previous day">‹</button>
       <span class="datepick">
         <span class="d">${esc(fmtDate(iso))}</span>
@@ -1153,9 +1108,24 @@ export function bindToday(root, ctx, rerender) {
     rerender();
   }));
 
+  // Tapping a weekly category is a SHORTCUT, not a second place to log: it
+  // opens the By goal tab in Today's session with that category expanded, and
+  // scrolls you there. One logging surface, reached faster.
   root.querySelectorAll('[data-catgoal]').forEach((b) => b.addEventListener('click', () => {
     const g = goalGroups(iso)[Number(b.dataset.catgoal)];
-    if (g) openCategorySheet(g, iso, rerender);
+    if (!g) return;
+    ctx.seg = 'goals';
+    ctx.openGoal = g.t.id;
+    rerender();   // synchronous, so the card exists immediately below
+    // Computed offset rather than scrollIntoView: the sticky header would
+    // otherwise cover the card's own heading, and smooth scrollIntoView is a
+    // no-op in some engines.
+    const card = document.getElementById('session-card');
+    if (card) {
+      const header = document.querySelector('.mtop') || document.querySelector('.topbar');
+      const clear = (header ? header.getBoundingClientRect().height : 0) + 8;
+      scrollWindowTo(card.getBoundingClientRect().top + window.scrollY - clear);
+    }
   }));
 
   root.querySelectorAll('[data-astest]').forEach((b) => b.addEventListener('click', (ev) => {

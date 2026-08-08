@@ -828,3 +828,15 @@ ol.steps li { font-size: .82rem; margin: .18rem 0; }
 .catrow-name { font-size: .88rem; font-weight: 560; line-height: 1.3; }
 .catrow.done .catrow-name { color: color-mix(in srgb, var(--good) 72%, var(--ink)); }
 .catrow-sub { font-size: .72rem; color: var(--ink-3); margin-top: .1rem; }
+
+/* The date and the week cadence read better centred — they are summary rows,
+   not controls competing for the left edge. */
+.datebar.centred { justify-content: center; }
+.datebar.centred .spacer { flex: 0 0 auto; width: .5rem; }
+.section-title.centred { text-align: center; }
+.section-title.centred::before { display: none; }
+.weekcats.centred { justify-content: center; }
+@media (min-width: 620px) {
+  .weekcats.centred { display: flex; flex-wrap: wrap; gap: .5rem; }
+  .weekcats.centred .weekcat { flex: 0 1 210px; }
+}
