@@ -311,7 +311,7 @@ function legBlock(side, label, c) {
       <strong class="mono" style="font-size:.8rem">${painVal === '' ? '—' : painVal + '/10'}</strong>
       <span class="spacer"></span>
       <label class="tiny muted" style="display:flex;gap:.3rem;align-items:center">swelling
-        <select data-ck="${effKey}" style="width:auto;padding:.15rem .3rem;font-size:.75rem">
+        <select data-ck="${effKey}" class="sel-sm">
           ${EFFUSION.map((o) => `<option value="${o}" ${(c[effKey] || '') === o ? 'selected' : ''}>${o || '—'}</option>`).join('')}
         </select>
       </label>

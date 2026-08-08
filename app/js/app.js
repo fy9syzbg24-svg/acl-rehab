@@ -1,5 +1,6 @@
-import { load, state, subscribe } from './store.js';
+import { load, state, subscribe, runSync, syncState, pendingSyncCount, onRemoteChange } from './store.js';
 import { esc, todayIso, postOp, applyStoredTheme } from './util.js';
+import { isConfigured } from './sync/config.js';
 import { renderToday, bindToday } from './views/today.js';
 import { renderProgram, bindProgram } from './views/program.js';
 import { renderPlan, bindPlan } from './views/planview.js';
@@ -41,6 +42,18 @@ function paint() {
   lastView = ctx.view;
 }
 
+// A sync with nothing to send finishes within a couple of frames; hold the
+// busy state on screen long enough to be seen. Same treatment as the phone.
+const BUSY_MIN_MS = 750;
+let busyUntil = 0;
+let busyTimer = null;
+function holdBusy() {
+  busyUntil = Date.now() + BUSY_MIN_MS;
+  paintChrome();
+  clearTimeout(busyTimer);
+  busyTimer = setTimeout(() => { busyTimer = null; paintChrome(); }, BUSY_MIN_MS + 30);
+}
+
 function paintChrome() {
   const s = state.data.settings;
   // The app's name is yours, so it travels in your synced settings rather than
@@ -63,7 +76,27 @@ function paintChrome() {
   else if (state.saving) { el.textContent = 'saving…'; el.className = 'save-state'; }
   else if (state.lastSaved) { el.textContent = 'saved'; el.className = 'save-state'; }
   else { el.textContent = ''; el.className = 'save-state'; }
+
+  // The same sync chip the phone shows. save-state is the LOCAL save (the
+  // JSON file on this Mac); the chip is the cloud relay — different facts.
+  const dot = document.getElementById('sync-dot');
+  const label = document.getElementById('sync-label');
+  if (!dot || !label) return;
+  dot.className = 'msync-dot';
+  if (!isConfigured()) { label.textContent = 'Local'; return; }
+  const pending = pendingSyncCount();
+  if (syncState.running || Date.now() < busyUntil) { dot.classList.add('busy'); label.textContent = 'Sync'; }
+  else if (syncState.lastError) { dot.classList.add('err'); label.textContent = 'Retry'; }
+  else if (pending) { dot.classList.add('pending'); label.textContent = String(pending); }
+  else { dot.classList.add('ok'); label.textContent = 'Synced'; }
 }
+
+document.getElementById('sync-btn').addEventListener('click', async () => {
+  if (!isConfigured()) return ctx.go('settings');
+  holdBusy();
+  await runSync('manual');
+  paint();
+});
 
 document.getElementById('tabs').addEventListener('click', (e) => {
   const b = e.target.closest('button[data-view]');
@@ -76,6 +109,9 @@ window.addEventListener('hashchange', () => {
 });
 
 subscribe(paintChrome);
+// A pull that changed the document must repaint the visible view — the phone
+// has always done this; the Mac was quietly showing stale data until a click.
+onRemoteChange(() => paint());
 
 // Opening the app pulls anything new from PhysiApp. Silent unless it actually
 // finds something — the server skips the call outright when the credentials

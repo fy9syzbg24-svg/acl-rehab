@@ -142,8 +142,32 @@ a { color: var(--accent); }
 .icon-btn {
   border: 1px solid var(--line); background: var(--panel); color: var(--ink-2);
   width: 32px; height: 32px; border-radius: 8px; cursor: pointer; font-size: .95rem;
+  display: inline-grid; place-items: center;
 }
 .icon-btn:hover { background: var(--panel-2); color: var(--ink); }
+.icon-btn svg {
+  width: 18px; height: 18px; fill: none;
+  stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+}
+
+/* The sync chip — one control, both shells. The dot is the status: grey until
+   connected, green in sync, amber with a count pending, red on a failure,
+   pulsing blue while a sync runs. */
+.msync {
+  flex: none; display: inline-flex; align-items: center; gap: .3rem;
+  min-height: 30px; padding: 0 .6rem;
+  border: 1px solid var(--line); border-radius: 100px;
+  background: var(--panel); color: var(--ink-2); cursor: pointer;
+  font: inherit; font-size: .72rem; font-weight: 600;
+}
+.msync:hover { background: var(--panel-2); color: var(--ink); }
+.msync:active { background: var(--line-2); }
+.msync-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-3); flex: none; }
+.msync-dot.ok { background: var(--good); }
+.msync-dot.pending { background: var(--warn); }
+.msync-dot.err { background: var(--bad); }
+.msync-dot.busy { background: var(--accent); animation: mpulse 1s ease-in-out infinite; }
+@keyframes mpulse { 50% { opacity: .25; } }
 
 .tabs {
   display: flex; gap: .15rem; max-width: 1080px; margin: 0 auto;
@@ -1035,12 +1059,54 @@ ol.steps li { font-size: .82rem; margin: .18rem 0; }
   .prnstatus { justify-self: start; }
 }
 
-/* theme picker */
-.themepick { display: flex; gap: .5rem; flex-wrap: wrap; }
+/* ------------------------------------------- compact inline controls ----- */
+/* Sized by CLASS, never by inline style: an inline font-size beats the 16px
+   floor mobile.css puts on inputs, and below 16px iOS zooms the whole page
+   the moment one is focused. These read as values you can edit, not as
+   form fields dropped into a sentence. */
+.in-num { width: 56px; padding: .1rem .3rem; font-size: .78rem; text-align: center; }
+.sel-sm { width: auto; padding: .15rem .3rem; font-size: .75rem; }
+
+/* ------------------------------------------------ weekly target rows ----- */
+/* Grid, not a wrapping row: the count and its input sit top-right whatever
+   the label does. With flex, a label long enough to wrap dropped the count
+   underneath it, so every row put its number somewhere different. */
+.targetrow { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: .2rem .6rem; margin-bottom: .65rem; }
+.targetrow .tlabel { min-width: 0; }
+.targetrow .tcount { display: inline-flex; align-items: center; gap: .3rem; justify-self: end; white-space: nowrap; }
+.targetrow .bar, .targetrow .tnote { grid-column: 1 / -1; }
+.targetrow .bar { margin-top: .15rem; }
+
+/* --------------------------------------------------- the 6-month strip --- */
+/* Its own class rather than grid3 with an inline override — the inline style
+   also beat the phone stylesheet, which squeezed six columns into 375px and
+   clipped Month 6 off the edge. */
+.monthstrip { display: grid; grid-template-columns: repeat(6, 1fr); gap: .4rem; }
+.monthstrip .kpi { cursor: pointer; }
+.monthstrip .kpi .k { white-space: nowrap; }
+@media (max-width: 640px) { .monthstrip { grid-template-columns: repeat(3, 1fr); } }
+
+/* three stats side by side — they are small, so the phone keeps the row too */
+.kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: .7rem; }
+
+/* ------------------------------------------------------- tab strips ------ */
+/* One strip for every row of sub-tabs. On a phone (mobile.css) it becomes a
+   single swipeable line instead of a ragged two-row block. */
+.tabrow { display: flex; gap: .3rem; align-items: center; flex-wrap: wrap; }
+/* a strip with an action pinned beside it: tabs flex and scroll, the action stays */
+.panelbar { display: flex; align-items: center; gap: .4rem; }
+.panelbar .tabrow { flex: 1 1 auto; min-width: 0; }
+.panelbar > .btn { white-space: nowrap; flex: none; }
+
+/* theme picker — three equal tiles at every width. Flex with a basis let the
+   third tile wrap onto its own row and stretch across the card. The explicit
+   colour matters too: an unstyled <button> label renders in iOS's default
+   link blue, which read as three hyperlinks rather than a chooser. */
+.themepick { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem; }
 .themeopt {
-  flex: 1 1 130px; display: flex; flex-direction: column; align-items: flex-start; gap: .3rem;
+  display: flex; flex-direction: column; align-items: flex-start; gap: .3rem;
   border: 1px solid var(--line); border-radius: 12px; padding: .65rem .7rem;
-  background: var(--panel); font: inherit; cursor: pointer; text-align: left;
+  background: var(--panel); color: var(--ink); font: inherit; cursor: pointer; text-align: left;
 }
 .themeopt:hover { border-color: var(--accent); }
 .themeopt.on { border-color: var(--accent); background: var(--accent-soft); }

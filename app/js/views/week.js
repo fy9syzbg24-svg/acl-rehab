@@ -62,18 +62,16 @@ export function renderWeekPanel(ctx) {
     const goal = targetValue(t);
     const hit = hitsFor(t, days);
     const p = pct(hit, goal);
-    return `<div style="margin-bottom:.65rem">
-      <div class="row between" style="margin-bottom:.2rem">
-        <span class="small">${esc(t.label)}
-          ${t.src === 'plan' ? '<span class="pill">from plan</span>' : '<span class="pill" title="I set this starting number — change it freely">my default</span>'}
-        </span>
-        <span class="row" style="gap:.35rem">
-          <strong class="mono small">${hit} / </strong>
-          <input type="number" min="0" max="14" value="${goal}" data-target="${esc(t.id)}" style="width:52px;padding:.1rem .3rem;font-size:.78rem">
-        </span>
-      </div>
+    return `<div class="targetrow">
+      <span class="small tlabel">${esc(t.label)}
+        ${t.src === 'plan' ? '<span class="pill">from plan</span>' : '<span class="pill" title="I set this starting number — change it freely">my default</span>'}
+      </span>
+      <span class="tcount">
+        <strong class="mono small">${hit} /</strong>
+        <input type="number" min="0" max="14" value="${goal}" data-target="${esc(t.id)}" class="in-num">
+      </span>
       <div class="bar ${p >= 100 ? 'good' : ''}"><i style="width:${p}%"></i></div>
-      ${t.note ? `<div class="tiny muted" style="margin-top:.15rem">${esc(t.note)}</div>` : ''}
+      ${t.note ? `<div class="tiny muted tnote">${esc(t.note)}</div>` : ''}
     </div>`;
   }).join('');
 
@@ -84,7 +82,7 @@ export function renderWeekPanel(ctx) {
 
   return `
     <div class="card"><div class="card-body" style="padding:.6rem .9rem">
-      <div class="row between">
+      <div class="row between weeknav">
         <div class="datenav">
           <button class="icon-btn" data-wnav="-7">‹</button>
           <span class="d">${esc(fmtDate(ws, 'short'))} – ${esc(fmtDate(addDays(ws, 6), 'short'))}</span>
@@ -176,8 +174,7 @@ function exerciseGrid(ws, days) {
         <td class="num nowrap">
           <span class="wk-count ${met ? 'met' : atRisk ? 'risk' : ''}">${n}/</span><input
             type="number" min="0" max="14" value="${target ?? ''}" placeholder="–"
-            data-extarget="${esc(item.ex)}" title="${esc(info.from)}"
-            style="width:44px;padding:.1rem .25rem;font-size:.75rem">
+            data-extarget="${esc(item.ex)}" title="${esc(info.from)}" class="in-num">
         </td>
         <td class="tiny">
           ${target === null

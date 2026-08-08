@@ -106,7 +106,7 @@ export function renderMelbourne(ctx) {
       <header><h2>Melbourne ACL Rehabilitation Guide 2.0</h2><span class="sub">criteria-driven — the criteria set the pace, not the calendar</span></header>
       <div class="card-body">
         <div class="callout warn small" style="margin-bottom:.8rem"><strong>Bilateral reconstruction.</strong> ${esc(BILATERAL_NOTE)}</div>
-        <div class="row" style="gap:.3rem">
+        <div class="tabrow">
           ${MELBOURNE_PHASES.map((p) => {
             const s = phaseSummary(p);
             const on = p.id === openId;
@@ -162,12 +162,12 @@ function measureTable(rows) {
           ? `<details class="disc" style="margin-top:.25rem"><summary>how to test</summary><div class="tiny">${esc(row.how || MEASURE_BY_ID[row.measure].how)}</div></details>` : ''}
       </td>
       <td class="tiny muted">${esc(row.goalText || '')}</td>
-      <td class="mono tiny">${esc(st.text)}</td>
+      <td class="tiny${/\d/.test(st.text) ? ' mono' : ''}">${esc(st.text)}</td>
       <td class="num mono tiny" title="Less meaningful with two reconstructed knees">${st.lsi != null ? esc(round(st.lsi, 0)) + '%' : ''}</td>
       <td>${st.status === 'none' ? '<span class="pill">not tested</span>' : `<span class="pill ${cls}">${st.status === 'pass' ? 'met' : 'not yet'}</span>`}</td>
       <td class="num nowrap">
         ${st.manual ? `<label class="row tiny" style="gap:.25rem"><input type="checkbox" data-mmanual="${esc(row.id)}" ${state.data.melbourne.measures[row.id]?.pass ? 'checked' : ''}> done</label>` : ''}
-        ${st.rating ? `<select data-mrating="${esc(row.id)}" style="width:auto;font-size:.75rem;padding:.1rem .3rem">
+        ${st.rating ? `<select data-mrating="${esc(row.id)}" class="sel-sm">
             <option value="">—</option>${row.goal.options.map((o) => `<option ${state.data.melbourne.measures[row.id]?.rating === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}
           </select>` : ''}
         ${row.measure ? `<button class="btn sm" data-record="${esc(row.measure)}">Record</button>` : ''}
@@ -263,7 +263,7 @@ function renderMrssForm(ctx) {
     <section class="card">
       <header><h2>Final score</h2></header>
       <div class="card-body">
-        <div class="grid3">
+        <div class="kpis">
           <div class="kpi"><div class="v">${round(t.final, 1)}</div><div class="k">/ 100 · need 95+</div></div>
           <div class="kpi"><div class="v">${t.tsk ?? '—'}</div><div class="k">TSK-11 ${t.tskPass == null ? '' : t.tskPass ? '· pass' : '· FAIL'}</div></div>
           <div class="kpi"><div class="v">${t.fitnessPass ? 'Pass' : a.partE?.t1 ? 'Fail' : '—'}</div><div class="k">general fitness</div></div>

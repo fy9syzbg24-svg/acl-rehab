@@ -70,11 +70,11 @@ export function renderPlan(ctx) {
     <section class="card">
       <header><h2>6-month protocol</h2><span class="sub">August 2026 → January 2027 · goal-based, not date-based</span></header>
       <div class="card-body">
-        <div class="grid3" style="grid-template-columns:repeat(6,1fr);gap:.4rem">
+        <div class="monthstrip">
           ${PLAN_MONTHS.map((m) => {
             const c = monthCompletion(m);
             const isNow = m.id === current?.id;
-            return `<button class="kpi" data-month="${m.id}" style="cursor:pointer;border-color:${m.id === openId ? 'var(--accent)' : 'var(--line-2)'}">
+            return `<button class="kpi" data-month="${m.id}" style="border-color:${m.id === openId ? 'var(--accent)' : 'var(--line-2)'}">
               <div class="v" style="font-size:1.05rem">${c.goalScore}%</div>
               <div class="k">${esc(m.name)}${isNow ? ' ●' : ''}</div>
             </button>`;
@@ -144,7 +144,7 @@ function goalRow(g) {
         <div class="small" style="font-weight:${p.done ? 550 : 450};color:${p.done ? 'var(--good)' : 'var(--ink)'}">
           ${p.done ? '✓ ' : ''}${esc(g.text)}
         </div>
-        ${p.detail ? `<div class="tiny muted mono" style="margin-top:.15rem">${esc(p.detail)}</div>` : ''}
+        ${p.detail ? `<div class="tiny muted${/\d/.test(p.detail) ? ' mono' : ''}" style="margin-top:.15rem">${esc(p.detail)}</div>` : ''}
         ${g.caution ? `<div class="tiny" style="color:var(--warn);margin-top:.15rem">⚠ ${esc(g.caution)}</div>` : ''}
       </div>
       <div class="row" style="gap:.3rem;flex:none">

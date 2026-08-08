@@ -7,10 +7,11 @@ import { openMeasureEntry, lineChart, exerciseById } from '../components.js';
 export function renderMeasuresPanel(ctx) {
   const tab = ctx.mtab || 'baselines';
   return `
-    <div class="row" style="gap:.3rem">
-      ${[['baselines', 'Baselines & PRs'], ['vald', 'VALD'], ['tests', 'All tests'], ['history', 'Test history']]
-        .map(([k, l]) => `<button class="btn sm ${tab === k ? 'primary' : ''}" data-mtab="${k}">${l}</button>`).join('')}
-      <span class="spacer"></span>
+    <div class="panelbar">
+      <div class="tabrow">
+        ${[['baselines', 'Baselines & PRs'], ['vald', 'VALD'], ['tests', 'All tests'], ['history', 'Test history']]
+          .map(([k, l]) => `<button class="btn sm ${tab === k ? 'primary' : ''}" data-mtab="${k}">${l}</button>`).join('')}
+      </div>
       <button class="btn primary sm" data-newmeasure>+ Record a test</button>
     </div>
     ${tab === 'baselines' ? baselines() : ''}

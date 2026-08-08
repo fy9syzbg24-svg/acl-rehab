@@ -14,7 +14,7 @@ const TABS = [['week', 'This week'], ['history', 'History'], ['tests', 'Tests & 
 export function renderProgress(ctx) {
   const tab = ctx.gtab || 'week';
   return `<div class="stack">
-    <div class="row" style="gap:.3rem">
+    <div class="tabrow">
       ${TABS.map(([k, l]) => `<button class="btn sm ${tab === k ? 'primary' : ''}" data-gtab="${k}">${l}</button>`).join('')}
     </div>
     ${tab === 'week' ? renderWeekPanel(ctx) : ''}
@@ -52,7 +52,7 @@ function renderHistoryPanel(ctx) {
 
   return `
   <div class="stack">
-    <div class="grid3">
+    <div class="kpis">
       <div class="kpi"><div class="v">${streak}</div><div class="k">day streak</div></div>
       <div class="kpi"><div class="v">${last30}</div><div class="k">days logged, last 30</div></div>
       <div class="kpi"><div class="v">${totalSessions}</div><div class="k">sessions logged</div></div>

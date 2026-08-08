@@ -63,40 +63,42 @@ body.mobile {
   backdrop-filter: saturate(180%) blur(14px);
   border-bottom: 1px solid var(--line);
 }
+/* The name sits big and dead centre, the same way the desktop shows it — the
+   sync chip and the gear flank it in equal side columns, so it is centred on
+   the SCREEN, not merely between two differently-sized neighbours. */
 .mtop-in {
-  height: var(--mtop-h);
-  display: flex; align-items: center; gap: .5rem; padding: 0 .8rem;
+  min-height: var(--mtop-h);
+  display: grid; grid-template-columns: 1fr auto 1fr;
+  align-items: center; gap: .5rem; padding: .3rem .8rem;
 }
-.mtitle-wrap { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; }
+.mtop-in > .msync { justify-self: start; }
+.mtop-in > .micon { justify-self: end; }
+.mtitle-wrap {
+  min-width: 0; max-width: calc(100vw - 200px);
+  display: flex; flex-direction: column; justify-content: center; text-align: center;
+}
 .mtitle {
-  font-size: 1.02rem; font-weight: 800; letter-spacing: -.02em; line-height: 1.15;
+  font-size: 1.18rem; font-weight: 800; letter-spacing: -.02em; line-height: 1.15;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  background: linear-gradient(100deg, var(--accent), #8a5cd6 70%);
+  background: linear-gradient(100deg, var(--accent), #8a5cd6 65%, var(--right));
   -webkit-background-clip: text; background-clip: text;
   -webkit-text-fill-color: transparent; color: transparent;
 }
 .mpostop { font-size: .66rem; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mpostop b { color: var(--ink-2); font-weight: 600; }
 
-.msync {
-  flex: none; display: inline-flex; align-items: center; gap: .3rem;
-  min-height: 36px; padding: 0 .6rem;
-  border: 1px solid var(--line); border-radius: 100px;
-  background: var(--panel); color: var(--ink-2);
-  font: inherit; font-size: .72rem; font-weight: 600;
-}
-.msync:active { background: var(--line-2); }
-.msync-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-3); flex: none; }
-.msync-dot.ok { background: var(--good); }
-.msync-dot.pending { background: var(--warn); }
-.msync-dot.err { background: var(--bad); }
-.msync-dot.busy { background: var(--accent); animation: mpulse 1s ease-in-out infinite; }
-@keyframes mpulse { 50% { opacity: .25; } }
+/* .msync / .msync-dot live in styles.css now — the desktop shows the same
+   chip. Only the touch sizing is mobile's. */
+body.mobile .msync { min-height: 36px; }
 
 .micon {
   flex: none; width: 38px; height: 38px; border-radius: 10px;
+  display: inline-grid; place-items: center;
   border: 1px solid var(--line); background: var(--panel); color: var(--ink-2);
-  font-size: 1rem;
+}
+.micon svg {
+  width: 19px; height: 19px; fill: none;
+  stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
 }
 .micon.on { color: var(--accent); border-color: var(--accent); }
 
@@ -160,17 +162,11 @@ body.mobile input[type=checkbox] { width: 24px; height: 24px; }
 body.mobile .prow-head > input[type=checkbox] { width: 26px; height: 26px; }
 
 /* Segmented controls / sub-tabs scroll instead of wrapping into a wall. */
-body.mobile .seg,
-body.mobile .segbar,
 body.mobile .tabrow {
-  display: flex; gap: .3rem; overflow-x: auto; scrollbar-width: none;
+  display: flex; gap: .3rem; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none;
   -webkit-overflow-scrolling: touch; padding-bottom: .2rem;
 }
-body.mobile .seg::-webkit-scrollbar,
-body.mobile .segbar::-webkit-scrollbar,
 body.mobile .tabrow::-webkit-scrollbar { display: none; }
-body.mobile .seg button,
-body.mobile .segbar button,
 body.mobile .tabrow button { flex: none; min-height: 40px; }
 
 /* Wide content scrolls inside its own box rather than the page. */
@@ -179,6 +175,18 @@ body.mobile .scrollx { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
 /* Nothing may rely on hover on a touch screen. */
 body.mobile .editcue { opacity: 1 !important; }
+
+/* Today's session segments deliberately WRAP rather than scroll: all five are
+   visible at once, and "Completed today" never sits off-screen. */
+
+/* The week navigation reads as a centred summary, like the date pill on
+   Today — it is information, not a control fighting for the left edge. */
+body.mobile .weeknav { flex-direction: column; align-items: center; gap: .35rem; }
+
+/* Compact numeric inputs: type stays 16px (or iOS zooms on focus), but the
+   box is a value you can edit, not a full-height form field. */
+body.mobile .in-num { min-height: 38px; width: 64px; }
+body.mobile .sel-sm { min-height: 38px; }
 
 /* Modals from components.js sit above the chrome and clear the safe areas. */
 body.mobile #modal-root .modal,
@@ -245,56 +253,38 @@ body.mobile .toast {
   .mview { padding-top: .5rem; }
 }
 
-/* --------------------------------------------- mobile density (Today) --- */
+/* --------------------------------------------- phone density (Today) --- */
 /* The top of Today was three tall cards before any content: timeline, week
    cadence, month board. Each is squeezed here rather than removed, so nothing
-   is lost — it just stops costing a screen and a half before you can log. */
+   is lost — it just stops costing a screen and a half before you can log.
 
-/* 1. the six-month timeline */
-body.mobile .journey { padding: .9rem 1.5rem 1.1rem; }
-body.mobile .jphases { height: 12px; margin-top: 1.15rem; }
-body.mobile .jnode .jname { font-size: .72rem; }
+   Scoped to PHONE widths on purpose. These squeezes once applied to the whole
+   mobile shell, so the iPad got phone spacing with desktop content — the
+   journey's per-month counts (hidden on a phone, shown on an iPad) sat right
+   on top of the phase labels. Above 640px the desktop spacing in styles.css
+   is correct as-is. */
+@media (max-width: 640px) {
+  /* 1. the six-month timeline. Top padding has to CONTAIN the month labels —
+     they are positioned above the road, so trimming it clipped them off
+     through the top of the card. */
+  body.mobile .journey { padding: 1.6rem 1.4rem .4rem; }
+  body.mobile .jphases { height: 10px; margin-top: .35rem; }
+  body.mobile .jnode .jname { font-size: .7rem; }
 
-/* 2. the week cadence — tighter chips, and it stays readable past three goals */
-body.mobile .weekcats.centred {
-  display: grid; grid-template-columns: 1fr 1fr; gap: .35rem;
+  /* 2. the week cadence — three across, tighter chips */
+  body.mobile .weekcats.centred { display: grid; grid-template-columns: repeat(3, 1fr); gap: .3rem; }
+  body.mobile .weekcat.tappable { padding: .3rem .35rem; gap: .18rem; }
+  body.mobile .weekcat.tappable .wclabel { font-size: .6rem; }
+  body.mobile .weekcat.tappable .wchead { flex-direction: column; align-items: flex-start; gap: 0; }
+  body.mobile .weekcat.tappable .pips i { height: 5px; }
+  /* months with many targets go four-up rather than running down the screen */
+  body.mobile .weekcats.centred:has(> :nth-child(7)) { grid-template-columns: repeat(4, 1fr); }
+
+  /* 3. date pill */
+  body.mobile .datepill-wrap { gap: .35rem; }
+  body.mobile .dp-date { font-size: .92rem; }
+  body.mobile .dp-done { display: none; }   /* "Completed today" already counts it */
 }
-body.mobile .weekcat.tappable { padding: .35rem .45rem; gap: .18rem; }
-body.mobile .weekcat.tappable .wclabel { font-size: .68rem; }
-body.mobile .weekcat.tappable .pips i { height: 5px; }
-/* Months with more targets (September has more than three) would otherwise
-   run the card down the screen; from four onwards go three-up and smaller. */
-body.mobile .weekcats.centred:has(> :nth-child(4)) {
-  grid-template-columns: repeat(3, 1fr);
-}
-body.mobile .weekcats.centred:has(> :nth-child(4)) .wclabel { font-size: .62rem; }
-body.mobile .weekcats.centred:has(> :nth-child(7)) { grid-template-columns: repeat(4, 1fr); }
-
-/* 3. date pill */
-body.mobile .datepill-wrap { gap: .35rem; }
-body.mobile .dp-date { font-size: .92rem; }
-body.mobile .dp-done { display: none; }   /* "Completed today" already counts it */
-
-/* --------------------------------------------- Today: tighter still --- */
-/* The timeline sat in a box far taller than its content: the phase labels
-   were spaced for a desktop-width road. Roughly 0.6x the height, and the bar
-   is centred in its box rather than riding the top edge. */
-/* Top padding has to CONTAIN the month labels — they are positioned above the
-   road, so trimming it clipped them out through the top of the card. */
-body.mobile .journey { padding: 1.6rem 1.4rem .4rem; }
-body.mobile .jroad { margin-top: .2rem; }
-body.mobile .jphases { height: 10px; margin-top: .35rem; }
-body.mobile .jphase { font-size: .58rem; }
-body.mobile .jnode .jname { font-size: .7rem; }
-body.mobile .jnode .jsub { font-size: .58rem; }
-
-/* the week cadence fits three across on a phone */
-body.mobile .weekcats.centred { grid-template-columns: repeat(3, 1fr); gap: .3rem; }
-body.mobile .weekcat.tappable { padding: .3rem .35rem; }
-body.mobile .weekcat.tappable .wclabel { font-size: .6rem; }
-body.mobile .weekcat.tappable .wchead { flex-direction: column; align-items: flex-start; gap: 0; }
-body.mobile .weekcats.centred:has(> :nth-child(4)) { grid-template-columns: repeat(3, 1fr); }
-body.mobile .weekcats.centred:has(> :nth-child(7)) { grid-template-columns: repeat(4, 1fr); }
 
 /* date centring now lives in styles.css so it applies at every width */
 
