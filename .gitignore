@@ -1,0 +1,8 @@
+# Your health data never goes in the public repo. It lives on this Mac and,
+# once sync is on, in a separate PRIVATE repo.
+data/
+
+# macOS noise
+.DS_Store
+__pycache__/
+*.pyc
