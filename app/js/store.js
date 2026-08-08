@@ -7,8 +7,26 @@ import { hydrateProgramSource } from '../data/program.js';
 import { monthForDate } from '../data/plan.js';
 import { EXERCISE_BY_ID } from '../data/exercises.js';
 import { CATEGORIES } from '../data/measurements.js';
+import { collectRecords, fingerprint } from './sync/records.js';
+import { stampChanges, stampAll } from './sync/merge.js';
 
-const SCHEMA = 5;
+const SCHEMA = 6;   // 6 adds per-record sync metadata (_sync) and caseFile
+
+/**
+ * A stable id for THIS device, kept out of the synced document on purpose —
+ * it identifies the machine, not the data, and is what breaks a dead-heat
+ * conflict the same way on both devices.
+ */
+export const DEVICE_ID = (() => {
+  const KEY = 'rehab.deviceId';
+  try {
+    let v = localStorage.getItem(KEY);
+    if (!v) { v = `${navigator.platform || 'dev'}-${uid()}`.replace(/\s+/g, ''); localStorage.setItem(KEY, v); }
+    return v;
+  } catch {
+    return `ephemeral-${uid()}`;   // private browsing; still deterministic per session
+  }
+})();
 
 function blank() {
   return {
@@ -110,6 +128,9 @@ export async function load() {
   hydrateProgramSource(incoming);
 
   state.data = migrate(Object.keys(incoming).length ? incoming : blank());
+  // Everything that predates sync gets one baseline timestamp, so a first
+  // merge treats it as real data rather than as unknown.
+  stampAll(state.data, DEVICE_ID);
   hydrateCase(state.data);
 
   if (!state.data.settings.seeded) {
@@ -233,7 +254,15 @@ export function queueSave() {
 
 /** Mutate then persist then re-render. */
 export function update(fn) {
+  // Snapshot first: sync needs to know WHICH records a mutation touched, and
+  // this is the only funnel every write in the app goes through, so stamping
+  // here means no view code had to learn about sync at all.
+  const before = new Map();
+  for (const [k, v] of collectRecords(state.data)) before.set(k, fingerprint(v));
+
   fn(state.data);
+
+  stampChanges(state.data, before, DEVICE_ID);
   queueSave();
   emit();
 }
