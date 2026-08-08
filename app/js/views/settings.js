@@ -5,6 +5,7 @@ import { toast } from '../components.js';
 import { runSync, syncState, pendingSyncCount, DEVICE_ID } from '../store.js';
 import { getConfig, setConfig, clearConfig, isConfigured } from '../sync/config.js';
 import { ghCheckAccess } from '../sync/github.js';
+import { SERVER_MODE } from '../sync/local-store.js';
 
 function syncCard() {
   const c = getConfig();
@@ -171,17 +172,24 @@ export function renderSettings() {
           <span class="tiny">Sync automatically whenever I open the app</span>
         </label>
 
+        ${SERVER_MODE ? `
         <div class="row">
           <button class="btn primary" data-pa-sync="1">Sync today</button>
           <button class="btn" data-pa-sync="7">Sync the last 7 days</button>
           <button class="btn" data-pa-sync="30">Sync the last 30 days</button>
           <span class="tiny muted" data-pa-status></span>
-        </div>
+        </div>` : `
+        <div class="callout small">
+          <strong>Runs on your Mac.</strong> Reading PhysiApp needs a server: they send no
+          CORS header, so a browser here is blocked from signing in to them. The results
+          still reach this device — they travel with your normal data sync.
+        </div>`}
+        ${SERVER_MODE ? `
         <div class="tiny muted" style="margin-top:.4rem">
           30 days reads every completed exercise on every day one at a time — a few
           minutes if the month is full. Nothing else stops working while it runs, and you
           can leave the tab.
-        </div>
+        </div>` : ''}
 
         <details class="disc" style="margin-top:.7rem">
           <summary>What it will and won't bring across</summary>
