@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- viewport-fit=cover is what lets us paint under the Dynamic Island and the
+     home indicator, and it is what makes env(safe-area-inset-*) return real
+     numbers instead of zero. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0e1116">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Rehab">
+<title>Rehab tracker</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+<link rel="stylesheet" href="./styles.css">
+<link rel="stylesheet" href="./mobile.css">
+</head>
+<body class="mobile">
+
+<header class="mtop">
+  <div class="mtop-in">
+    <div class="mtitle-wrap">
+      <h1 class="mtitle" id="app-title">Rehab</h1>
+      <span class="mpostop" id="postop-strip"></span>
+    </div>
+    <button class="msync" id="sync-btn" aria-label="Sync">
+      <span class="msync-dot" id="sync-dot"></span>
+      <span id="sync-label">Sync</span>
+    </button>
+  </div>
+</header>
+
+<main id="view" class="mview"></main>
+
+<nav class="mtabs" id="mtabs">
+  <button data-view="today" class="on">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+    <span>Today</span>
+  </button>
+  <button data-view="program">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v16H5z"/><path d="M9 9h6M9 13h6"/></svg>
+    <span>Program</span>
+  </button>
+  <button data-view="progress">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg>
+    <span>Progress</span>
+  </button>
+  <button data-view="settings">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></svg>
+    <span>Settings</span>
+  </button>
+</nav>
+
+<div id="modal-root"></div>
+
+<script type="module" src="./js/mobile.js"></script>
+</body>
+</html>

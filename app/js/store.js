@@ -8,7 +8,10 @@ import { monthForDate } from '../data/plan.js';
 import { EXERCISE_BY_ID } from '../data/exercises.js';
 import { CATEGORIES } from '../data/measurements.js';
 import { collectRecords, fingerprint } from './sync/records.js';
-import { stampChanges, stampAll } from './sync/merge.js';
+import { stampChanges, stampAll, pendingCount } from './sync/merge.js';
+import { readLocalDoc, writeLocalDoc, SERVER_MODE } from './sync/local-store.js';
+import { syncNow } from './sync/engine.js';
+import { isConfigured, getConfig } from './sync/config.js';
 
 const SCHEMA = 6;   // 6 adds per-record sync metadata (_sync) and caseFile
 
@@ -83,27 +86,31 @@ export async function load() {
   let incoming = null;
   let reachable = false;
   try {
-    const res = await fetch('/api/data', { cache: 'no-store' });
-    if (res.ok) {
-      incoming = await res.json();
-      reachable = true;
-    }
+    incoming = await readLocalDoc();     // Mac: server. iPhone: IndexedDB.
+    reachable = true;
   } catch (err) {
     /* handled below */
   }
 
   if (!reachable) {
-    // Never seed and never save off a failed read — that is how a blank
-    // document ends up written over a real one.
-    state.readOnly = true;
-    state.error = 'Cannot reach the server. Nothing you type will be saved — start the server and reload.';
-    state.data = migrate(blank());
-    emit();
-    return;
+    if (SERVER_MODE) {
+      // Mac only: the server is down. Never seed and never save off a failed
+      // read — that is how a blank document overwrites a real one on disk.
+      state.readOnly = true;
+      state.error = 'Cannot reach the server. Nothing you type will be saved — start the server and reload.';
+      state.data = migrate(blank());
+      emit();
+      return;
+    }
+    // iPhone: IndexedDB itself failed (rare). Open anyway with a blank doc so
+    // the app is never dead on arrival; the next sync repopulates it.
+    incoming = {};
   }
 
   state.readOnly = false;
+  const hadContent = incoming && Object.keys(incoming).length > 0;
   const hadSchema = incoming?.schema || 0;
+  incoming = incoming || {};
 
   // Your clinical history is not in this repo. On the Mac it comes from the
   // gitignored data/case.local.js the first time and is then carried in the
@@ -127,20 +134,35 @@ export async function load() {
   hydrateCase(incoming);
   hydrateProgramSource(incoming);
 
-  state.data = migrate(Object.keys(incoming).length ? incoming : blank());
-  // Everything that predates sync gets one baseline timestamp, so a first
-  // merge treats it as real data rather than as unknown.
-  stampAll(state.data, DEVICE_ID);
+  state.data = migrate(hadContent ? incoming : blank());
   hydrateCase(state.data);
 
-  if (!state.data.settings.seeded) {
+  const alreadySynced = !!incoming._sync;
+
+  if (!state.data.settings.seeded && localCase) {
+    // Fresh Mac: seed from the local clinical file, then baseline-stamp so the
+    // seeded data syncs UP to the repo on first connect.
     seed(state.data, localCase);
     state.data.settings.seeded = true;
+    stampAll(state.data, DEVICE_ID);
+    queueSave();
+  } else if (hadContent && !alreadySynced) {
+    // Existing data that predates sync (or a Mac gaining a caseFile field):
+    // one baseline timestamp so a first merge treats it as real, not unknown.
+    stampAll(state.data, DEVICE_ID);
     queueSave();
   } else if (hadSchema < SCHEMA || seededCase) {
-    queueSave(); // persist the repair rather than waiting for the next edit
+    queueSave();
   }
+  // A fresh device with no local content (a new iPhone) is deliberately left
+  // UNSTAMPED and unseeded: its records default to time 0, so the first sync
+  // pulls the real data down wholesale instead of a blank default winning.
+
   emit();
+
+  // Pull anything new the moment we open, if this device is connected. Never
+  // blocks startup — the app is already usable from local data above.
+  if (isConfigured()) runSync('startup');
 }
 
 function migrate(d) {
@@ -230,27 +252,81 @@ const doSave = debounce(async () => {
   state.saving = true;
   emit();
   try {
-    const res = await fetch('/api/data', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(state.data),
-    });
-    if (!res.ok) throw new Error(await res.text());
-    const body = await res.json();
-    state.lastSaved = body.savedAt || new Date().toISOString();
+    state.lastSaved = await writeLocalDoc(state.data);   // Mac: server. iPhone: IDB.
     state.error = null;
   } catch (err) {
-    state.error = 'Save failed — the server may have stopped. Your data is still on screen.';
+    state.error = SERVER_MODE
+      ? 'Save failed — the server may have stopped. Your data is still on screen.'
+      : 'Could not save locally. Your data is still on screen.';
   } finally {
     state.saving = false;
     emit();
   }
+  // A local save is durable on its own; the cloud is a follow-on. Nudge a sync
+  // shortly after edits settle, so the other device sees them soon — but never
+  // block the save on it.
+  scheduleSync();
 }, 450);
 
 export function queueSave() {
   if (state.readOnly) return;   // a failed load must never write
   doSave();
 }
+
+// ---------------------------------------------------------------- syncing ---
+export const syncState = {
+  running: false,
+  lastResult: null,   // the object returned by the last syncNow
+  lastError: null,    // set when the last attempt failed
+  lastSyncedAt: null,
+};
+
+let remoteChangeCb = null;
+/** app.js registers a repaint here, so a pull refreshes the visible view. */
+export function onRemoteChange(fn) { remoteChangeCb = fn; }
+
+/** How many records are still waiting to reach the server. */
+export function pendingSyncCount() {
+  return pendingCount(state.data, getConfig().lastPushedAt || 0);
+}
+
+let syncing = false;
+export async function runSync(reason = 'manual') {
+  if (!isConfigured() || state.readOnly) return { ok: false, reason: 'unconfigured' };
+  if (syncing) return { ok: false, reason: 'busy' };
+  syncing = true;
+  syncState.running = true;
+  emit();
+  let pulledSomething = false;
+  try {
+    const res = await syncNow(
+      () => state.data,
+      async (merged) => {
+        // A pull produced a newer document: adopt it, persist it, note that
+        // the view needs a repaint.
+        state.data = merged;
+        pulledSomething = true;
+        await writeLocalDoc(state.data);
+      },
+      { deviceId: DEVICE_ID },
+    );
+    syncState.lastResult = res;
+    syncState.lastError = res.ok ? null : res;
+    if (res.ok) syncState.lastSyncedAt = getConfig().lastSyncedAt || Date.now();
+    return res;
+  } catch (err) {
+    syncState.lastError = { ok: false, reason: 'crash', error: String(err) };
+    return syncState.lastError;
+  } finally {
+    syncing = false;
+    syncState.running = false;
+    emit();
+    if (pulledSomething && remoteChangeCb) remoteChangeCb();
+  }
+}
+
+const scheduleSync = debounce(() => { runSync('edit'); }, 2500);
+
 
 /** Mutate then persist then re-render. */
 export function update(fn) {

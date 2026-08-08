@@ -1,0 +1,230 @@
+/* iPhone 15 Pro layout. Loaded only by m.html, so the desktop app is
+   untouched by everything in here.
+
+   Design rules this file enforces:
+   - nothing depends on :hover (there is no hover on iOS)
+   - every tap target is >= 44px
+   - inputs are 16px+, or Safari zooms the page on focus
+   - the header clears the Dynamic Island, the tab bar clears the home
+     indicator, via env(safe-area-inset-*)
+   - the scrolling region is the middle only, so the chrome never rubber-bands
+*/
+
+:root {
+  --mtop-h: 52px;
+  --mtab-h: 56px;
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+}
+
+body.mobile {
+  margin: 0;
+  padding: 0;
+  /* dvh tracks the viewport as Safari's bars and the keyboard change it */
+  height: 100dvh;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: var(--bg);
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ------------------------------------------------------------- top bar --- */
+.mtop {
+  position: fixed; inset: 0 0 auto 0; z-index: 40;
+  padding-top: var(--safe-t);
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
+  backdrop-filter: saturate(180%) blur(14px);
+  border-bottom: 1px solid var(--line);
+}
+.mtop-in {
+  height: var(--mtop-h);
+  display: flex; align-items: center; justify-content: space-between;
+  gap: .6rem; padding: 0 1rem;
+}
+.mtitle-wrap { min-width: 0; display: flex; flex-direction: column; justify-content: center; }
+.mtitle {
+  font-size: 1.05rem; font-weight: 800; letter-spacing: -.02em; line-height: 1.15;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  background: linear-gradient(100deg, var(--accent), #8a5cd6 70%);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+}
+.mpostop { font-size: .68rem; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mpostop b { color: var(--ink-2); font-weight: 600; }
+
+.msync {
+  flex: none; display: inline-flex; align-items: center; gap: .35rem;
+  min-height: 34px; padding: 0 .7rem;
+  border: 1px solid var(--line); border-radius: 100px;
+  background: var(--panel); color: var(--ink-2);
+  font: inherit; font-size: .76rem; font-weight: 600;
+}
+.msync:active { background: var(--line-2); }
+.msync-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-3); flex: none; }
+.msync-dot.ok { background: var(--good); }
+.msync-dot.pending { background: var(--warn); }
+.msync-dot.err { background: var(--bad); }
+.msync-dot.busy { background: var(--accent); animation: mpulse 1s ease-in-out infinite; }
+@keyframes mpulse { 50% { opacity: .25; } }
+
+/* ------------------------------------------------------ scrolling body --- */
+.mview {
+  position: fixed;
+  top: calc(var(--mtop-h) + var(--safe-t));
+  bottom: calc(var(--mtab-h) + var(--safe-b));
+  left: 0; right: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;   /* no rubber-banding the whole page */
+  padding: .8rem .8rem 1.4rem;
+}
+
+/* ------------------------------------------------------------ tab bar --- */
+.mtabs {
+  position: fixed; inset: auto 0 0 0; z-index: 40;
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  padding-bottom: var(--safe-b);
+  background: color-mix(in srgb, var(--panel) 94%, transparent);
+  backdrop-filter: saturate(180%) blur(14px);
+  border-top: 1px solid var(--line);
+}
+.mtabs button {
+  height: var(--mtab-h);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  border: 0; background: none; color: var(--ink-3);
+  font: inherit; font-size: .62rem; font-weight: 600;
+}
+.mtabs button svg {
+  width: 22px; height: 22px; fill: none;
+  stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+}
+.mtabs button.on { color: var(--accent); }
+.mtabs button:active { background: var(--line-2); }
+
+/* ------------------------------------------------- mobile-native pieces --- */
+.msection { margin-bottom: 1rem; }
+.msection-h {
+  display: flex; align-items: baseline; justify-content: space-between; gap: .5rem;
+  margin: 0 .15rem .5rem;
+}
+.msection-h h2 { font-size: .95rem; font-weight: 700; }
+.msection-h .sub { font-size: .72rem; color: var(--ink-3); }
+
+.mcard {
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: 14px; padding: .85rem; margin-bottom: .6rem;
+}
+
+/* the big daily number */
+.mhero {
+  border-radius: 16px; padding: 1rem;
+  background: linear-gradient(135deg, var(--accent), #8a5cd6);
+  color: #fff; margin-bottom: .9rem;
+}
+.mhero .date { font-size: .78rem; opacity: .85; font-weight: 600; }
+.mhero .big { font-size: 2rem; font-weight: 800; letter-spacing: -.02em; line-height: 1.1; margin-top: .1rem; }
+.mhero .sub { font-size: .8rem; opacity: .9; margin-top: .15rem; }
+.mhero-row { display: flex; gap: .5rem; margin-top: .7rem; }
+.mhero-stat {
+  flex: 1; background: rgba(255,255,255,.16); border-radius: 10px; padding: .45rem .55rem;
+}
+.mhero-stat b { display: block; font-size: 1.05rem; font-weight: 800; }
+.mhero-stat span { font-size: .64rem; opacity: .9; }
+
+/* exercise rows, touch sized */
+.mrow {
+  display: flex; align-items: center; gap: .7rem;
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: 13px; padding: .6rem .7rem; margin-bottom: .45rem;
+  min-height: 60px;
+}
+.mrow.done { background: var(--good-soft); border-color: color-mix(in srgb, var(--good) 45%, var(--line)); }
+.mrow:active { transform: scale(.995); }
+.mrow-tick {
+  flex: none; width: 44px; height: 44px; margin: -6px 0 -6px -6px;
+  display: grid; place-items: center;
+  border: 0; background: none; padding: 0;
+}
+.mrow-tick i {
+  width: 26px; height: 26px; border-radius: 8px;
+  border: 2px solid var(--line); display: grid; place-items: center;
+  color: transparent; font-size: 15px; font-weight: 800; font-style: normal;
+}
+.mrow.done .mrow-tick i { background: var(--good); border-color: var(--good); color: #fff; }
+.mrow-main { flex: 1; min-width: 0; }
+.mrow-name { font-size: .87rem; font-weight: 600; line-height: 1.25; }
+.mrow.done .mrow-name { color: color-mix(in srgb, var(--good) 72%, var(--ink)); }
+.mrow-meta { font-size: .7rem; color: var(--ink-3); margin-top: .12rem; }
+.mrow-go { flex: none; width: 34px; height: 44px; display: grid; place-items: center; color: var(--ink-3); }
+
+/* ---------------------------------------------------------- the sheet --- */
+.msheet-back {
+  position: fixed; inset: 0; z-index: 60;
+  background: rgba(0,0,0,.45); backdrop-filter: blur(2px);
+  display: flex; align-items: flex-end;
+}
+.msheet {
+  width: 100%; max-height: 88dvh; overflow-y: auto;
+  background: var(--panel);
+  border-radius: 20px 20px 0 0;
+  padding: .5rem 1rem calc(1rem + var(--safe-b));
+  animation: msheet-up .22s cubic-bezier(.2,.8,.2,1);
+}
+@keyframes msheet-up { from { transform: translateY(18px); opacity: .6; } }
+.msheet-grip { width: 38px; height: 4px; border-radius: 2px; background: var(--line); margin: .35rem auto .7rem; }
+.msheet h3 { font-size: 1rem; margin-bottom: .2rem; line-height: 1.25; }
+.msheet .sub { font-size: .74rem; color: var(--ink-3); margin-bottom: .8rem; }
+
+/* number inputs: 16px minimum or iOS zooms the page on focus */
+.mfields { display: grid; grid-template-columns: repeat(2, 1fr); gap: .55rem; }
+.mfield { display: flex; flex-direction: column; gap: .25rem; }
+.mfield span { font-size: .7rem; color: var(--ink-3); font-weight: 600; }
+.mfield input, .mfield select {
+  font-size: 16px; padding: .6rem .65rem; min-height: 46px;
+  border: 1px solid var(--line); border-radius: 11px;
+  background: var(--panel-2); color: var(--ink);
+  -webkit-appearance: none; appearance: none;
+}
+.mfield.wide { grid-column: 1 / -1; }
+.mfield input:focus, .mfield select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+.mbtn {
+  width: 100%; min-height: 50px; margin-top: .8rem;
+  border: 0; border-radius: 13px;
+  background: var(--accent); color: #fff;
+  font: inherit; font-size: .95rem; font-weight: 700;
+}
+.mbtn:active { filter: brightness(.92); }
+.mbtn.ghost { background: var(--line-2); color: var(--ink-2); margin-top: .45rem; }
+.mbtn.danger { background: var(--bad-soft); color: var(--bad); }
+
+.mnote { font-size: .72rem; color: var(--ink-3); line-height: 1.5; }
+.mempty { text-align: center; color: var(--ink-3); font-size: .82rem; padding: 2rem 1rem; }
+
+.mbanner {
+  border-radius: 12px; padding: .7rem .8rem; margin-bottom: .7rem;
+  font-size: .78rem; line-height: 1.45;
+  border: 1px solid var(--line); background: var(--panel-2);
+}
+.mbanner.warn { border-color: var(--warn); background: var(--warn-soft); }
+.mbanner.good { border-color: var(--good); background: var(--good-soft); }
+.mbanner.bad { border-color: var(--bad); background: var(--bad-soft); }
+
+.mchip {
+  display: inline-flex; align-items: center; gap: .25rem;
+  font-size: .68rem; font-weight: 600; padding: .16rem .5rem;
+  border-radius: 100px; background: var(--line-2); color: var(--ink-2);
+  margin: 0 .25rem .25rem 0;
+}
+.mchip.good { background: var(--good-soft); color: var(--good); }
+.mchip.L { background: color-mix(in srgb, var(--left) 16%, transparent); color: var(--left); }
+.mchip.R { background: color-mix(in srgb, var(--right) 18%, transparent); color: var(--right); }
+
+.mtoast {
+  position: fixed; left: .8rem; right: .8rem;
+  bottom: calc(var(--mtab-h) + var(--safe-b) + .6rem);
+  z-index: 70; padding: .7rem .85rem; border-radius: 13px;
+  background: var(--ink); color: var(--bg);
+  font-size: .8rem; font-weight: 600; text-align: center;
+  animation: msheet-up .2s ease-out;
+}
