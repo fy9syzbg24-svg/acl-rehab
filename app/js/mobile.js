@@ -133,5 +133,27 @@ load().then(() => {
       .catch(() => {});
     return;
   }
-  navigator.serviceWorker.register('./sw.js', { scope: './' }).catch(() => {});
+  // Adopt a new deploy automatically.
+  //
+  // The worker serves the shell cache-first, which is what makes a cold
+  // offline launch work — but it also means a fresh deploy would otherwise sit
+  // unused until the SECOND launch, with the page still running the previous
+  // CSS and code. Reloading once when a new worker takes control closes that
+  // gap. Local data lives in IndexedDB and is untouched by any of this, so an
+  // update can never cost you anything.
+  const hadController = !!navigator.serviceWorker.controller;
+  let reloading = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController || reloading) return;   // not the very first install
+    reloading = true;
+    location.reload();
+  });
+
+  navigator.serviceWorker.register('./sw.js', { scope: './' }).then((reg) => {
+    // Check for a new version whenever the app comes back to the foreground,
+    // so reopening it is enough to pick one up.
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') reg.update().catch(() => {});
+    });
+  }).catch(() => {});
 });
