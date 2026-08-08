@@ -37,7 +37,7 @@ function syncCard() {
     <div class="row">
       <button class="btn primary" data-sy-sync>${syncState.running ? 'Syncing…' : 'Sync now'}</button>
       <button class="btn" data-sy-disconnect>Disconnect this Mac</button>
-      <span class="tiny muted">device <span class="mono">${esc(DEVICE_ID)}</span></span>
+      <span class="tiny muted">device <span class="mono">${esc(DEVICE_ID)}</span> · build <span class="mono" id="build-id">…</span></span>
     </div>
     ${syncState.lastError ? `<div class="callout warn small" style="margin-top:.6rem">
       Last sync failed (${esc(syncState.lastError.reason || 'error')}). Your data is safe here and
@@ -218,6 +218,21 @@ export function renderSettings() {
 }
 
 export function bindSettings(root, ctx, rerender) {
+  // Which build is this device actually running? The installed app caches its
+  // shell, so "did my change land?" is otherwise guesswork.
+  const buildEl = root.querySelector('#build-id');
+  if (buildEl) {
+    (async () => {
+      try {
+        const keys = await caches.keys();
+        const shell = keys.find((k) => k.startsWith('shell-'));
+        buildEl.textContent = shell ? shell.replace('shell-', '') : 'live (no cache)';
+      } catch {
+        buildEl.textContent = 'live';
+      }
+    })();
+  }
+
   // ---- device sync ---------------------------------------------------
   root.querySelector('[data-sy-connect]')?.addEventListener('click', async () => {
     const owner = root.querySelector('#sy-owner').value.trim();

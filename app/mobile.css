@@ -24,21 +24,20 @@
   --safe-b: 0px;
 }
 
-/* In standalone, reserve only PART of the 34pt inset.
-   The full inset leaves a finger-wide dead strip under the buttons. But it
-   cannot go to zero either: the bottom edge is the system's home-indicator
-   swipe zone, and a button there gets swallowed by the gesture. 12pt back
-   gives ~22pt of clearance — the buttons sit just above the indicator with
-   no wasted band. */
+/* In standalone, reserve almost none of the 34pt inset.
+   Reserving all of it put a finger-wide dead band under the buttons. Only
+   SWIPES from the very bottom edge are captured by the home-indicator
+   gesture — taps still register — so 6-8pt is enough clearance and the bar
+   sits effectively at the bottom of the screen. */
 @media (display-mode: standalone) {
-  :root { --safe-b: max(calc(env(safe-area-inset-bottom, 0px) - 12px), 8px); }
+  :root { --safe-b: max(calc(env(safe-area-inset-bottom, 0px) - 26px), 6px); }
 }
 @media (display-mode: fullscreen) {
-  :root { --safe-b: max(calc(env(safe-area-inset-bottom, 0px) - 12px), 8px); }
+  :root { --safe-b: max(calc(env(safe-area-inset-bottom, 0px) - 26px), 6px); }
 }
 /* Belt and braces: mobile.js also sets this class from navigator.standalone,
    which older iOS reports more reliably than the display-mode query. */
-body.mobile.standalone { --safe-b: max(calc(env(safe-area-inset-bottom, 0px) - 12px), 8px); }
+body.mobile.standalone { --safe-b: max(calc(env(safe-area-inset-bottom, 0px) - 26px), 6px); }
 
 /* Pin to the real viewport rather than trusting a height unit.
    In an installed standalone PWA with a black-translucent status bar, iOS
