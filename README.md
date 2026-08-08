@@ -80,6 +80,34 @@ lazily on first view rather than bloating the install.
 Deploy with `tools/deploy.sh`, which stamps the service worker with the commit
 sha and pushes `app/` to the `gh-pages` branch.
 
+## iOS traps this app already hit
+
+Each of these looked like trivia and was not. They are the reason the mobile shell is
+shaped the way it is — changing any of them back reintroduces a real bug.
+
+- **`index.html` on Pages is a COPY of `m.html`, not a redirect.** iOS reads
+  `apple-mobile-web-app-capable` and `-status-bar-style` from the exact page you Add
+  to Home Screen. A redirect stub carries neither, so iOS letterboxes the installed
+  app inside black bands it draws itself, which no CSS can reach.
+- **The document scrolls.** A pinned body with an inner scroller stops Safari
+  collapsing its toolbars and was the second cause of that same band.
+- **`env(safe-area-inset-bottom)` is reserved only in standalone**, and only partly
+  (~8pt). In Safari its own toolbar already covers the home indicator, so reserving it
+  too double-counts. Only swipes from the edge are captured, not taps.
+- **Inputs are 16px minimum** or iOS zooms the page on focus.
+- **The service worker never registers on `localhost`** — it would claim every
+  navigation on that origin and serve the mobile shell in place of the desktop app.
+- **The worker reloads once on `controllerchange`**, or a deploy would sit unused
+  until the second launch.
+- **iOS caches Home Screen icon artwork.** Changing the icon needs remove + re-add.
+
+## Adding anything to the document
+
+Any new top-level key MUST be registered in `app/js/sync/records.js`. An unregistered
+key is invisible to the merge engine, and a device that has never seen it will push a
+document without it and delete it everywhere. `caseFile` was exactly this bug. There
+is a test asserting no unregistered top-level keys — keep it passing.
+
 ## Tests
 
 Open `/dev-tests.html` against a running server. 62 assertions across the merge
