@@ -72,9 +72,17 @@ self.addEventListener('install', (event) => {
     const cache = await caches.open(SHELL);
     // addAll is atomic-ish but fails the whole install on one bad URL; add
     // individually so a single missing optional asset cannot block install.
+    //
+    // Each fetch carries the deploy id as a query string. The CDN keys its
+    // cache on the full URL, so this forces every file past any edge still
+    // serving the PREVIOUS deploy — without it, a worker installing in that
+    // window sealed a cache mixing old HTML with new CSS, and nothing inside
+    // a generation ever revalidates. (Stored under the clean URL: runtime
+    // lookups know nothing about the query.)
     await Promise.all(SHELL_ASSETS.map(async (url) => {
       try {
-        const res = await fetch(new Request(url, { cache: 'reload' }));
+        const busted = url + (url.includes('?') ? '&' : '?') + 'sv=' + SHELL_VERSION;
+        const res = await fetch(new Request(busted, { cache: 'reload' }));
         if (res.ok) await cache.put(url, res);
       } catch { /* logged by the caller's install failure if it matters */ }
     }));

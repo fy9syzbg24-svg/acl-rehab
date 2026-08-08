@@ -87,7 +87,15 @@ export function renderWeekPanel(ctx) {
           <button class="icon-btn" data-wnav="-7">‹</button>
           <span class="d">${esc(fmtDate(ws, 'short'))} – ${esc(fmtDate(addDays(ws, 6), 'short'))}</span>
           <button class="icon-btn" data-wnav="7">›</button>
-          ${ws === weekStart(todayIso()) ? '<span class="pill accent">this week</span>' : '<button class="btn sm ghost" data-wnav="now">this week</button>'}
+          ${(() => {
+            // One control in one place, exactly like the "today" pill on Today:
+            // always rendered, dimmed and inert when you are already here. It
+            // used to swap between an accent pill and a borderless button that
+            // read as plain text — same words, two different objects.
+            const isNow = ws === weekStart(todayIso());
+            return `<button class="dp-today ${isNow ? 'is-today' : ''}" data-wnav="now"
+              ${isNow ? 'disabled aria-disabled="true"' : ''}>this week</button>`;
+          })()}
         </div>
         ${month ? `<span class="pill accent">${esc(month.name)} · ${esc(month.monthLabel)}</span>` : ''}
       </div>

@@ -65,20 +65,27 @@ body.mobile {
 }
 /* The name sits big and dead centre, the same way the desktop shows it — the
    sync chip and the gear flank it in equal side columns, so it is centred on
-   the SCREEN, not merely between two differently-sized neighbours. */
+   the SCREEN, not merely between two differently-sized neighbours.
+
+   Placement is by CLASS, not by source order. During a deploy the CDN can
+   briefly serve mixed generations, and a cache built in that window holds
+   them for good — order-placed grid items then land in the wrong columns
+   (the title once truncated to "Project Juicy As" exactly this way).
+   Explicit columns render the same header whichever HTML the cache holds. */
 .mtop-in {
   min-height: var(--mtop-h);
   display: grid; grid-template-columns: 1fr auto 1fr;
-  align-items: center; gap: .5rem; padding: .3rem .8rem;
+  align-items: center; gap: .4rem; padding: .3rem .6rem;
 }
-.mtop-in > .msync { justify-self: start; }
-.mtop-in > .micon { justify-self: end; }
+.mtop-in > .msync { grid-row: 1; grid-column: 1; justify-self: start; }
+.mtitle-wrap { grid-row: 1; grid-column: 2; }
+.mtop-in > .micon { grid-row: 1; grid-column: 3; justify-self: end; }
 .mtitle-wrap {
-  min-width: 0; max-width: calc(100vw - 200px);
+  min-width: 0; max-width: calc(100vw - 172px);
   display: flex; flex-direction: column; justify-content: center; text-align: center;
 }
 .mtitle {
-  font-size: 1.18rem; font-weight: 800; letter-spacing: -.02em; line-height: 1.15;
+  font-size: clamp(1rem, 4.9vw, 1.22rem); font-weight: 800; letter-spacing: -.02em; line-height: 1.15;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   background: linear-gradient(100deg, var(--accent), #8a5cd6 65%, var(--right));
   -webkit-background-clip: text; background-clip: text;
@@ -88,8 +95,9 @@ body.mobile {
 .mpostop b { color: var(--ink-2); font-weight: 600; }
 
 /* .msync / .msync-dot live in styles.css now — the desktop shows the same
-   chip. Only the touch sizing is mobile's. */
-body.mobile .msync { min-height: 36px; }
+   chip. Only the touch sizing is mobile's, kept slim so the title's centre
+   column gets the width the name needs. */
+body.mobile .msync { min-height: 36px; padding: 0 .5rem; font-size: .7rem; }
 
 .micon {
   flex: none; width: 38px; height: 38px; border-radius: 10px;
@@ -230,7 +238,7 @@ body.mobile .toast {
   }
   .mtabs button svg { width: 19px; height: 19px; }
 
-  .mtitle { font-size: 1.15rem; }
+  .mtitle { font-size: 1.35rem; }
   .mpostop { font-size: .72rem; }
 
   /* Touch targets stay finger-sized, but the iPad has room for denser forms
