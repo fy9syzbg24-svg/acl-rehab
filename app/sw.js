@@ -34,6 +34,7 @@ const SHELL_ASSETS = [
   './icons/apple-touch-icon.png',
 
   './js/mobile.js',
+  './js/app.js',
   './js/store.js',
   './js/util.js',
   './js/components.js',

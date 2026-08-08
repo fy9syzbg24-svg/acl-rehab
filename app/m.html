@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<!-- viewport-fit=cover is what lets us paint under the Dynamic Island and the
-     home indicator, and it is what makes env(safe-area-inset-*) return real
+<!-- viewport-fit=cover is what lets the app paint under the Dynamic Island and
+     the home indicator, and what makes env(safe-area-inset-*) return real
      numbers instead of zero. -->
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="theme-color" content="#0e1116">
@@ -24,14 +24,16 @@
       <h1 class="mtitle" id="app-title">Rehab</h1>
       <span class="mpostop" id="postop-strip"></span>
     </div>
-    <button class="msync" id="sync-btn" aria-label="Sync">
+    <button class="msync" id="sync-btn" aria-label="Sync now">
       <span class="msync-dot" id="sync-dot"></span>
-      <span id="sync-label">Sync</span>
+      <span id="sync-label">Local</span>
     </button>
+    <button class="micon" id="nav-settings" aria-label="Settings">⚙</button>
   </div>
 </header>
 
-<main id="view" class="mview"></main>
+<!-- class="view" so every desktop stylesheet rule applies unchanged -->
+<main id="view" class="view mview"></main>
 
 <nav class="mtabs" id="mtabs">
   <button data-view="today" class="on">
@@ -42,13 +44,17 @@
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v16H5z"/><path d="M9 9h6M9 13h6"/></svg>
     <span>Program</span>
   </button>
+  <button data-view="plan">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V4M4 20h16"/><path d="M8 16l4-6 4 3 4-7"/></svg>
+    <span>Plan</span>
+  </button>
+  <button data-view="melbourne">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4v6c0 4-3.5 7-8 8-4.5-1-8-4-8-8V7z"/></svg>
+    <span>Melbourne</span>
+  </button>
   <button data-view="progress">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg>
     <span>Progress</span>
-  </button>
-  <button data-view="settings">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></svg>
-    <span>Settings</span>
   </button>
 </nav>
 
