@@ -716,7 +716,7 @@ function extraSegment(extras, month, flash, ctx) {
     <div class="row" style="gap:.3rem">
       ${extras.length ? `<button class="btn sm danger" data-act="clear-extras">Clear all ${extras.length}</button>` : ''}
       <button class="btn sm" data-act="repeat-last">Repeat last session</button>
-      <button class="btn sm" data-act="add-hep">Back In Motion program</button>
+      <button class="btn sm" data-act="add-hep">${esc(CLINIC_HEP.label || 'Clinic program')}</button>
       <button class="btn primary sm" data-act="add-ex">+ Add exercise</button>
     </div>
   </div>

@@ -1,4 +1,4 @@
-"""Read Reuben's real adherence out of PhysiApp (au.physiapp.com).
+"""Read your real adherence out of PhysiApp (au.physiapp.com).
 
 Physitrack gives patients no export and no API, so this signs in the way the
 website does and reads the pages it serves. Everything here is READ-ONLY: it
@@ -8,7 +8,7 @@ their side.
 The one rule that matters
 -------------------------
 An exercise you have *not* logged still renders a fully populated form —
-prefilled with Elise's prescription. Reading those numbers would invent a
+prefilled with the clinician's prescription. Reading those numbers would invent a
 session you never did. A real log is identifiable two ways, and this module
 requires both:
 
@@ -66,7 +66,7 @@ NAME_TO_PID = {
     "wall squats with hip adduction (vmo)": "pa16",
 }
 
-# Fallback only, if Elise renames an exercise. Their tile order is not our
+# Fallback only, if the clinician renames an exercise. Their tile order is not our
 # numbering — index 12 is the jump-prep progression, which we call pa15.
 INDEX_TO_PID = {
     0: "pa01", 1: "pa02", 2: "pa03", 3: "pa04", 4: "pa05", 5: "pa06",

@@ -155,8 +155,7 @@ function valdView() {
     <header><h2>VALD</h2><span class="sub">Dynamo isometric strength + force plate assessments</span></header>
     <div class="card-body">
       <div class="callout small" style="margin-bottom:.9rem">
-        Seeded from your 24 Jul Dynamo test (Back In Motion) and the 31 Jul force plate session (Performance Medicine,
-        report dated 3 Aug). Percentiles are recorded alongside the raw numbers so you can see both the value and where it sits.
+        Seeded from your Dynamo test and force plate session (report dated 3 Aug). Percentiles are recorded alongside the raw numbers so you can see both the value and where it sits.
       </div>
       ${groups.map((g) => {
         const ms = MEASURES.filter((m) => m.group === g);

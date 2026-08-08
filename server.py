@@ -65,7 +65,7 @@ def _uid() -> str:
 
 
 def load_program_items() -> list:
-    """Read Elise's program out of app/data/program.js — that file stays the
+    """Read the clinician program out of app/data/program.js — that file stays the
     single source of truth, so the bridge never drifts from the app."""
     src = (APP_DIR / "data" / "program.js").read_text(encoding="utf-8")
     m = re.search(r"REHAB_PROGRAM = \[(.*?)\n\];", src, re.S)
@@ -155,9 +155,9 @@ def _pa_edited(entry: dict) -> bool:
 def physiapp_sync(payload) -> dict:
     """Pull what PhysiApp actually recorded and write it into the log.
 
-    Only exercises Reuben genuinely ticked off come across. PhysiApp renders a
-    fully populated form for untouched exercises too — prefilled with Elise's
-    prescription — and physiapp.parse_exercise refuses those, so nothing is
+    Only exercises you genuinely ticked off come across. PhysiApp renders a
+    fully populated form for untouched exercises too — prefilled with the
+    prescribed sets and reps — and physiapp.parse_exercise refuses those, so nothing is
     ever invented here.
 
     Entries land with side "B". PhysiApp records one figure per exercise with

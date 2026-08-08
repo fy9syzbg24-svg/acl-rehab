@@ -13,7 +13,7 @@ for (const p of REHAB_PROGRAM) {
   if (p.img && !IMG_BY_EX[p.ex]) IMG_BY_EX[p.ex] = { img: p.img, thumb: p.thumb, title: p.title, pid: p.id };
 }
 
-// Only Elise's 16 exercises came with photos. These other movements are close
+// Only the 16 clinician-program exercises came with photos. These other movements are close
 // enough that her picture still shows the shape of it — flagged as `borrowed`
 // so nothing pretends to be a photo of that exact exercise.
 const BORROWED = {

@@ -200,7 +200,7 @@ function exerciseGrid(ws, days) {
     </header>
     <div class="card-body tight">
       <div class="callout small" style="margin:.4rem 0 .2rem">
-        Elise's program gives sets, reps and holds but never says how often. So each exercise takes the
+        The clinician program gives sets, reps and holds but never says how often. So each exercise takes the
         weekly session count its <strong>category</strong> has in the 6-month plan for whichever month you are in —
         in ${esc(monthForDate(ws)?.name || 'this month')}, a strength exercise inherits the plan's strength-sessions number.
         Move into the next month and the quotas move with it. Type over any number to fix it to your own.

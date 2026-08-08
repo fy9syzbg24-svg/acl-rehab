@@ -1,8 +1,19 @@
 # Your health data never goes in the public repo. It lives on this Mac and,
 # once sync is on, in a separate PRIVATE repo.
-data/
+# Leading slash matters: a bare `data/` also matched app/data/, which quietly
+# excluded every data module from the repo.
+/data/
 
 # macOS noise
 .DS_Store
 __pycache__/
 *.pyc
+
+# Clinical history: seeds the Mac once, then lives in your private synced data.
+app/data/case.local.js
+
+# Dev-only test harness
+app/dev-tests.*
+
+# Detailed README stays local: it describes your clinicians and history.
+README.local.md

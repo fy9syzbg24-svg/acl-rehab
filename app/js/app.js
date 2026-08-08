@@ -41,6 +41,12 @@ function paint() {
 
 function paintChrome() {
   const s = state.data.settings;
+  // The app's name is yours, so it travels in your synced settings rather than
+  // sitting in a public HTML file.
+  const title = s.appTitle || 'Rehab tracker';
+  const h1 = document.getElementById('app-title');
+  if (h1 && h1.textContent !== title) h1.textContent = title;
+  if (document.title !== title) document.title = title;
   const today = todayIso();
   const L = postOp(s.surgeryLeft, today);
   const R = postOp(s.surgeryRight, today);

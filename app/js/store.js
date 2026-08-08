@@ -2,7 +2,8 @@
 // short debounce; the file on disk is the source of truth.
 
 import { debounce, uid, todayIso, weekStart, weekDays } from './util.js';
-import { CASE, SEED_DAYS, SEED_MEASUREMENTS } from '../data/history.js';
+import { CASE, hydrateCase, loadLocalCase } from '../data/history.js';
+import { hydrateProgramSource } from '../data/program.js';
 import { monthForDate } from '../data/plan.js';
 import { EXERCISE_BY_ID } from '../data/exercises.js';
 import { CATEGORIES } from '../data/measurements.js';
@@ -53,6 +54,9 @@ export function subscribe(fn) {
   return () => listeners.delete(fn);
 }
 function emit() {
+  // A sync pull can replace caseFile, so repoint the live bindings first.
+  hydrateCase(state.data);
+  hydrateProgramSource(state.data);
   for (const fn of listeners) fn();
 }
 
@@ -82,12 +86,37 @@ export async function load() {
 
   state.readOnly = false;
   const hadSchema = incoming?.schema || 0;
+
+  // Your clinical history is not in this repo. On the Mac it comes from the
+  // gitignored data/case.local.js the first time and is then carried in the
+  // document itself, so the iPhone receives it over sync like any other data.
+  // Fill in per field, not all-or-nothing: an older document may already have
+  // a caseFile from before a field existed, and an all-or-nothing check would
+  // skip it forever.
+  const localCase = await loadLocalCase();
+  let seededCase = false;
+  if (localCase) {
+    const cf = (incoming.caseFile ||= {});
+    const want = {
+      case: localCase.case, timeline: localCase.timeline, hep: localCase.hep,
+      programSource: localCase.programSource, gymSource: localCase.gymSource,
+    };
+    for (const [k, v] of Object.entries(want)) {
+      if (cf[k] === undefined && v !== undefined) { cf[k] = v; seededCase = true; }
+    }
+  }
+  // Hydrate before migrate(): blank() reads CASE for the default surgery dates.
+  hydrateCase(incoming);
+  hydrateProgramSource(incoming);
+
   state.data = migrate(Object.keys(incoming).length ? incoming : blank());
+  hydrateCase(state.data);
+
   if (!state.data.settings.seeded) {
-    seed(state.data);
+    seed(state.data, localCase);
     state.data.settings.seeded = true;
     queueSave();
-  } else if (hadSchema < SCHEMA) {
+  } else if (hadSchema < SCHEMA || seededCase) {
     queueSave(); // persist the repair rather than waiting for the next edit
   }
   emit();
@@ -151,8 +180,12 @@ function markExistingLogged(d) {
   }
 }
 
-function seed(d) {
-  for (const [date, day] of Object.entries(SEED_DAYS)) {
+// `seeds` comes from the Mac's local clinical file. A device without that file
+// seeds nothing — its history arrives over sync instead, and seeding here too
+// would duplicate what sync is already delivering.
+function seed(d, seeds) {
+  if (!seeds) return;
+  for (const [date, day] of Object.entries(seeds.seedDays || {})) {
     if (d.days[date]) continue;
     d.days[date] = {
       checkin: day.checkin || {},
@@ -164,7 +197,7 @@ function seed(d) {
     };
   }
   const have = new Set(d.measurements.map((m) => `${m.date}|${m.measure}|${m.leg || ''}`));
-  for (const m of SEED_MEASUREMENTS) {
+  for (const m of seeds.seedMeasurements || []) {
     const key = `${m.date}|${m.measure}|${m.leg || ''}`;
     if (have.has(key)) continue;
     d.measurements.push({ id: uid(), seeded: true, ...m });

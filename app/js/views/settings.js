@@ -24,9 +24,7 @@ export function renderSettings() {
           ${esc(CASE.protocolNote)}
         </div>
         <div class="callout warn small" style="margin-top:.6rem">
-          You wrote the right knee as 5/8/27. Your own message in the clinical notes (15 Jul 2026) says
-          <strong>8 May</strong> — ACL reconstruction with quad graft on the right knee — so it is set to 8 May 2026 here.
-          Change it above if that is wrong.
+          Dates come from your clinical notes. Change them above if anything is wrong.
         </div>
       </div>
     </section>
@@ -75,7 +73,7 @@ export function renderSettings() {
         <div class="row" style="margin-top:.9rem">
           <button class="btn danger" data-reseed>Re-add the seeded clinic sessions</button>
         </div>
-        <div class="tiny muted" style="margin-top:.3rem">Use this if you deleted the 21/24/27 July entries and want them back.</div>
+        <div class="tiny muted" style="margin-top:.3rem">Use this if you deleted the seeded clinic entries and want them back.</div>
       </div>
     </section>
 
@@ -100,7 +98,7 @@ export function renderSettings() {
           <summary>${connected ? 'Change the sign-in details' : 'Sign in — enter these once'}</summary>
           <div class="grid2" style="padding:.4rem 0 .2rem">
             <label class="fld">Program code
-              <input data-pa="code" value="${esc(pa.code || '')}" placeholder="from Elise" autocomplete="off" spellcheck="false">
+              <input data-pa="code" value="${esc(pa.code || '')}" placeholder="from your clinician" autocomplete="off" spellcheck="false">
             </label>
             <label class="fld">Year of birth
               <input data-pa="birthYear" type="number" min="1900" max="2100" value="${esc(String(pa.birthYear || ''))}" autocomplete="off" placeholder="e.g. 1993">
@@ -134,7 +132,7 @@ export function renderSettings() {
           <summary>What it will and won't bring across</summary>
           <div class="tiny" style="padding:.2rem 0 .1rem;line-height:1.55">
             <strong>Only exercises you genuinely ticked off.</strong> PhysiApp shows a filled-in
-            results form for untouched exercises too — prefilled with Elise's prescription — and
+            results form for untouched exercises too — prefilled with the prescription — and
             reading those would invent a session you never did. The sync ignores anything without a
             real recorded result behind it, whatever the form says.
             <br><br>
