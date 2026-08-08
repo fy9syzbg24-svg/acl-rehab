@@ -8,8 +8,8 @@ import { CATEGORIES, MEASURE_BY_ID, UNIT_LABEL } from '../../data/measurements.j
 import { REHAB_PROGRAM, GYM_PROGRAM, PROGRAM_SOURCE, BAND_BY_ID, THERABAND } from '../../data/program.js';
 import { CLINIC_HEP } from '../../data/history.js';
 import { dayCategories, dayTags } from './week.js';
-import { openExercisePicker, allExercises, exerciseById, openMeasureEntry, loadBars, thumb, iconTile, openPicture } from '../components.js';
-import { renderMonthBoard, bindMonthBoard } from './monthboard.js';
+import { openExercisePicker, allExercises, exerciseById, openMeasureEntry, loadBars, thumb, iconTile, openPicture, openModal, closeModal } from '../components.js';
+import { renderMonthBoard, bindMonthBoard, shortCat } from './monthboard.js';
 import { renderJourney, bindJourney } from './journey.js';
 import { computeInsights } from '../insights.js';
 import { toast } from '../components.js';
@@ -38,6 +38,73 @@ function goalGroups(iso) {
     .sort((a, b) => (a.met - b.met) || (b.left - a.left));
 }
 
+/**
+ * Tap a weekly category (Aerobic, Balance, Strength…) and get the exercises that
+ * count towards it, ready to tick.
+ *
+ * The point is to remove the digging: the bar already says you are light on
+ * aerobic, so the same bar should be what lets you fix it. Everything shown here
+ * genuinely counts towards that target — the list comes from the same category
+ * match the weekly tally uses, so ticking one always moves the pips.
+ */
+export function openCategorySheet(target, iso, after) {
+  const cats = target.t.cats;
+  const month = monthForDate(iso);
+  const day = getDay(iso);
+
+  const pool = allExercises()
+    .filter((x) => cats.includes(x.cat))
+    // Keep it to what this month actually asks for, or the list becomes a catalogue.
+    .filter((x) => !month || !x.months || x.months.includes(month.n))
+    .map((x) => {
+      const mine = (day?.entries || []).filter((e) => e.ex === x.id);
+      return { x, mine, done: mine.length > 0 && mine.every((e) => e.logged) };
+    })
+    .sort((a, b) => (a.done - b.done) || a.x.name.localeCompare(b.x.name));
+
+  const body = `
+    <div class="callout small" style="margin-bottom:.7rem">
+      <strong>${target.hit} of ${target.goal}</strong> days this week.
+      ${target.met
+        ? 'Target met — anything more is a bonus.'
+        : `${target.left} more day${target.left === 1 ? '' : 's'} to hit it. Ticking any of these counts today.`}
+    </div>
+    ${pool.length ? `<div class="catlist">${pool.map((r) => `
+      <button class="catrow ${r.done ? 'done' : ''}" data-cat-ex="${esc(r.x.id)}">
+        <i class="catrow-tick">${r.done ? '✓' : ''}</i>
+        <span class="catrow-main">
+          <span class="catrow-name">${esc(r.x.name)}</span>
+          ${r.mine.length ? `<span class="catrow-sub">${esc(entryChips(r.mine).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim())}</span>` : ''}
+        </span>
+      </button>`).join('')}</div>`
+      : '<div class="tiny muted">Nothing in this month\u2019s plan matches. Use “Anything else” on Today.</div>'}`;
+
+  openModal({
+    title: target.t.label,
+    body,
+    onMount(root) {
+      root.querySelectorAll('[data-cat-ex]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const exId = btn.dataset.catEx;
+          const ex = exerciseById(exId);
+          update(() => {
+            const d = ensureDay(iso);
+            const mine = d.entries.filter((e) => e.ex === exId && !e.pid);
+            if (!mine.length) d.entries.push(...newEntriesFor({ ex: exId, sides: ex?.perLeg ? 'each' : 'both' }, ex, true));
+            else {
+              const allDone = mine.every((e) => e.logged);
+              for (const e of mine) e.logged = !allDone;   // tap again to untick
+            }
+          });
+          closeModal();
+          toast(`\u2705 <b>${esc(ex?.name || exId)}</b><br><span>counts towards ${esc(target.label.toLowerCase())}</span>`);
+          after?.();
+        });
+      });
+    },
+  });
+}
+
 export function renderToday(ctx) {
   const iso = ctx.date || todayIso();
   const month = monthForDate(iso);
@@ -56,6 +123,8 @@ export function renderToday(ctx) {
     ${dateNav(iso, month, completedList(entries).length)}
 
     ${renderJourney(ctx)}
+
+    ${weekBar(iso)}
 
     ${warn ? `<div class="callout ${warn.level}">${warn.html}</div>` : ''}
     ${day?.seeded ? `<div class="callout warn small">Seeded from ${esc(day.source || 'your clinical notes')}. Edit or delete anything that is not right.</div>` : ''}
@@ -186,22 +255,59 @@ function countDone(list, loggedIds) {
   return `${n}/${list.length}`;
 }
 
+// --------------------------------------------------------- week cadence ---
+/**
+ * The week's cadence, at the top where it is seen before anything is logged.
+ *
+ * It used to sit far down inside the month board, which meant the one thing
+ * that answers "what should I do today?" was the thing you had to dig for.
+ * Each category is a button — see openCategorySheet.
+ */
+function weekBar(iso) {
+  const groups = goalGroups(iso);
+  if (!groups.length) return '';
+  const worst = groups.find((g) => !g.met);
+  return `
+  <div class="card weekbar-card">
+    <div class="card-body" style="padding:.6rem .8rem">
+      <div class="section-title" style="margin:0 0 .5rem">This week
+        ${worst && worst.hit / worst.goal < 0.5
+          ? `<span class="tiny" style="text-transform:none;letter-spacing:0;font-weight:450;color:var(--warn)">
+              · light on ${esc(worst.label.toLowerCase())}</span>` : ''}
+        <span class="tiny muted" style="text-transform:none;letter-spacing:0;font-weight:450"> · tap to log</span>
+      </div>
+      <div class="weekcats">
+        ${groups.map((g, i) => `
+          <button class="weekcat tappable ${g.met ? 'met' : ''}" data-catgoal="${i}"
+                  style="--c:${g.colour}" title="${esc(g.t.label)} — tap to log">
+            <span class="wchead"><span class="wclabel tiny">${esc(shortCat(g.t.label))}</span>
+              <span class="tiny mono">${g.hit}/${g.goal}</span></span>
+            <span class="pips">${Array.from({ length: g.goal }, (_, k) =>
+              `<i class="${k < g.hit ? 'on' : ''}"></i>`).join('')}</span>
+          </button>`).join('')}
+      </div>
+    </div>
+  </div>`;
+}
+
 // ------------------------------------------------------------ date header --
 function dateNav(iso, month, n) {
   const isToday = iso === todayIso();
-  return `<div class="card"><div class="card-body" style="padding:.55rem .9rem">
-    <div class="row between">
-      <div class="datenav">
-        <button class="icon-btn" data-nav="-1">‹</button>
+  // One line, one date. The date used to appear twice — as text and again as a
+  // picker — which read as clutter and cost a whole row of height on the phone.
+  // The date IS the picker now: the input sits invisibly on top of the label.
+  return `<div class="card"><div class="card-body" style="padding:.4rem .6rem">
+    <div class="datebar">
+      <button class="icon-btn" data-nav="-1" aria-label="Previous day">‹</button>
+      <span class="datepick">
         <span class="d">${esc(fmtDate(iso))}</span>
-        <button class="icon-btn" data-nav="1">›</button>
-        ${isToday ? '<span class="pill accent">today</span>' : '<button class="btn sm ghost" data-nav="today">back to today</button>'}
-      </div>
-      <div class="row">
-        ${n ? `<span class="pill good">${n} done</span>` : ''}
-        <input type="date" data-jump value="${iso}" style="width:auto">
-        ${month ? `<span class="pill accent">${esc(month.name)} of 6</span>` : ''}
-      </div>
+        <input type="date" data-jump value="${iso}" aria-label="Jump to a date">
+      </span>
+      <button class="icon-btn" data-nav="1" aria-label="Next day">›</button>
+      ${isToday ? '' : '<button class="btn sm ghost" data-nav="today">today</button>'}
+      <span class="spacer"></span>
+      ${n ? `<span class="pill good">${n} done</span>` : ''}
+      ${month ? `<span class="pill accent">${esc(month.name)}/6</span>` : ''}
     </div>
   </div></div>`;
 }
@@ -1045,6 +1151,11 @@ export function bindToday(root, ctx, rerender) {
       ctx.editing = ctx.editing === key ? null : key;
     }
     rerender();
+  }));
+
+  root.querySelectorAll('[data-catgoal]').forEach((b) => b.addEventListener('click', () => {
+    const g = goalGroups(iso)[Number(b.dataset.catgoal)];
+    if (g) openCategorySheet(g, iso, rerender);
   }));
 
   root.querySelectorAll('[data-astest]').forEach((b) => b.addEventListener('click', (ev) => {

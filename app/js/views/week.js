@@ -6,16 +6,26 @@ import { exerciseById, thumb } from '../components.js';
 import { REHAB_PROGRAM, GYM_PROGRAM } from '../../data/program.js';
 
 /** Which categories were touched on a given day. */
+// Only LOGGED rows count towards the week.
+//
+// Opening an exercise creates its row before you have done anything, so
+// counting every row meant a session you merely looked at lit a pip and the
+// weekly cadence over-reported. Green means done everywhere else in the app;
+// it means done here too.
 export function dayCategories(iso) {
   const day = getDay(iso);
   if (!day) return new Set();
-  return new Set((day.entries || []).map((e) => exerciseById(e.ex)?.cat).filter(Boolean));
+  return new Set((day.entries || [])
+    .filter((e) => e.logged)
+    .map((e) => exerciseById(e.ex)?.cat).filter(Boolean));
 }
 
 export function dayTags(iso) {
   const day = getDay(iso);
   if (!day) return new Set();
-  return new Set((day.entries || []).map((e) => exerciseById(e.ex)?.tag).filter(Boolean));
+  return new Set((day.entries || [])
+    .filter((e) => e.logged)
+    .map((e) => exerciseById(e.ex)?.tag).filter(Boolean));
 }
 
 function targetValue(t) {

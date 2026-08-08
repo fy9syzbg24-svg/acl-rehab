@@ -105,36 +105,11 @@ function markerBlock(goals, el) {
 }
 
 // ------------------------------------------------------------- this week ---
-function weekBlock(month, iso) {
-  const days = weekDays(weekStart(iso));
-  const rows = month.weeklyTargets.filter((t) => !t.cats.includes('*')).map((t) => {
-    let hit = 0;
-    for (const d of days) {
-      if (t.tagged) { if (dayTags(d).has(t.tagged)) hit++; continue; }
-      const cats = dayCategories(d);
-      if (t.cats.some((c) => cats.has(c))) hit++;
-    }
-    const goal = state.data.settings.weeklyOverrides?.[t.id] ?? t.target;
-    const p = pct(hit, goal);
-    const colour = CATEGORIES[t.cats[0]]?.color || 'var(--accent)';
-    return { t, hit, goal, p, colour, label: shortCat(t.label) };
-  }).sort((a, b) => a.p - b.p);
-
-  if (!rows.length) return '';
-  const worst = rows[0];
-  return `
-  <div class="section-title" style="margin-top:1rem">This week
-    ${worst.p < 50 ? `<span class="tiny" style="text-transform:none;letter-spacing:0;font-weight:450;color:var(--warn)">
-      · light on ${esc(worst.label.toLowerCase())}</span>` : ''}</div>
-  <div class="weekcats">
-    ${rows.map((r) => `
-      <div class="weekcat" style="--c:${r.colour}" title="${esc(r.t.label)}">
-        <div class="wchead"><span class="wclabel tiny">${esc(r.label)}</span>
-          <span class="tiny mono">${r.hit}/${r.goal}</span></div>
-        <div class="pips">${Array.from({ length: r.goal }, (_, i) =>
-          `<i class="${i < r.hit ? 'on' : ''}"></i>`).join('')}</div>
-      </div>`).join('')}
-  </div>`;
+// The cadence bar moved to the top of Today (weekBar in today.js), where it is
+// seen before anything is logged and where each category can be tapped to log.
+// Rendering it here as well was just noise.
+function weekBlock() {
+  return '';
 }
 
 // ------------------------------------------------------------ focus work ---
@@ -169,7 +144,7 @@ function focusBlock(month, iso) {
 }
 
 /** Category labels have to fit on one line beside their count. */
-function shortCat(label) {
+export function shortCat(label) {
   return label
     .replace(/ sessions.*$/i, '')
     .replace(/ \(.*\)$/, '')

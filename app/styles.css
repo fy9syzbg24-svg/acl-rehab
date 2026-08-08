@@ -779,3 +779,52 @@ ol.steps li { font-size: .82rem; margin: .18rem 0; }
   display: flex; gap: .4rem; align-items: flex-end;
   padding-left: .45rem; border-left: 2px solid color-mix(in srgb, var(--accent) 35%, transparent);
 }
+
+/* ------------------------------------------------- week cadence, tappable --- */
+/* The bar sits at the top of Today and each category opens a logging sheet, so
+   the thing that tells you what is short is the thing that fixes it. */
+.weekbar-card { border-color: color-mix(in srgb, var(--accent) 22%, var(--line)); }
+.weekcat.tappable {
+  display: flex; flex-direction: column; gap: .3rem;
+  border: 1px solid var(--line); border-radius: 10px;
+  padding: .45rem .55rem; background: var(--panel);
+  font: inherit; text-align: left; cursor: pointer;
+  transition: border-color .15s, transform .1s;
+}
+.weekcat.tappable:hover { border-color: var(--c); }
+.weekcat.tappable:active { transform: scale(.98); }
+.weekcat.tappable.met { background: color-mix(in srgb, var(--good) 7%, var(--panel)); }
+.weekcat.tappable .wchead { display: flex; align-items: baseline; justify-content: space-between; gap: .5rem; }
+
+/* one date, not two: the picker sits invisibly over the label */
+.datebar { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; }
+.datebar .spacer { flex: 1 1 auto; }
+.datepick { position: relative; display: inline-flex; align-items: center; }
+.datepick .d { font-weight: 640; font-size: .95rem; white-space: nowrap; padding: .15rem .1rem; }
+.datepick input[type=date] {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  opacity: 0; border: 0; padding: 0; cursor: pointer;
+}
+
+/* the category logging sheet */
+.catlist { display: flex; flex-direction: column; gap: .35rem; }
+.catrow {
+  display: flex; align-items: center; gap: .6rem;
+  border: 1px solid var(--line); border-radius: 11px;
+  padding: .55rem .65rem; background: var(--panel);
+  font: inherit; text-align: left; cursor: pointer; width: 100%;
+  min-height: 52px;
+}
+.catrow:hover { border-color: var(--accent); }
+.catrow:active { transform: scale(.995); }
+.catrow.done { background: var(--good-soft); border-color: color-mix(in srgb, var(--good) 45%, var(--line)); }
+.catrow-tick {
+  flex: none; width: 24px; height: 24px; border-radius: 7px;
+  border: 2px solid var(--line); display: grid; place-items: center;
+  font-style: normal; font-weight: 800; font-size: 13px; color: transparent;
+}
+.catrow.done .catrow-tick { background: var(--good); border-color: var(--good); color: #fff; }
+.catrow-main { display: flex; flex-direction: column; min-width: 0; }
+.catrow-name { font-size: .88rem; font-weight: 560; line-height: 1.3; }
+.catrow.done .catrow-name { color: color-mix(in srgb, var(--good) 72%, var(--ink)); }
+.catrow-sub { font-size: .72rem; color: var(--ink-3); margin-top: .1rem; }
