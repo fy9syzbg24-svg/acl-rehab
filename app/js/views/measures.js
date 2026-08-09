@@ -1,4 +1,4 @@
-import { esc, todayIso, round, fmtDateNum, uid, num, ord } from '../util.js';
+import { esc, currentDayIso, round, fmtDateNum, uid, num, ord } from '../util.js';
 import { state, update, measurementsFor, latest, best } from '../store.js';
 import { MEASURES, MEASURE_BY_ID, MEASURE_GROUPS, UNIT_LABEL } from '../../data/measurements.js';
 import { OPEN_CHAIN } from '../../data/exercises.js';
@@ -318,7 +318,7 @@ export function bindMeasuresPanel(root, ctx, rerender) {
   root.querySelector('[data-newmeasure]')?.addEventListener('click', () => {
     openMeasureEntry({
       measureId: 'sl_calf_raise',
-      date: todayIso(),
+      date: currentDayIso(),
       onSave(rows) {
         update((d) => { for (const r of rows) d.measurements.push({ id: uid(), ...r }); });
         rerender();
@@ -328,7 +328,7 @@ export function bindMeasuresPanel(root, ctx, rerender) {
   root.querySelectorAll('[data-record]').forEach((b) => b.addEventListener('click', () => {
     openMeasureEntry({
       measureId: b.dataset.record,
-      date: todayIso(),
+      date: currentDayIso(),
       onSave(rows) {
         update((d) => { for (const r of rows) d.measurements.push({ id: uid(), ...r }); });
         rerender();

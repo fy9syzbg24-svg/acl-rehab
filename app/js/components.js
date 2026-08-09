@@ -1,6 +1,6 @@
 // Shared UI pieces: modal, exercise picker, measurement entry, charts.
 
-import { esc, el, round, fromIso, fmtDate, fmtDateNum, addDays, todayIso } from './util.js';
+import { esc, el, round, fromIso, fmtDate, fmtDateNum, addDays, currentDayIso } from './util.js';
 import { EXERCISES, EXERCISE_BY_ID } from '../data/exercises.js';
 import { CATEGORIES, MEASURES, MEASURE_BY_ID, UNIT_LABEL } from '../data/measurements.js';
 import { REHAB_PROGRAM, BAND_BY_ID } from '../data/program.js';
@@ -457,7 +457,7 @@ export function heatmap(endIso, weeks, levelFor) {
  * behaves identically in both.
  */
 export function renderDatePill(iso, { done = 0, showDone = true } = {}) {
-  const isToday = iso === todayIso();
+  const isToday = iso === currentDayIso();
   return `<div class="datepill-wrap">
     <div class="datepill">
       <button class="dp-arrow" data-nav="-1" aria-label="Previous day">‹</button>
@@ -480,7 +480,7 @@ export function renderDatePill(iso, { done = 0, showDone = true } = {}) {
 export function bindDatePill(root, iso, onChange) {
   root.querySelectorAll('[data-nav]').forEach((b) => b.addEventListener('click', () => {
     const d = b.dataset.nav;
-    if (d === 'today') return onChange(todayIso());
+    if (d === 'today') return onChange(currentDayIso());
     onChange(addDays(iso, Number(d)));
   }));
   root.querySelector('[data-jump]')?.addEventListener('change', (e) => {

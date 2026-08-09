@@ -1,4 +1,4 @@
-import { esc, todayIso, addDays, weekStart, weekDays, fmtDate, fromIso, pct, num } from '../util.js';
+import { esc, currentDayIso, addDays, weekStart, weekDays, fmtDate, fromIso, pct, num } from '../util.js';
 import { state, update, getDay, hasCheckin, weeklyTargetInfo, setWeeklyTarget } from '../store.js';
 import { monthForDate } from '../../data/plan.js';
 import { CATEGORIES } from '../../data/measurements.js';
@@ -52,7 +52,7 @@ function hitsFor(target, days) {
 }
 
 export function renderWeekPanel(ctx) {
-  const anchor = ctx.date || todayIso();
+  const anchor = ctx.date || currentDayIso();
   const ws = weekStart(anchor);
   const days = weekDays(ws);
   const month = monthForDate(anchor) || monthForDate(ws);
@@ -92,7 +92,7 @@ export function renderWeekPanel(ctx) {
             // always rendered, dimmed and inert when you are already here. It
             // used to swap between an accent pill and a borderless button that
             // read as plain text — same words, two different objects.
-            const isNow = ws === weekStart(todayIso());
+            const isNow = ws === weekStart(currentDayIso());
             return `<button class="dp-today ${isNow ? 'is-today' : ''}" data-wnav="now"
               ${isNow ? 'disabled aria-disabled="true"' : ''}>this week</button>`;
           })()}
@@ -155,7 +155,7 @@ export function renderWeekPanel(ctx) {
 
 /** Every program exercise against the seven days, with your own weekly target. */
 function exerciseGrid(ws, days) {
-  const today = todayIso();
+  const today = currentDayIso();
   const section = (title, items, note) => {
     const rows = items.map((item) => {
       const ex = exerciseById(item.ex);
@@ -228,10 +228,10 @@ function exerciseGrid(ws, days) {
 }
 
 export function bindWeekPanel(root, ctx, rerender) {
-  const anchor = ctx.date || todayIso();
+  const anchor = ctx.date || currentDayIso();
   root.querySelectorAll('[data-wnav]').forEach((b) => b.addEventListener('click', () => {
     const v = b.dataset.wnav;
-    ctx.date = v === 'now' ? todayIso() : addDays(anchor, Number(v));
+    ctx.date = v === 'now' ? currentDayIso() : addDays(anchor, Number(v));
     rerender();
   }));
   root.querySelectorAll('[data-openday]').forEach((b) => b.addEventListener('click', () => {

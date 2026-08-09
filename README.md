@@ -141,6 +141,32 @@ shaped the way it is — changing any of them back reintroduces a real bug.
   would discard the open tab and scroll position. `overscroll-behavior-y: contain`
   disables it so the pull-to-sync gesture can own that overscroll.
 
+## The day ends at 5am, not midnight
+
+Going to bed at 3am, the supplements you are ticking off belong to the day you
+are finishing. So the app's idea of "today" holds until **5am** and then moves
+on — `currentDayIso()` in `util.js`, one constant (`DAY_ROLLOVER_HOUR`) to
+change it.
+
+It applies wherever the app asks *"what day is it for logging?"*: the date
+every tab opens on, what the "today" and "this week" buttons return to, the
+day a tick or a new measurement is filed under, the highlighted cell in the
+activity calendar. It deliberately does NOT apply to wall-clock facts —
+post-op elapsed weeks and export filenames stay on the real calendar date.
+
+**A time of day is not a date.** `instantFor()` is the exact inverse: 03:30
+entered against Friday actually happened at 03:30 on SATURDAY, and that real
+instant is what gets stored. Filing the logical date instead would put the
+moment 24 hours in the past, and the countdown to the next safe dose — which
+measures from the real moment — would read *clear* immediately. That was
+verified: the naive form reports a 12-hour wait as already elapsed.
+
+Doses are therefore grouped for display by the day they BELONG to
+(`currentDayIso(new Date(dose.at))`), not by the date string they carry, so a
+3am dose still appears under the night you were up. Any dose recorded between
+midnight and 5am *before* this change will now display under the previous day;
+nothing is rewritten, it is only grouped differently.
+
 ## Supplements and as-needed medication
 
 `app/js/views/supplements.js`. The LIST and the daily TICKS

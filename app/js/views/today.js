@@ -1,6 +1,6 @@
 // The one place data goes in. Everything else in the app reads from here.
 
-import { esc, todayIso, addDays, fmtDateNum, uid, num, round, weekStart, weekDays } from '../util.js';
+import { esc, currentDayIso, addDays, fmtDateNum, uid, num, round, weekStart, weekDays } from '../util.js';
 import { state, update, ensureDay, getDay, lastEntry, maxLoad, loadSeries,
          weekDots, weeklyTargetInfo } from '../store.js';
 import { monthForDate } from '../../data/plan.js';
@@ -39,7 +39,7 @@ function goalGroups(iso) {
 }
 
 export function renderToday(ctx) {
-  const iso = ctx.date || todayIso();
+  const iso = ctx.date || currentDayIso();
   const month = monthForDate(iso);
   const day = getDay(iso);
   const entries = day?.entries || [];
@@ -853,7 +853,7 @@ function pbCheck(iso, list) {
 }
 
 export function bindToday(root, ctx, rerender) {
-  const iso = ctx.date || todayIso();
+  const iso = ctx.date || currentDayIso();
   bindMonthBoard(root, ctx, rerender);
   bindJourney(root, ctx);
   if (ctx.flash) {
@@ -864,7 +864,7 @@ export function bindToday(root, ctx, rerender) {
 
   root.querySelectorAll('[data-nav]').forEach((b) => b.addEventListener('click', () => {
     const v = b.dataset.nav;
-    ctx.date = v === 'today' ? todayIso() : addDays(iso, Number(v));
+    ctx.date = v === 'today' ? currentDayIso() : addDays(iso, Number(v));
     rerender();
   }));
   root.querySelector('[data-jump]')?.addEventListener('change', (e) => {

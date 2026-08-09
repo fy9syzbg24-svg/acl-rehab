@@ -6,7 +6,7 @@
 //   What have I not touched this week?
 //   Is anything still outstanding from a month that has already ended?
 
-import { esc, todayIso, daysBetween, weekStart, pct, uid } from '../util.js';
+import { esc, currentDayIso, daysBetween, weekStart, pct, uid } from '../util.js';
 import { state, update, focusCoverage } from '../store.js';
 import { openMeasureEntry } from '../components.js';
 import { PLAN_MONTHS, monthForDate } from '../../data/plan.js';
@@ -29,7 +29,7 @@ function paceOf(p, elapsedFrac) {
 }
 
 export function renderMonthBoard(ctx) {
-  const iso = ctx.date || todayIso();
+  const iso = ctx.date || currentDayIso();
   const month = monthForDate(iso);
   if (!month) return '';
   const el = monthElapsed(month, iso);
@@ -209,7 +209,7 @@ export function bindMonthBoard(root, ctx, rerender) {
     if (b.dataset.action === 'toggle') {
       update((d) => {
         const was = d.planGoals[id]?.done;
-        d.planGoals[id] = { done: !was, date: todayIso() };
+        d.planGoals[id] = { done: !was, date: currentDayIso() };
       });
       rerender();
       return;
@@ -217,7 +217,7 @@ export function bindMonthBoard(root, ctx, rerender) {
 
     openMeasureEntry({
       measureId: goal.measure,
-      date: ctx.date || todayIso(),
+      date: ctx.date || currentDayIso(),
       onSave(rows) {
         update((d) => { for (const r of rows) d.measurements.push({ id: uid(), ...r }); });
         rerender();

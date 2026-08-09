@@ -1,7 +1,7 @@
 // State + persistence. The whole document is PUT back to the server on a
 // short debounce; the file on disk is the source of truth.
 
-import { debounce, uid, todayIso, weekStart, weekDays, applyTheme } from './util.js';
+import { debounce, uid, currentDayIso, weekStart, weekDays, applyTheme } from './util.js';
 import { CASE, hydrateCase, loadLocalCase } from '../data/history.js';
 import { hydrateProgramSource } from '../data/program.js';
 import { monthForDate } from '../data/plan.js';
@@ -426,7 +426,7 @@ export function hasCheckin(day) {
 // -------------------------------------------------- measurement accessors ---
 export function addMeasurement(rec) {
   update((d) => {
-    d.measurements.push({ id: uid(), date: rec.date || todayIso(), ...rec });
+    d.measurements.push({ id: uid(), date: rec.date || currentDayIso(), ...rec });
   });
 }
 
