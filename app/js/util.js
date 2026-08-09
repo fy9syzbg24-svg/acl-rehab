@@ -41,38 +41,25 @@ export function weekDays(startIso) {
   return Array.from({ length: 7 }, (_, i) => addDays(startIso, i));
 }
 
-// ----------------------------------------------------------- your day ----
+// ------------------------------------------------- the supplement day ----
 /**
- * When your day rolls over.
+ * When the SUPPLEMENT CHECKLIST's day rolls over.
  *
- * Going to bed at 3am, the supplements you are ticking off belong to the day
- * you are finishing, not the one the clock just started. So the app's idea of
- * "today" holds until 5am and then moves on.
+ * Opening the app at 2am to finish ticking the day's supplements off, the list
+ * wanted should be the one for the day being finished — not a fresh empty one
+ * that has to be corrected by tapping back a date. So that one screen's "today"
+ * holds until 5am and then moves on.
+ *
+ * DELIBERATELY NARROW. Everything else in the app — Today, the plan, tests, and
+ * the timed medication below the checklist — uses the real calendar date via
+ * todayIso(). A dose is a timed event and belongs to the clock's day.
  */
 export const DAY_ROLLOVER_HOUR = 5;
 
-/**
- * The day you are currently living in: the calendar date, except that anything
- * before DAY_ROLLOVER_HOUR still counts as the day before. Pass a Date to ask
- * the same question about any other moment (which day does this dose belong to).
- */
 export function currentDayIso(at = new Date()) {
   const d = new Date(at);
   if (d.getHours() < DAY_ROLLOVER_HOUR) d.setDate(d.getDate() - 1);
   return toIso(d);
-}
-
-/**
- * The real timestamp for a time of day entered against one of those days.
- *
- * The exact inverse of currentDayIso, and it matters: 03:30 recorded against
- * "Friday" actually happened at 03:30 on SATURDAY. Storing Friday's date would
- * put the instant 24 hours in the past, and the countdown to the next safe dose
- * — which measures from the real moment — would read clear straight away.
- */
-export function instantFor(dayIso, hh, mm) {
-  const date = hh < DAY_ROLLOVER_HOUR ? addDays(dayIso, 1) : dayIso;
-  return `${date}T${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:00`;
 }
 
 const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];

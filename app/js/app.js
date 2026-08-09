@@ -1,5 +1,5 @@
 import { load, state, subscribe, runSync, syncState, pendingSyncCount, onRemoteChange } from './store.js';
-import { esc, todayIso, currentDayIso, postOp, applyStoredTheme } from './util.js';
+import { esc, todayIso, postOp, applyStoredTheme } from './util.js';
 import { isConfigured } from './sync/config.js';
 import { renderToday, bindToday } from './views/today.js';
 import { renderProgram, bindProgram } from './views/program.js';
@@ -22,7 +22,7 @@ const VIEWS = {
 
 const ctx = {
   view: location.hash.slice(1) || 'today',
-  date: currentDayIso(),
+  date: todayIso(),
   go(v) { ctx.view = v; history.replaceState(null, '', '#' + v); paint(); },
 };
 

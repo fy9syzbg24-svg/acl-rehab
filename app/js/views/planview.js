@@ -1,4 +1,4 @@
-import { esc, currentDayIso, pct, round, fmtDateNum, uid } from '../util.js';
+import { esc, todayIso, pct, round, fmtDateNum, uid } from '../util.js';
 import { state, update, best, latest, focusCoverage } from '../store.js';
 import { PLAN_MONTHS, monthForDate } from '../../data/plan.js';
 import { MEASURE_BY_ID, UNIT_LABEL } from '../../data/measurements.js';
@@ -61,7 +61,7 @@ export function monthCompletion(m) {
 }
 
 export function renderPlan(ctx) {
-  const today = currentDayIso();
+  const today = todayIso();
   const current = monthForDate(today);
   const openId = ctx.openMonth || current?.id || PLAN_MONTHS[0].id;
 
@@ -166,13 +166,13 @@ export function bindPlan(root, ctx, rerender) {
     rerender();
   }));
   root.querySelectorAll('[data-goal]').forEach((cb) => cb.addEventListener('change', () => {
-    update((d) => { d.planGoals[cb.dataset.goal] = { done: cb.checked, date: currentDayIso() }; });
+    update((d) => { d.planGoals[cb.dataset.goal] = { done: cb.checked, date: todayIso() }; });
     rerender();
   }));
   root.querySelectorAll('[data-record]').forEach((b) => b.addEventListener('click', () => {
     openMeasureEntry({
       measureId: b.dataset.record,
-      date: currentDayIso(),
+      date: todayIso(),
       lockMeasure: false,
       onSave(rows) {
         update((d) => { for (const r of rows) d.measurements.push({ id: uid(), ...r }); });

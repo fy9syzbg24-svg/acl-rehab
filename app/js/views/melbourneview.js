@@ -1,4 +1,4 @@
-import { esc, currentDayIso, round, lsi as calcLsi, fmtDateNum, uid, toKg } from '../util.js';
+import { esc, todayIso, round, lsi as calcLsi, fmtDateNum, uid, toKg } from '../util.js';
 import { state, update, latest, best } from '../store.js';
 import { MELBOURNE_PHASES, MRSS_PART_A, MRSS_PART_D, MRSS_PART_F, lsiPoints } from '../../data/melbourne.js';
 import { MEASURE_BY_ID, UNIT_LABEL } from '../../data/measurements.js';
@@ -383,28 +383,28 @@ export function bindMelbourne(root, ctx, rerender) {
   root.querySelector('[data-phasedone]')?.addEventListener('change', (e) => {
     update((d) => {
       const id = e.target.dataset.phasedone;
-      d.melbourne.phases[id] = { completed: e.target.checked, completedDate: currentDayIso() };
+      d.melbourne.phases[id] = { completed: e.target.checked, completedDate: todayIso() };
     });
     rerender();
   });
   root.querySelectorAll('[data-mmanual]').forEach((cb) => cb.addEventListener('change', () => {
     update((d) => {
       const id = cb.dataset.mmanual;
-      d.melbourne.measures[id] = { ...(d.melbourne.measures[id] || {}), pass: cb.checked, date: currentDayIso() };
+      d.melbourne.measures[id] = { ...(d.melbourne.measures[id] || {}), pass: cb.checked, date: todayIso() };
     });
     rerender();
   }));
   root.querySelectorAll('[data-mrating]').forEach((sel) => sel.addEventListener('change', () => {
     update((d) => {
       const id = sel.dataset.mrating;
-      d.melbourne.measures[id] = { ...(d.melbourne.measures[id] || {}), rating: sel.value, date: currentDayIso() };
+      d.melbourne.measures[id] = { ...(d.melbourne.measures[id] || {}), rating: sel.value, date: todayIso() };
     });
     rerender();
   }));
   root.querySelectorAll('[data-record]').forEach((b) => b.addEventListener('click', () => {
     openMeasureEntry({
       measureId: b.dataset.record,
-      date: currentDayIso(),
+      date: todayIso(),
       onSave(rows) {
         update((d) => { for (const r of rows) d.measurements.push({ id: uid(), ...r }); });
         rerender();
@@ -415,7 +415,7 @@ export function bindMelbourne(root, ctx, rerender) {
   root.querySelector('[data-newmrss]')?.addEventListener('click', () => {
     const id = uid();
     update((d) => {
-      d.mrss.push({ id, date: currentDayIso(), partA: {}, aclrsi: [], ikdc: {}, tsk: [], partD: {}, partE: {}, partF: {} });
+      d.mrss.push({ id, date: todayIso(), partA: {}, aclrsi: [], ikdc: {}, tsk: [], partD: {}, partE: {}, partF: {} });
     });
     ctx.mrssId = id;
     rerender();

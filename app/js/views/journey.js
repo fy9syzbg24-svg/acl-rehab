@@ -3,7 +3,7 @@
 // Built from HTML positioned by percentage — not a stretched SVG — so the
 // type stays crisp at any width. Click a month to open it in the plan tab.
 
-import { esc, currentDayIso, daysBetween } from '../util.js';
+import { esc, todayIso, daysBetween } from '../util.js';
 import { PLAN_MONTHS, PLAN_START, PLAN_END } from '../../data/plan.js';
 import { monthCompletion } from './planview.js';
 
@@ -17,7 +17,7 @@ const PHASES = [
 ];
 
 export function renderJourney(ctx) {
-  const iso = ctx.date || currentDayIso();
+  const iso = ctx.date || todayIso();
   const total = daysBetween(PLAN_START, PLAN_END);
   const at = (d) => (daysBetween(PLAN_START, d) / total) * 100;
   const fx = Math.max(0, Math.min(100, at(iso)));

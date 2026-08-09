@@ -1,4 +1,4 @@
-import { esc, currentDayIso, addDays, fmtDate, fmtDateNum, daysBetween, num } from '../util.js';
+import { esc, todayIso, addDays, fmtDate, fmtDateNum, daysBetween, num } from '../util.js';
 import { state, getDay, loggedDates, hasCheckin } from '../store.js';
 import { PLAN_MONTHS, monthForDate } from '../../data/plan.js';
 import { CASE, CLINIC_TIMELINE } from '../../data/history.js';
@@ -40,7 +40,7 @@ export function bindProgress(root, ctx, rerender) {
 }
 
 function renderHistoryPanel(ctx) {
-  const today = currentDayIso();
+  const today = todayIso();
   const dates = loggedDates();
   const streak = currentStreak(today);
   const last30 = countIn(addDays(today, -29), today);
@@ -88,7 +88,7 @@ function renderHistoryPanel(ctx) {
         <div class="card-body">
           ${PLAN_MONTHS.map((m) => {
             const c = monthCompletion(m);
-            const now = monthForDate(currentDayIso())?.id === m.id;
+            const now = monthForDate(todayIso())?.id === m.id;
             return `<div style="margin-bottom:.55rem">
               <div class="row between tiny"><span>${esc(m.name)} · ${esc(m.monthLabel)} ${now ? '<span class="pill accent">now</span>' : ''}</span>
                 <span class="mono">${c.goalScore}% goals · ${c.focusDone}/${c.focusTotal} focus</span></div>

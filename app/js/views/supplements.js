@@ -19,7 +19,7 @@
 // kept all twenty. Anything seeded independently on multiple devices must
 // derive its id from its content so every device produces the same record.
 
-import { esc, currentDayIso, instantFor, uid, fmtDate } from '../util.js';
+import { esc, todayIso, currentDayIso, uid, fmtDate } from '../util.js';
 import { state, update, ensureDay, getDay } from '../store.js';
 import { renderDatePill, bindDatePill, openModal, closeModal, toast } from '../components.js';
 
@@ -173,7 +173,7 @@ const localIso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
 
 // --------------------------------------------------------------- render ---
 export function renderSupplements(ctx) {
-  const iso = ctx.date || currentDayIso();
+  const iso = ctx.suppDate || currentDayIso();
   const list = listFor(iso);
   const ticks = ticksOn(iso);
   const score = suppScore(iso);
@@ -207,7 +207,7 @@ export function renderSupplements(ctx) {
 
   return `
   <div class="stack">
-    ${renderDatePill(iso, { showDone: false })}
+    ${renderDatePill(iso, { showDone: false, today: currentDayIso() })}
 
     <section class="card">
       <header>
@@ -230,8 +230,23 @@ export function renderSupplements(ctx) {
   </div>`;
 }
 
+/**
+ * The as-needed card runs on the REAL calendar date, never the checklist's
+ * 5am-shifted one. A dose is a timed event: its day is the clock's day, and
+ * the countdown to the next one measures from the actual moment.
+ *
+ * `iso` is the day the CHECKLIST is showing. While that is the current one the
+ * two differ only between midnight and 5am, and there the medication follows
+ * the clock. Navigate deliberately to an older date and this follows you there,
+ * exactly as it always did.
+ */
+function prnDateFor(iso) {
+  return iso === currentDayIso() ? todayIso() : iso;
+}
+
 function renderPrn(ctx, iso) {
-  const meds = (state.data.prnMeds || []).filter((m) => activeOn(m, iso)).sort(byOrder);
+  const day = prnDateFor(iso);
+  const meds = (state.data.prnMeds || []).filter((m) => activeOn(m, day)).sort(byOrder);
 
   return `
   <section class="card">
@@ -239,10 +254,7 @@ function renderPrn(ctx, iso) {
     <div class="card-body">
       ${meds.length ? meds.map((m) => {
         const st = prnStatus(m);
-        // Grouped by the day a dose BELONGS to, not the calendar date stamped
-        // on it — a 3am dose shows under the night you were up, which is the
-        // same day you ticked your supplements off.
-        const onThisDate = doses().filter((x) => x.medId === m.id && currentDayIso(new Date(x.at)) === iso)
+        const onThisDate = doses().filter((x) => x.medId === m.id && String(x.at).slice(0, 10) === day)
           .sort((a, b) => String(a.at).localeCompare(String(b.at)));
         // Fixed structure regardless of state: the row wrapped differently
         // depending on whether there was a countdown or a logged dose, so the
@@ -426,9 +438,11 @@ function stopPrnTicker() {
 }
 
 export function bindSupplements(root, ctx, rerender) {
-  const iso = ctx.date || currentDayIso();
+  const iso = ctx.suppDate || currentDayIso();
   startPrnTicker(root);
-  bindDatePill(root, iso, (next) => { ctx.date = next; rerender(); });
+  // Its own date, not the shared ctx.date: this is the one screen whose day
+  // runs to 5am, and Today must stay on the real calendar date.
+  bindDatePill(root, iso, (next) => { ctx.suppDate = next; rerender(); }, { today: currentDayIso() });
 
   if (ctx.suppEdit) bindDragReorder(root, rerender);
 
@@ -485,7 +499,10 @@ export function bindSupplements(root, ctx, rerender) {
 
   root.querySelectorAll('[data-prn-dose]').forEach((b) => b.addEventListener('click', () => {
     const med = (state.data.prnMeds || []).find((m) => m.id === b.dataset.prnDose);
-    if (med) logDoseSheet(med, iso, rerender);
+    // The real calendar date, not the checklist's — a dose logged at 2am is
+    // stamped with the clock's day, so the countdown measures from the moment
+    // it actually happened.
+    if (med) logDoseSheet(med, prnDateFor(iso), rerender);
   }));
 
   root.querySelectorAll('[data-dosedel]').forEach((c) => c.addEventListener('click', () => {
@@ -598,10 +615,7 @@ function logDoseSheet(med, iso, rerender) {
     onMount(m) {
       m.querySelector('[data-save]').addEventListener('click', () => {
         const [hh, mm] = (m.querySelector('#pd-time').value || hhmm(now)).split(':').map(Number);
-        // A real instant, not the logical day plus a time: 03:30 against
-        // "Friday" happened on Saturday morning, and the countdown to the next
-        // safe dose measures from the actual moment.
-        const at = instantFor(iso, hh, mm);
+        const at = `${iso}T${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:00`;
         update((d) => {
           d.doses = d.doses || [];
           d.doses.push({ id: uid(), medId: med.id, at, dose: m.querySelector('#pd-dose').value.trim() });

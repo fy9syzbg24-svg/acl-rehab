@@ -16,7 +16,7 @@
 import {
   state, subscribe, load, runSync, syncState, pendingSyncCount, onRemoteChange,
 } from './store.js';
-import { todayIso, currentDayIso, postOp, applyStoredTheme } from './util.js';
+import { todayIso, postOp, applyStoredTheme } from './util.js';
 import { renderToday, bindToday } from './views/today.js';
 import { renderProgram, bindProgram } from './views/program.js';
 import { renderPlan, bindPlan } from './views/planview.js';
@@ -53,7 +53,7 @@ const IS_PHONE = window.matchMedia('(max-width: 700px)').matches;
 
 const ctx = {
   view: (location.hash.slice(1) || (IS_PHONE ? 'supplements' : 'today')),
-  date: currentDayIso(),
+  date: todayIso(),
   go(v) {
     ctx.view = v;
     history.replaceState(null, '', '#' + v);

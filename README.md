@@ -141,31 +141,35 @@ shaped the way it is — changing any of them back reintroduces a real bug.
   would discard the open tab and scroll position. `overscroll-behavior-y: contain`
   disables it so the pull-to-sync gesture can own that overscroll.
 
-## The day ends at 5am, not midnight
+## The supplement checklist's day runs to 5am
 
-Going to bed at 3am, the supplements you are ticking off belong to the day you
-are finishing. So the app's idea of "today" holds until **5am** and then moves
-on — `currentDayIso()` in `util.js`, one constant (`DAY_ROLLOVER_HOUR`) to
-change it.
+Opening the app at 2am to finish ticking the day's supplements off, the list
+wanted is the one for the day being finished — not a fresh empty one that has
+to be corrected by tapping back a date. So the CHECKLIST's "today" holds until
+**5am** and then moves on: `currentDayIso()` in `util.js`, one constant
+(`DAY_ROLLOVER_HOUR`) to change it.
 
-It applies wherever the app asks *"what day is it for logging?"*: the date
-every tab opens on, what the "today" and "this week" buttons return to, the
-day a tick or a new measurement is filed under, the highlighted cell in the
-activity calendar. It deliberately does NOT apply to wall-clock facts —
-post-op elapsed weeks and export filenames stay on the real calendar date.
+**Deliberately narrow — this is a convenience, not a model of time.** It
+applies to the supplement checklist and nothing else:
 
-**A time of day is not a date.** `instantFor()` is the exact inverse: 03:30
-entered against Friday actually happened at 03:30 on SATURDAY, and that real
-instant is what gets stored. Filing the logical date instead would put the
-moment 24 hours in the past, and the countdown to the next safe dose — which
-measures from the real moment — would read *clear* immediately. That was
-verified: the naive form reports a 12-hour wait as already elapsed.
+- The checklist keeps its own date (`ctx.suppDate`), separate from the shared
+  `ctx.date` every other view uses. Nothing outside this file reads the
+  supplement list, so the two never need to agree.
+- Its date pill's "today" button returns to that shifted day — hence the
+  `today` option on `renderDatePill` / `bindDatePill`, which defaults to the
+  real calendar date for every other caller.
+- Today, the plan, tests, measurements, the week panel and the activity
+  calendar all stay on `todayIso()`. Between midnight and 5am Supplements and
+  Today therefore show different dates, which is intended.
 
-Doses are therefore grouped for display by the day they BELONG to
-(`currentDayIso(new Date(dose.at))`), not by the date string they carry, so a
-3am dose still appears under the night you were up. Any dose recorded between
-midnight and 5am *before* this change will now display under the previous day;
-nothing is rewritten, it is only grouped differently.
+**The as-needed medication below it does NOT roll over.** A dose is a timed
+event: its day is the clock's day, and the countdown to the next one measures
+from the real moment. `prnDateFor()` returns the real date while the checklist
+is on its current day, and follows you to an older date when you navigate
+deliberately — so a dose logged at 2am is stamped 2am on the real date, appears
+immediately, and its countdown is honest. Filing it under the checklist's day
+instead would put the instant 24 hours in the past and report a 12-hour wait as
+already clear.
 
 ## Supplements and as-needed medication
 
