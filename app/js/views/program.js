@@ -3,7 +3,7 @@
 
 import { esc, fmtDate, round, fmtDateNum } from '../util.js';
 import { state, update, maxLoad, loadSeries } from '../store.js';
-import { REHAB_PROGRAM, GYM_PROGRAM, PROGRAM_SOURCE, GYM_SOURCE, THERABAND, BAND_BY_ID } from '../../data/program.js';
+import { REHAB_PROGRAM, GYM_PROGRAM, PROGRAM_SOURCE, GYM_SOURCE, THERABAND, BAND_BY_ID, DAYS, DAYS_SOURCE } from '../../data/program.js';
 import { exerciseById, loadBars, prescriptionPills, openPicture, iconTile } from '../components.js';
 
 export function renderProgram(ctx) {
@@ -29,8 +29,65 @@ export function renderProgram(ctx) {
       </div>
     </section>
 
+    ${weekCard(tab)}
+
     ${tab === 'rehab' ? REHAB_PROGRAM.map(exerciseCard).join('') : gymTab()}
   </div>`;
+}
+
+// ---------------------------------------------------------- day sets ------
+function daysOf(pid) {
+  const d = state.data.program.days?.[pid];
+  return Array.isArray(d) ? d : null;            // null = every day (never set)
+}
+
+/** Seven toggles. Always all seven, on or off — the control never changes shape. */
+function dayChips(pid) {
+  const days = daysOf(pid);
+  return `<div class="daysrow">
+    <span class="tiny muted">Days</span>
+    <span class="daychips" role="group" aria-label="Days of the week">
+      ${DAYS.map(([k, name, letter]) => `<button class="daychip ${days === null || days.includes(k) ? 'on' : ''}"
+        data-pday="${esc(pid)}" data-day="${k}" title="${esc(name)}" aria-pressed="${days === null || days.includes(k)}">${letter}</button>`).join('')}
+    </span>
+    ${days === null ? '<span class="tiny muted">every day</span>' : days.length === 0 ? '<span class="tiny muted">not planned</span>' : ''}
+  </div>`;
+}
+
+/** Your week: how many of this list land on each day. */
+function weekCard(tab) {
+  const list = tab === 'rehab' ? REHAB_PROGRAM : GYM_PROGRAM;
+  const per = DAYS.map(([k, name]) => {
+    const items = list.filter((p) => { const d = daysOf(p.id); return d === null || d.includes(k); });
+    return { k, name, items };
+  });
+  return `
+  <section class="card">
+    <header><h2>Your week</h2><span class="sub">${tab === 'rehab' ? 'rehab program' : 'gym'} · tap the days on any exercise to change it</span></header>
+    <div class="card-body tight">
+      <div class="weekgrid">
+        ${per.map(({ k, name, items }) => `
+          <div class="weekday ${items.length ? '' : 'rest'}">
+            <div class="wd-name">${esc(name.slice(0, 3))}</div>
+            <div class="wd-n mono">${items.length || '–'}</div>
+            <div class="wd-what">${items.length ? esc(shortList(items)) : 'rest'}</div>
+          </div>`).join('')}
+      </div>
+      <div class="tiny muted" style="margin-top:.5rem">${esc(DAYS_SOURCE)}</div>
+    </div>
+  </section>`;
+}
+
+/** Program numbers ("1, 2, 3, 6–8") for rehab items; names for the gym. */
+function shortList(items) {
+  const ns = items.map((p) => p.n).filter(Boolean).sort((a, b) => a - b);
+  if (!ns.length) return items.map((p) => (exerciseById(p.ex)?.name || p.ex).split(' — ')[0]).join(' · ');
+  const runs = [];
+  for (const n of ns) {
+    const last = runs[runs.length - 1];
+    if (last && n === last[1] + 1) last[1] = n; else runs.push([n, n]);
+  }
+  return runs.map(([a, b]) => (a === b ? `${a}` : b === a + 1 ? `${a}, ${b}` : `${a}–${b}`)).join(', ');
 }
 
 function exerciseCard(p) {
@@ -55,6 +112,7 @@ function exerciseCard(p) {
           ${p.notYet ? '<span class="pill warn">not yet</span>' : ''}
         </div>
         ${prescriptionPills(p)}
+        ${dayChips(p.id)}
         ${p.notYet ? `<div class="callout warn small">${esc(p.notYetNote)}</div>` : ''}
         ${p.notes?.length ? `<div class="callout small" style="margin-bottom:.5rem">${p.notes.map(esc).join('<br>')}</div>` : ''}
         ${p.photoNote ? `<div class="tiny muted" style="margin:-.2rem 0 .5rem">${esc(p.photoNote)}</div>` : ''}
@@ -110,6 +168,7 @@ function gymTab() {
               ? `${item.sets} × ${item.reps}${item.sides === 'each' ? ' each side' : ''}`
               : 'minutes · level 1–20 · calories'}</span>
           </div>
+          ${dayChips(item.id)}
           <div class="boards">
             ${sides.map((s) => {
               const key = s === 'B' ? null : s;
@@ -148,6 +207,17 @@ export function bindProgram(root, ctx, rerender) {
   root.querySelectorAll('[data-bigpic]').forEach((b) => b.addEventListener('click', () => openPicture(b.dataset.bigpic)));
   root.querySelectorAll('[data-pband]').forEach((sel) => sel.addEventListener('change', () => {
     update((d) => { d.program.band[sel.dataset.pband] = sel.value; });
+    rerender();
+  }));
+  root.querySelectorAll('[data-pday]').forEach((b) => b.addEventListener('click', () => {
+    const pid = b.dataset.pday;
+    const day = b.dataset.day;
+    update((d) => {
+      d.program.days = d.program.days || {};
+      // "Every day" (never set) becomes an explicit seven, then the tap applies.
+      const cur = Array.isArray(d.program.days[pid]) ? d.program.days[pid].slice() : DAYS.map((x) => x[0]);
+      d.program.days[pid] = cur.includes(day) ? cur.filter((x) => x !== day) : cur.concat(day);
+    });
     rerender();
   }));
   root.querySelectorAll('[data-pstage]').forEach((b) => b.addEventListener('click', () => {

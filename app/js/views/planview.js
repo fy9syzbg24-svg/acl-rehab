@@ -15,7 +15,7 @@ export function goalProgress(g) {
     const bw = bodyweightKg();
     const b = best(g.measure, MEASURE_BY_ID[g.measure]?.perLeg ? 'L' : null);
     const b2 = MEASURE_BY_ID[g.measure]?.perLeg ? best(g.measure, 'R') : null;
-    if (!bw || !b) return { p: manual.done ? 100 : 0, detail: bw ? 'no lift recorded' : 'set your bodyweight in settings', done: !!manual.done };
+    if (!bw || !b) return { p: manual.done ? 100 : 0, detail: bw ? 'no lift recorded' : 'set your bodyweight in settings', done: !!manual.done, untested: !manual.done };
     const val = (rec) => toKg(rec.value, rec.unit || state.data.settings.weightUnit);
     const worst = b2 ? Math.min(val(b), val(b2)) : val(b);
     const ratio = worst / bw;
@@ -27,7 +27,7 @@ export function goalProgress(g) {
   if (m.perLeg) {
     const bl = best(g.measure, 'L');
     const br = best(g.measure, 'R');
-    if (!bl && !br) return { p: 0, detail: 'not tested yet', done: false };
+    if (!bl && !br) return { p: 0, detail: 'not tested yet', done: false, untested: true };
     const lo = Math.min(bl?.value ?? 0, br?.value ?? 0);
     return {
       p: pct(lo, g.target),
@@ -36,7 +36,7 @@ export function goalProgress(g) {
     };
   }
   const b = best(g.measure, null);
-  if (!b) return { p: 0, detail: 'not tested yet', done: false };
+  if (!b) return { p: 0, detail: 'not tested yet', done: false, untested: true };
   return { p: pct(b.value, g.target), detail: `${round(b.value, 1)} ${UNIT_LABEL[m.unit] || ''}`, done: b.value >= g.target };
 }
 

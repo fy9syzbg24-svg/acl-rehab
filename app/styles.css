@@ -1135,3 +1135,30 @@ ol.steps li { font-size: .82rem; margin: .18rem 0; }
 .themeswatch.light { background: linear-gradient(120deg, #ffffff 55%, #e8efff); }
 .themeswatch.dark { background: linear-gradient(120deg, #171b21 55%, #1b2740); }
 .themeswatch.auto { background: linear-gradient(120deg, #ffffff 48%, #171b21 52%); }
+
+/* --------------------------------------------------------- day sets ------ */
+.daysrow { display: flex; align-items: center; gap: .45rem; flex-wrap: wrap; margin: .35rem 0 .5rem; }
+.daychips { display: inline-flex; gap: .2rem; }
+.daychip {
+  width: 26px; height: 26px; border-radius: 100px; padding: 0;
+  border: 1px solid var(--line); background: var(--panel); color: var(--ink-3);
+  font: inherit; font-size: .72rem; font-weight: 650; cursor: pointer;
+}
+.daychip:hover { border-color: var(--accent); }
+.daychip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+.weekgrid { display: grid; grid-template-columns: repeat(7, 1fr); gap: .3rem; }
+.weekday {
+  border: 1px solid var(--line-2); border-radius: var(--radius-sm); background: var(--panel-2);
+  padding: .4rem .3rem; text-align: center; min-width: 0;
+}
+.weekday.rest { opacity: .55; }
+.wd-name { font-size: .68rem; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-3); font-weight: 650; }
+.wd-n { font-size: 1.15rem; font-weight: 650; line-height: 1.3; }
+.wd-what { font-size: .66rem; color: var(--ink-3); line-height: 1.25; overflow-wrap: anywhere; }
+
+/* The folded "not planned today" group under the day's set */
+details.notoday { margin-top: .6rem; }
+details.notoday > summary { cursor: pointer; color: var(--ink-3); font-size: .8rem; padding: .3rem 0; }
+details.notoday > summary .good { color: var(--good); margin-left: .35rem; }
+.notoday-body { margin-top: .4rem; }

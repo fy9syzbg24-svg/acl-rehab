@@ -322,3 +322,7 @@ html, body.mobile { overscroll-behavior-y: contain; }
   color: var(--accent);
 }
 .msync.armed .msync-dot { background: var(--accent); }
+
+/* day-set chips need a thumb-sized target; the week grid stays seven-wide */
+body.mobile .daychip { width: 32px; height: 32px; font-size: .8rem; }
+body.mobile .wd-what { display: none; }

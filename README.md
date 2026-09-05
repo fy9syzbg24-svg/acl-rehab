@@ -17,6 +17,50 @@ python3 server.py
 Then open <http://localhost:8757>. Pure Python standard library — no
 dependencies, no build step.
 
+But normally you don't start it at all: **the server runs as a login service**
+(`com.reuben.acl-rehab`; see the top of the workspace `CLAUDE.md`). It starts
+at login and restarts itself if it dies. After changing `server.py`, restart it:
+
+```bash
+launchctl kickstart -k gui/501/com.reuben.acl-rehab
+```
+
+`start.command` is still there for a manual run — it reclaims the port first
+and checks the app really answers before handing you the window.
+
+## "The server unexpectedly dropped the connection"
+
+The symptom: the dock app shows *ACL Tracker Can't Open the Page … the server
+unexpectedly dropped the connection*, `curl` gets an empty reply, yet
+`lsof -nP -iTCP:8757 -sTCP:LISTEN` shows a Python process still holding the
+port. Relaunching seems to do nothing.
+
+The cause is **not** the code. It hit all four workspace apps twice, most
+recently 2026-08-12. The project used to live under `~/Desktop`, which macOS
+protects (TCC). A process inherits its Desktop grant from the app that
+launched it; if a server is left running in the background and that parent
+goes away, the grant lapses. The process keeps the port bound but every
+request dies with `PermissionError: [Errno 1] Operation not permitted` on
+`app/index.html`, and a new server can't bind the port the zombie owns.
+
+**The workspace has since moved to `/Users/reuben/Workspace`, outside the
+protected folders, so this should not recur.** Do not move it back under
+`~/Desktop`, `~/Documents` or `~/Downloads`.
+
+Two guards also make it self-correcting, so don't re-diagnose it:
+
+- `server.py` probes `app/index.html` at startup and refuses to start if it
+  can't read it, and `Server.handle_error` treats a `PermissionError` that it
+  can confirm (by re-probing) as fatal — it exits so the port is released
+  rather than squatted.
+- `start.command` reclaims the port from a previous copy of *this* server
+  before starting (it refuses to touch a process that isn't one), then polls
+  until the app returns HTTP 200 and prints the permission hint if it doesn't.
+
+**Never hand-background one of these servers** with `&` or `nohup` "so it keeps
+running" — that is what created the orphan both times. Let launchd own it, or
+run it in the foreground via `start.command` and let the window own it.
+
 ## Layout
 
 ```
@@ -32,6 +76,20 @@ tools/              tests
 All personal data — logged sessions, measurements, clinical history — lives
 outside this repository: on the local machine, and in a private repository used
 purely as a sync relay. Nothing identifying is published here.
+
+### Photos and videos are originals
+
+If media is ever attached here — progress photos, scan images, clinic paperwork,
+exercise clips — the file is stored **byte for byte as supplied**. Never compress,
+re-encode, resize, rotate, crop, convert or strip EXIF from an original, and never
+delete one. Thumbnails and web-sized previews are additional files written
+alongside, never replacements. See Rule zero in the workspace `CLAUDE.md`.
+
+Note this collides with the sync design: `state.json` is a JSON document relayed
+through a repository, so binary media must NOT be inlined as base64 into it.
+Media needs its own content-addressed store (file per blob, hash as the name) with
+only the hash and metadata in the document — decide that before adding the first
+attachment, not after.
 
 ## Two devices, one log
 
@@ -193,6 +251,32 @@ timestamped, so the question "when may I take another?" can be answered.
 The countdown runs from the most recent dose regardless of date, which is what
 makes a wait crossing midnight read correctly the next morning. Logging a dose
 early is allowed and recorded — the log is a record of what happened.
+
+## Day sets — "what do I do today?"
+
+`program.days[pid]` (synced as `p|days|<pid>`) holds the weekdays each program
+item is planned for. Today shows the day's set first, counts done against THAT
+(`Rehab 2/10`, not `2/17`), and folds everything else into "Not planned today",
+still tickable. A day with nothing planned says so and shows the whole list.
+Edit the days on the Program tab (seven chips per exercise, always all seven
+rendered); the "Your week" card at the top shows how the week lands.
+
+The seed in `DEFAULT_DAYS` is **my default, not the clinician's** — the PhysiApp
+export gives no frequency. It follows the plan's Month 2 weekly targets (3
+strength · 3 balance · 4 aerobic): home strength Mon/Fri, gym + step work Wed,
+calves every strength day, balance Tue/Thu/Sat, bike Mon/Thu and elliptical
+Tue/Sat, Sunday rest. `seedProgramDays` runs once (`settings.daysSeeded`) and
+refuses if any days exist — same contract as the supplement seed, so his
+arrangement is never overwritten. An item with no entry means every day; an
+empty list means never (the jump-prep exercise, until it is cleared).
+
+**"Same as last time"** (Rehab and Gym segments) ticks whatever was LOGGED on
+the most recent earlier day for that list, with its numbers; rows already on
+today keep today's numbers. Rows with numbers typed but never ticked are not a
+session — the same rule as the week bar — so they do not count as "last time".
+
+Month markers with no measurement yet show "Not tested yet" and no pace badge:
+untested is not behind.
 
 ## The service worker's precache list is GENERATED
 

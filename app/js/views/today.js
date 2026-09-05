@@ -5,7 +5,7 @@ import { state, update, ensureDay, getDay, lastEntry, maxLoad, loadSeries,
          weekDots, weeklyTargetInfo } from '../store.js';
 import { monthForDate } from '../../data/plan.js';
 import { CATEGORIES, MEASURE_BY_ID, UNIT_LABEL } from '../../data/measurements.js';
-import { REHAB_PROGRAM, GYM_PROGRAM, PROGRAM_SOURCE, BAND_BY_ID, THERABAND } from '../../data/program.js';
+import { REHAB_PROGRAM, GYM_PROGRAM, PROGRAM_SOURCE, BAND_BY_ID, THERABAND, plannedOn, dayKeyOf, DAY_NAME } from '../../data/program.js';
 import { CLINIC_HEP } from '../../data/history.js';
 import { dayCategories, dayTags } from './week.js';
 import { openExercisePicker, allExercises, exerciseById, openMeasureEntry, loadBars, thumb, iconTile, openPicture, renderDatePill } from '../components.js';
@@ -111,8 +111,8 @@ export function renderToday(ctx) {
       <header>
         <h2>Today's session</h2>
         <div class="row" style="gap:.25rem">
-          <button class="btn sm ${seg === 'rehab' ? 'primary' : ''}" data-seg="rehab"><span class="lbl-full">Rehab program</span><span class="lbl-short">Rehab</span> <span class="mono">${countDone(REHAB_PROGRAM, doneIds)}</span></button>
-          <button class="btn sm ${seg === 'gym' ? 'primary' : ''}" data-seg="gym"><span class="lbl-full">Open chain</span><span class="lbl-short">Gym</span> <span class="mono">${countDone(GYM_PROGRAM, doneIds)}</span></button>
+          <button class="btn sm ${seg === 'rehab' ? 'primary' : ''}" data-seg="rehab"><span class="lbl-full">Rehab program</span><span class="lbl-short">Rehab</span> <span class="mono">${countDone(REHAB_PROGRAM, doneIds, iso)}</span></button>
+          <button class="btn sm ${seg === 'gym' ? 'primary' : ''}" data-seg="gym"><span class="lbl-full">Open chain</span><span class="lbl-short">Gym</span> <span class="mono">${countDone(GYM_PROGRAM, doneIds, iso)}</span></button>
           ${(() => {
             const g = goalGroups(iso);
             if (!g.length) return '';
@@ -183,9 +183,48 @@ function completedSegment(entries, ctx) {
     </div>`;
 }
 
-function countDone(list, loggedIds) {
+/** Done out of what is PLANNED for the day. On a rest day only the done count shows. */
+function countDone(list, loggedIds, iso) {
   const n = list.filter((p) => loggedIds.has(p.id)).length;
-  return `${n}/${list.length}`;
+  const planned = list.filter((p) => plannedOn(state.data, p.id, iso)).length;
+  return planned ? `${n}/${planned}` : `${n}`;
+}
+
+/** Split a program list into today's set and the rest. */
+function splitByDay(list, iso) {
+  const today = list.filter((p) => plannedOn(state.data, p.id, iso));
+  const rest = list.filter((p) => !plannedOn(state.data, p.id, iso));
+  return { today, rest };
+}
+
+/**
+ * The most recent earlier day with something LOGGED from this list, so
+ * "Same as last time" copies a real session — not a day that was only looked at.
+ */
+function lastSessionFor(list, iso) {
+  const ids = new Set(list.map((p) => p.id));
+  const prev = Object.keys(state.data.days)
+    .filter((k) => k < iso && (state.data.days[k].entries || []).some((e) => e.logged && ids.has(e.pid)))
+    .sort().pop();
+  if (!prev) return null;
+  return { date: prev, entries: state.data.days[prev].entries.filter((e) => e.logged && ids.has(e.pid)) };
+}
+
+/** The folded "not planned today" group. Open state lives on ctx so a tick does not close it. */
+function restGroup(rows, iso, entries, ctx, key, label) {
+  if (!rows.length) return '';
+  const done = rows.filter((p) => isLogged(entries.filter((e) => e.pid === p.id))).length;
+  return `
+  <details class="disc notoday" data-rest="${key}" ${ctx[key] ? 'open' : ''}>
+    <summary>${esc(label)} · ${rows.length}${done ? ` <span class="mono good">${done} done</span>` : ''}</summary>
+    <div class="notoday-body">${rows.map((p) => programRow(p, iso, entries, ctx)).join('')}</div>
+  </details>`;
+}
+
+function sameAsLastBtn(key, list, iso) {
+  const last = lastSessionFor(list, iso);
+  return `<button class="btn sm" data-act="same-${key}" ${last ? '' : 'disabled'}
+    title="${last ? `Tick what you did on ${esc(fmtDateNum(last.date))}, with the same numbers` : 'No earlier session to copy'}">Same as last time</button>`;
 }
 
 /**
@@ -617,22 +656,40 @@ function entryFields(e, ex) {
 }
 
 function rehabSegment(iso, entries, ctx) {
-  const done = REHAB_PROGRAM.filter((p) => isLogged(entries.filter((e) => e.pid === p.id))).length;
+  const { today, rest } = splitByDay(REHAB_PROGRAM, iso);
+  const done = today.filter((p) => isLogged(entries.filter((e) => e.pid === p.id))).length;
+  const dayName = DAY_NAME[dayKeyOf(iso)];
   return `
   <div class="row between" style="margin-bottom:.5rem">
-    <span class="tiny muted">${esc(PROGRAM_SOURCE.clinician)}'s program — ${done} of ${REHAB_PROGRAM.length} done. Tick one to fill it in.</span>
+    <span class="tiny muted">${today.length
+      ? `${esc(dayName)}'s set — ${done} of ${today.length} done. Tick one to fill it in.`
+      : `${esc(dayName)} is a rest day — nothing planned. Everything is below if you want it.`}</span>
     <div class="row" style="gap:.3rem">
       <button class="btn sm" data-act="untick-all">Clear</button>
+      ${sameAsLastBtn('rehab', REHAB_PROGRAM, iso)}
       <button class="btn sm" data-act="tick-all">Tick everything</button>
     </div>
   </div>
-  ${REHAB_PROGRAM.map((p) => programRow(p, iso, entries, ctx)).join('')}`;
+  ${today.map((p) => programRow(p, iso, entries, ctx)).join('')}
+  ${restGroup(rest, iso, entries, ctx, 'openRestRehab', today.length ? 'Not planned today' : 'All exercises')}`;
 }
 
 function gymSegment(iso, entries, ctx) {
+  const { today, rest } = splitByDay(GYM_PROGRAM, iso);
+  const done = today.filter((p) => isLogged(entries.filter((e) => e.pid === p.id))).length;
+  const dayName = DAY_NAME[dayKeyOf(iso)];
   return `
-  <div class="tiny muted" style="margin-bottom:.6rem">Your working resistance, so you know where to start. Bars are your top load each session.</div>
-  ${GYM_PROGRAM.map((p) => gymCard(p, entries, ctx, iso)).join('')}
+  <div class="row between" style="margin-bottom:.5rem">
+    <span class="tiny muted">${today.length
+      ? `${esc(dayName)}'s set — ${done} of ${today.length} done. Bars are your top load each session.`
+      : `Nothing planned at the gym on a ${esc(dayName)}. Everything is below if you want it.`}</span>
+    ${sameAsLastBtn('gym', GYM_PROGRAM, iso)}
+  </div>
+  ${today.map((p) => gymCard(p, entries, ctx, iso)).join('')}
+  ${rest.length ? `<details class="disc notoday" data-rest="openRestGym" ${ctx.openRestGym ? 'open' : ''}>
+    <summary>${today.length ? 'Not planned today' : 'All gym exercises'} · ${rest.length}</summary>
+    <div class="notoday-body">${rest.map((p) => gymCard(p, entries, ctx, iso)).join('')}</div>
+  </details>` : ''}
   <div class="row" style="margin-top:.6rem">
     <button class="btn sm" data-act="add-ex">+ Add another gym exercise</button>
   </div>`;
@@ -999,11 +1056,44 @@ export function bindToday(root, ctx, rerender) {
     rerender();
   }));
 
+  root.querySelectorAll('[data-rest]').forEach((d) => d.addEventListener('toggle', () => {
+    ctx[d.dataset.rest] = d.open;
+  }));
+
+  // "Same as last time": tick what was logged on the most recent real session
+  // from this list, with its numbers. Rows already on today keep today's numbers.
+  for (const [key, list] of [['rehab', REHAB_PROGRAM], ['gym', GYM_PROGRAM]]) {
+    root.querySelector(`[data-act="same-${key}"]`)?.addEventListener('click', () => {
+      const last = lastSessionFor(list, iso);
+      if (!last) return;
+      const marked = [];
+      update(() => {
+        const d = ensureDay(iso);
+        for (const e of last.entries) {
+          const mine = d.entries.filter((x) => x.pid === e.pid && (x.side || 'B') === (e.side || 'B'));
+          if (mine.length) { for (const x of mine) { x.logged = true; marked.push(x); } continue; }
+          const { id, seeded, via, ...rest } = e;
+          const row = { id: uid(), ...rest, logged: true };
+          d.entries.push(row);
+          marked.push(row);
+        }
+      });
+      const tests = recordAsTests(iso, marked);
+      pbCheck(iso, marked);
+      const n = new Set(marked.map((x) => x.pid)).size;
+      toast(`<b>Same as ${esc(fmtDateNum(last.date))}</b><br><span>${n} exercise${n === 1 ? '' : 's'} ticked${tests.length ? ` · also saved as ${tests.length === 1 ? 'a test' : 'tests'}` : ''}</span>`);
+      ctx.editing = null;
+      rerender();
+    });
+  }
+
   root.querySelector('[data-act="tick-all"]')?.addEventListener('click', () => {
     update(() => {
       const d = ensureDay(iso);
       ctx.editing = null;
-      for (const item of REHAB_PROGRAM) {
+      // Today's set; on a rest day, everything.
+      const { today } = splitByDay(REHAB_PROGRAM, iso);
+      for (const item of (today.length ? today : REHAB_PROGRAM)) {
         if (item.notYet) continue;
         if (d.entries.some((e) => e.pid === item.id)) continue;
         d.entries.push(...newEntriesFor(item, exerciseById(item.ex), true));

@@ -473,9 +473,35 @@ class Handler(http.server.BaseHTTPRequestHandler):
             print(f"  saved  {time.strftime('%H:%M:%S')}")
 
 
+def app_readable() -> bool:
+    """True if this process can still read the app files it serves."""
+    try:
+        with open(APP_DIR / "index.html", "rb") as fh:
+            fh.read(1)
+        return True
+    except OSError:
+        return False
+
+
 class Server(socketserver.ThreadingTCPServer):
     allow_reuse_address = True
     daemon_threads = True
+
+    def handle_error(self, request, client_address):
+        # macOS can revoke this process's access to the Desktop folder once the
+        # app that launched it is gone. Every request then fails with
+        # "Operation not permitted" while the port stays bound — the app looks
+        # broken and a healthy relaunch cannot take the port. Quit instead of
+        # squatting on it; start.command relaunches cleanly.
+        if isinstance(sys.exc_info()[1], PermissionError) and not app_readable():
+            print(
+                f"\n  lost read access to {APP_DIR} (macOS file permissions)."
+                "\n  shutting down so a fresh launch can take port.\n",
+                file=sys.stderr,
+                flush=True,
+            )
+            os._exit(13)
+        super().handle_error(request, client_address)
 
 
 def lan_ip() -> str | None:
@@ -502,6 +528,12 @@ def main() -> int:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     if not APP_DIR.is_dir():
         print(f"error: {APP_DIR} is missing", file=sys.stderr)
+        return 1
+
+    if not app_readable():
+        print(f"error: cannot read {APP_DIR / 'index.html'}", file=sys.stderr)
+        print("       macOS is blocking this process from the Desktop folder.", file=sys.stderr)
+        print("       Launch the app by double-clicking start.command.", file=sys.stderr)
         return 1
 
     try:

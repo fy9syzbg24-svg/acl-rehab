@@ -22,6 +22,9 @@ function monthElapsed(month, iso) {
 function paceOf(p, elapsedFrac) {
   if (p.done) return { cls: 'met', label: 'Met' };
   if (p.p == null) return { cls: '', label: '' };
+  // Nothing measured yet is not "behind" — the detail already says "not tested yet",
+  // and a marker cannot be off pace before it has a first number.
+  if (p.untested) return { cls: '', label: '' };
   // A blunt check: are you as far through the goal as you are through the month?
   const slack = 0.12;
   if (p.p / 100 >= elapsedFrac - slack) return { cls: 'ok', label: 'On pace' };

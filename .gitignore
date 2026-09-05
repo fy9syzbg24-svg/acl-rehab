@@ -19,3 +19,6 @@ app/dev-tests.*
 README.local.md
 app/dev-merge.js
 app/dev-engine.js
+
+# Local notes (UX reviews etc.) — never in the public shell
+*.local.md

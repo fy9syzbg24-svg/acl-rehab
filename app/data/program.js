@@ -262,6 +262,69 @@ export function hydrateProgramSource(doc) {
   if (gym) GYM_SOURCE = gym;
 }
 
+// ------------------------------------------------------------ day sets ----
+// Which days of the week each item is planned for. Today shows the day's set
+// first and folds the rest away, so "done" can mean finished.
+//
+// MY DEFAULT, not the clinician's: the PhysiApp export states no frequency.
+// Derived from the 6-month plan's Month 2 weekly targets (3 strength · 3
+// balance / neuromuscular · 4 aerobic) and the Melbourne guide ("performed
+// more than once per week"). It seeds a device ONCE; whatever he sets on the
+// Program tab afterwards is the arrangement, and code never overrides it.
+export const DAYS = [
+  ['mon', 'Monday', 'M'], ['tue', 'Tuesday', 'T'], ['wed', 'Wednesday', 'W'],
+  ['thu', 'Thursday', 'T'], ['fri', 'Friday', 'F'], ['sat', 'Saturday', 'S'], ['sun', 'Sunday', 'S'],
+];
+export const DAY_KEYS = DAYS.map((d) => d[0]);
+export const DAY_NAME = Object.fromEntries(DAYS.map((d) => [d[0], d[1]]));
+
+export const DAYS_SOURCE = 'My default from the plan’s weekly targets (3 strength, 3 balance, 4 aerobic) — the program itself gives no frequency. Tap the days on any exercise to change it; what you set is kept.';
+
+// Three strength sessions: home (Mon, Fri) and the gym with the step work (Wed).
+const HOME_STRENGTH = ['mon', 'fri'];
+const CALVES = ['mon', 'wed', 'fri'];
+const BALANCE = ['tue', 'thu', 'sat'];
+const GYM = ['wed'];
+export const DEFAULT_DAYS = {
+  pa01: HOME_STRENGTH, pa02: HOME_STRENGTH, pa03: HOME_STRENGTH, pa04: HOME_STRENGTH,
+  pa06: HOME_STRENGTH, pa07: HOME_STRENGTH, pa08: HOME_STRENGTH, pa16: HOME_STRENGTH,
+  pa09: CALVES, pa10: CALVES,                               // calves on every strength day
+  pa05: GYM, pa13: GYM, pa14: GYM, tp17: GYM,               // sit-to-stand and step work at the gym
+  pa11: BALANCE, pa12: BALANCE,
+  pa15: [],                                                 // not yet — see notYetNote
+  g_knee_ext_full: GYM, g_knee_ext_eor: GYM, g_squat: GYM, g_leg_press: GYM,
+  g_calf_straight: GYM, g_calf_bent: GYM,
+  g_bike: ['mon', 'thu'], g_elliptical: ['tue', 'sat'],     // 4 aerobic sessions
+};
+
+/** Weekday key ('mon'…'sun') of an ISO date. */
+export function dayKeyOf(iso) {
+  const d = new Date(iso + 'T12:00:00');
+  return DAY_KEYS[(d.getDay() + 6) % 7];
+}
+
+/** Is this program item planned for that date? No entry at all means every day. */
+export function plannedOn(doc, pid, iso) {
+  const days = doc.program?.days?.[pid];
+  if (!Array.isArray(days)) return true;
+  return days.includes(dayKeyOf(iso));
+}
+
+/**
+ * Seed the day sets once. Same contract as the supplement seed: gated on a
+ * settings flag, and refuses outright if ANY days exist — a lost flag can never
+ * overwrite his arrangement.
+ */
+export function seedProgramDays(d) {
+  if (d.settings?.daysSeeded) return false;
+  d.program = d.program || {};
+  d.program.days = d.program.days || {};
+  if (Object.keys(d.program.days).length) { (d.settings ||= {}).daysSeeded = true; return false; }
+  for (const [pid, days] of Object.entries(DEFAULT_DAYS)) d.program.days[pid] = days.slice();
+  (d.settings ||= {}).daysSeeded = true;
+  return true;
+}
+
 export const PROGRAM_BY_ID = Object.fromEntries(
   REHAB_PROGRAM.concat(GYM_PROGRAM).map((p) => [p.id, p]),
 );
