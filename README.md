@@ -91,6 +91,40 @@ Media needs its own content-addressed store (file per blob, hash as the name) wi
 only the hash and metadata in the document — decide that before adding the first
 attachment, not after.
 
+## How often, per exercise
+
+Each program item carries `freq`, days per week. That number drives two things
+that used to disagree: which days the item appears on, and the weekly target on
+its row. Before this, the target was inherited from the exercise's CATEGORY, so
+a banded calf raise and a loaded step up both read "3 a week" because both are
+tagged strength. That made the everyday work look optional.
+
+| freq | what |
+|---|---|
+| 7 | balance, calf-pulse endurance, wall-sit isometric, tendon loading |
+| 6 | low-load banded knee extension |
+| 5 | bridges, sit-to-stand, banded mini squat, single-leg loaded calf |
+| 3 | loaded step work (Mon/Wed/Fri) |
+| 0 | not started, or needs a gym he does not have |
+
+⚠️ **The advice depends on which phase you read for.** "Calf raises and quad work
+every day" comes from EARLY phase protocols, 0 to 8 weeks. He is 18 and 29 weeks
+post-op, and a phase 3 program (4 to 6 months) instead puts calf and quad work
+inside three strength sessions a week. He sits between the two: chronologically
+phase 3, but his own plan has him consolidating phase 2. So low-load work stays
+frequent and anything carrying real load is pulled back. It is a judgement call
+between two defensible protocols and his physio should settle it, not this file.
+
+**The weekly target is the days actually planned that week, not the raw `freq`.**
+A clinic day drops everything but the tendon loading and balance, so a flat 7
+would be unreachable in a week with two clinic days, and an unreachable target
+reads as failure. The row says so: "3 a week normally; your clinic sessions
+cover the rest".
+
+The gym machine exercises are `freq: 0` because **he has no gym membership**. The
+heavy loading happens with his physio. They stay listed so the prescription is on
+record and a load can be entered after a clinic session.
+
 ## The week, and what a day IS
 
 The Today tab opens with one line saying what the day is for, above the list.

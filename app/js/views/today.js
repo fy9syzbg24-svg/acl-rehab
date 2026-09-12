@@ -490,6 +490,7 @@ function weekStrip(exId, iso) {
 const SRC_LABEL = {
   plan: 'from the plan',
   derived: 'my starting number',
+  program: 'this exercise’s own frequency',
   yours: 'you set this',
   fallback: 'fallback default',
 };

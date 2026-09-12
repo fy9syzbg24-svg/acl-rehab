@@ -3,7 +3,7 @@
 
 import { debounce, uid, todayIso, weekStart, weekDays, applyTheme } from './util.js';
 import { CASE, hydrateCase, loadLocalCase } from '../data/history.js';
-import { hydrateProgramSource, seedProgramDays } from '../data/program.js';
+import { hydrateProgramSource, seedProgramDays, REHAB_PROGRAM, GYM_PROGRAM, plannedOn } from '../data/program.js';
 import { monthForDate } from '../data/plan.js';
 import { EXERCISE_BY_ID } from '../data/exercises.js';
 import { CATEGORIES } from '../data/measurements.js';
@@ -476,6 +476,11 @@ export function surgeryDate(side) {
 
 export const DEFAULT_WEEKLY_TARGET = 5;
 
+/** Exercise id -> the program item that prescribes it, for its `freq`. */
+const PROGRAM_FOR_EXERCISE = Object.fromEntries(
+  REHAB_PROGRAM.concat(GYM_PROGRAM).map((p) => [p.ex, p]),
+);
+
 function exerciseFor(exId) {
   return EXERCISE_BY_ID[exId] || (state.data.customExercises || []).find((e) => e.id === exId) || null;
 }
@@ -496,6 +501,29 @@ export function weeklyTargetInfo(exId, iso) {
   const manual = state.data.program.weeklyTarget?.[exId];
   if (typeof manual === 'number') {
     return { target: manual, src: 'yours', from: 'you set this' };
+  }
+
+  // The PROGRAM's own number comes before the category's. A banded calf raise
+  // and a loaded step up are both 'strength', so inheriting the category count
+  // gave both of them "3 a week" and made the everyday work look optional.
+  const item = PROGRAM_FOR_EXERCISE[exId];
+  if (item && typeof item.freq === 'number') {
+    // Count the days THIS week that actually ask for it, rather than the raw
+    // frequency. A clinic day drops everything but the tendon loading and
+    // balance, so a flat "7 a week" would be a target he cannot reach in a week
+    // with two clinic days, and an unreachable target reads as failure.
+    const planned = iso
+      ? weekDays(weekStart(iso)).filter((d) => plannedOn(state.data, item.id, d)).length
+      : item.freq;
+    return {
+      target: planned || null,
+      src: 'program',
+      from: planned
+        ? `${item.title || exId}: ${planned} day${planned === 1 ? '' : 's'} this week`
+          + (planned !== item.freq
+            ? ` (${item.freq} a week normally; your clinic sessions cover the rest)` : '')
+        : `${item.title || exId} is not planned this week`,
+    };
   }
 
   const ex = exerciseFor(exId);

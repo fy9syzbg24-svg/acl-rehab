@@ -19,7 +19,7 @@ export const BAND_BY_ID = Object.fromEntries(THERABAND.map((b) => [b.id, b]));
 // sides: 'both' -> one row · 'each' -> a left row and a right row · 'left' -> left only
 export const REHAB_PROGRAM = [
   {
-    n: 1, id: 'pa01', ex: 'dl_bridge_band', title: 'Bridge with resisted hip abduction',
+    n: 1, id: 'pa01', freq: 5, ex: 'dl_bridge_band', title: 'Bridge with resisted hip abduction',
     img: 'img/program/ex-01.png', thumb: 'img/program/ex-01-thumb.png',
     sides: 'both', sets: 2, reps: 12, band: 'green',
     steps: [
@@ -32,7 +32,7 @@ export const REHAB_PROGRAM = [
     progressions: ['Single-leg bridge — exercises 2 and 3 below', 'Add weight over the hips'],
   },
   {
-    n: 2, id: 'pa02', ex: 'bridge_band_sl_ext', title: 'Bridge with resisted hip abduction, into single-leg extension',
+    n: 2, id: 'pa02', freq: 5, ex: 'bridge_band_sl_ext', title: 'Bridge with resisted hip abduction, into single-leg extension',
     img: 'img/program/ex-02.png', thumb: 'img/program/ex-02-thumb.png',
     sides: 'each', sets: 3, reps: 6,
     steps: [
@@ -45,7 +45,7 @@ export const REHAB_PROGRAM = [
     ],
   },
   {
-    n: 3, id: 'pa03', ex: 'sl_bridge_band_abd', title: 'Single-leg bridge with resisted hip abduction',
+    n: 3, id: 'pa03', freq: 5, ex: 'sl_bridge_band_abd', title: 'Single-leg bridge with resisted hip abduction',
     img: 'img/program/ex-03.png', thumb: 'img/program/ex-03-thumb.png',
     sides: 'each', sets: 3, reps: 6, hold: '1s',
     goal: '20 on each side',
@@ -59,7 +59,7 @@ export const REHAB_PROGRAM = [
     ],
   },
   {
-    n: 4, id: 'pa04', ex: 'bridge_butterfly', title: 'Butterfly gluteal bridge',
+    n: 4, id: 'pa04', freq: 5, ex: 'bridge_butterfly', title: 'Butterfly gluteal bridge',
     img: 'img/program/ex-04.png', thumb: 'img/program/ex-04-thumb.png',
     sides: 'both', sets: 3, reps: 8,
     steps: [
@@ -75,7 +75,7 @@ export const REHAB_PROGRAM = [
     photoNote: 'Four frames supplied by the user; the PhysiApp export had a close-up of a light ring instead.',
   },
   {
-    n: 5, id: 'pa05', ex: 'sts_band_foam', title: 'Sit to stand with resisted hip external rotation, on foam',
+    n: 5, id: 'pa05', freq: 5, ex: 'sts_band_foam', title: 'Sit to stand with resisted hip external rotation, on foam',
     img: 'img/program/ex-05.png', thumb: 'img/program/ex-05-thumb.png',
     sides: 'both', sets: 3, reps: 12,
     steps: [
@@ -88,7 +88,7 @@ export const REHAB_PROGRAM = [
     progressions: ['Split stance', 'Single leg'],
   },
   {
-    n: 6, id: 'pa06', ex: 'seated_knee_ext_band', title: 'Resisted knee extension, seated',
+    n: 6, id: 'pa06', freq: 6, ex: 'seated_knee_ext_band', title: 'Resisted knee extension, seated',
     img: 'img/program/ex-06.png', thumb: 'img/program/ex-06-thumb.png',
     sides: 'each', sets: 3, reps: 15, hold: '1s',
     steps: [
@@ -99,7 +99,7 @@ export const REHAB_PROGRAM = [
     ],
   },
   {
-    n: 7, id: 'pa07', ex: 'knee_ext_pulses_band', title: 'Knee extension with pulses, Theraband',
+    n: 7, id: 'pa07', freq: 6, ex: 'knee_ext_pulses_band', title: 'Knee extension with pulses, Theraband',
     img: 'img/program/ex-07.png', thumb: 'img/program/ex-07-thumb.png',
     sides: 'each', sets: 3, reps: 15, band: 'red',
     steps: [
@@ -111,7 +111,7 @@ export const REHAB_PROGRAM = [
     progressions: ['Increase the resistance or weight', 'Perform in time to a metronome or song'],
   },
   {
-    n: 8, id: 'pa08', ex: 'sl_mini_squat_band', title: 'Knee extension into the band',
+    n: 8, id: 'pa08', freq: 5, ex: 'sl_mini_squat_band', title: 'Knee extension into the band',
     img: 'img/program/ex-08.png', thumb: 'img/program/ex-08-thumb.png',
     sides: 'each', sets: 2, reps: 8,
     steps: [
@@ -125,7 +125,7 @@ export const REHAB_PROGRAM = [
     progressions: ['Increase the hold time at the bottom', 'Perform on a foam mat'],
   },
   {
-    n: 9, id: 'pa09', ex: 'sl_calf_band', title: 'Single-leg calf raises with a band on the inside of the ankle',
+    n: 9, id: 'pa09', freq: 5, ex: 'sl_calf_band', title: 'Single-leg calf raises with a band on the inside of the ankle',
     img: 'img/program/ex-09.jpeg', thumb: 'img/program/ex-09-thumb.png',
     sides: 'each', sets: 3, reps: 8,
     goal: '20 single-leg calf raises',
@@ -137,14 +137,14 @@ export const REHAB_PROGRAM = [
     progressions: ['Increase the hold time at the top', 'No hand support', 'Perform on a foam mat'],
   },
   {
-    n: 10, id: 'pa10', ex: 'calf_pulses', title: 'Calf pulses at 120 beats per minute',
+    n: 10, id: 'pa10', freq: 7, ex: 'calf_pulses', title: 'Calf pulses at 120 beats per minute',
     img: 'img/program/ex-10.png', thumb: 'img/program/ex-10-thumb.png',
     sides: 'both', sets: 4, reps: 1, hold: '30s',
     steps: ['Pulse through the calves in time with a 120 bpm metronome or song.'],
     progressions: ['Increase the time', 'Build to 30-second intervals over 3 min 30 s'],
   },
   {
-    n: 11, id: 'pa11', ex: 'sl_foam_task', title: 'Single-leg balance with a ball throw, catch, juggling or other dynamic skill',
+    n: 11, id: 'pa11', freq: 7, ex: 'sl_foam_task', title: 'Single-leg balance with a ball throw, catch, juggling or other dynamic skill',
     img: 'img/program/ex-11.png', thumb: 'img/program/ex-11-thumb.png',
     sides: 'left', sets: 1, reps: 5, hold: '30s',
     steps: [
@@ -154,7 +154,7 @@ export const REHAB_PROGRAM = [
     notes: ['Left side only for now.', 'Adding an unstable surface makes it harder.'],
   },
   {
-    n: 12, id: 'pa12', ex: 'sebt', title: 'Single-leg star excursion, 8 points',
+    n: 12, id: 'pa12', freq: 7, ex: 'sebt', title: 'Single-leg star excursion, 8 points',
     img: 'img/program/ex-12.png', thumb: 'img/program/ex-12-thumb.png',
     sides: 'each', sets: 4, reps: 5,
     steps: [
@@ -165,7 +165,7 @@ export const REHAB_PROGRAM = [
     ],
   },
   {
-    n: 13, id: 'pa13', ex: 'fwd_stepup', title: 'Step up',
+    n: 13, id: 'pa13', freq: 3, ex: 'fwd_stepup', title: 'Step up',
     img: 'img/program/ex-13.png', thumb: 'img/program/ex-13-thumb.png',
     sides: 'each', sets: 2, reps: 8,
     steps: [
@@ -177,7 +177,7 @@ export const REHAB_PROGRAM = [
     progressions: ['Slow the speed down', 'Increase the height of the step'],
   },
   {
-    n: 14, id: 'pa14', ex: 'lat_stepup', title: 'Sideways step up',
+    n: 14, id: 'pa14', freq: 3, ex: 'lat_stepup', title: 'Sideways step up',
     img: 'img/program/ex-14.png', thumb: 'img/program/ex-14-thumb.png',
     sides: 'each', sets: 2, reps: 8,
     steps: [
@@ -190,7 +190,7 @@ export const REHAB_PROGRAM = [
     progressions: ['Slow the speed down', 'Increase the height of the step'],
   },
   {
-    n: 15, id: 'pa15', ex: 'jump_prep_step', title: 'Jump preparation off a step',
+    n: 15, id: 'pa15', freq: 0, ex: 'jump_prep_step', title: 'Jump preparation off a step',
     img: 'img/program/ex-15.png', thumb: 'img/program/ex-15-thumb.png',
     sides: 'each', sets: 2, reps: 10,
     notYet: true,
@@ -204,7 +204,7 @@ export const REHAB_PROGRAM = [
     notes: ['Keep most of your weight on the landing leg, using the leg on the step to assist.'],
   },
   {
-    n: 16, id: 'pa16', ex: 'wall_sit_adductor', title: 'Wall squat with a ball squeeze between the knees',
+    n: 16, id: 'pa16', freq: 7, ex: 'wall_sit_adductor', title: 'Wall squat with a ball squeeze between the knees',
     img: 'img/program/ex-16.png', thumb: 'img/program/ex-16-thumb.png',
     sides: 'both', sets: 2, reps: 3,
     steps: [
@@ -218,7 +218,7 @@ export const REHAB_PROGRAM = [
 
   // --- from the user's typed list, not in the PhysiApp program ---------------
   {
-    n: 17, id: 'tp17', ex: 'hip_lift_step', title: 'Hip lift and lower off a step', typed: true, sides: 'each',
+    n: 17, id: 'tp17', freq: 3, ex: 'hip_lift_step', title: 'Hip lift and lower off a step', typed: true, sides: 'each',
     img: 'img/program/ex-14.png', thumb: 'img/program/ex-14-thumb.png',
     photoNote: 'Same set-up as exercise 14 — the photo is of the sideways step up.',
     steps: [
@@ -228,7 +228,7 @@ export const REHAB_PROGRAM = [
     progressions: ['Increase the depth of the hip drop and lift'],
   },
   {
-    n: 18, id: 'tl18', ex: 'tendon_load_iso_squat', title: 'Tendon loading mini squat, 20 degrees', typed: true, sides: 'both',
+    n: 18, id: 'tl18', freq: 7, ex: 'tendon_load_iso_squat', title: 'Tendon loading mini squat, 20 degrees', typed: true, sides: 'both',
     img: 'img/program/ex-18.png', thumb: 'img/program/ex-18-thumb.png',
     sets: 4, reps: 1, hold: '30s', rest: '2 min',
     pre: 'Collagen 15 g plus vitamin C 100 to 200 mg, mixed into water or juice. Then do this within the hour.',
@@ -251,16 +251,20 @@ export const REHAB_PROGRAM = [
 ];
 
 export const GYM_PROGRAM = [
-  { id: 'g_knee_ext_full', ex: 'sl_full_quad', sides: 'each', sets: 3, reps: 8 },
-  { id: 'g_knee_ext_eor', ex: 'sl_inner_quad', sides: 'each', sets: 3, reps: 8 },
-  { id: 'g_squat', ex: 'barbell_squat', sides: 'both', sets: 3, reps: 8 },
-  { id: 'g_leg_press', ex: 'leg_press', sides: 'each', sets: 3, reps: 8 },
-  { id: 'g_calf_straight', ex: 'weighted_calf_straight', sides: 'each', sets: 3, reps: 8 },
-  { id: 'g_calf_bent', ex: 'weighted_calf_bent', sides: 'each', sets: 3, reps: 8 },
+  // freq 0: he has NO GYM MEMBERSHIP, so none of these are planned for a day.
+  // The heavy loading happens with his physio instead. They stay listed so the
+  // prescription is on record and so a load can be entered after a clinic
+  // session; give one a frequency the day he has a gym again.
+  { id: 'g_knee_ext_full', ex: 'sl_full_quad', freq: 0, sides: 'each', sets: 3, reps: 8 },
+  { id: 'g_knee_ext_eor', ex: 'sl_inner_quad', freq: 0, sides: 'each', sets: 3, reps: 8 },
+  { id: 'g_squat', ex: 'barbell_squat', freq: 0, sides: 'both', sets: 3, reps: 8 },
+  { id: 'g_leg_press', ex: 'leg_press', freq: 0, sides: 'each', sets: 3, reps: 8 },
+  { id: 'g_calf_straight', ex: 'weighted_calf_straight', freq: 0, sides: 'each', sets: 3, reps: 8 },
+  { id: 'g_calf_bent', ex: 'weighted_calf_bent', freq: 0, sides: 'each', sets: 3, reps: 8 },
   // ONE cardio row, not two: the elliptical and a bike count as the same thing
   // and he logs whichever he has. He owns an elliptical. The separate `bike`
   // exercise stays in the library so his August sessions still read correctly.
-  { id: 'g_elliptical', ex: 'elliptical', sides: 'both', cardio: true },
+  { id: 'g_elliptical', ex: 'elliptical', freq: 6, sides: 'both', cardio: true },
 ];
 
 // Who prescribed this, and the PhysiApp access code, are personal — the code
@@ -302,40 +306,68 @@ export const DAY_NAME = Object.fromEntries(DAYS.map((d) => [d[0], d[1]]));
 
 export const DAYS_SOURCE = 'My default from the plan’s weekly targets (3 strength, 3 balance, 4 aerobic) — the program itself gives no frequency. Tap the days on any exercise to change it; what you set is kept.';
 
-// STRENGTH LANDS ON MON, WED, FRI, and that spacing is the whole point: the
-// evidence for post-ACLR strength work is 2 to 3 sessions a week with 48 hours
-// between them. Mon to Wed is 48h, Wed to Fri is 48h, Fri to Mon is 72h, so no
-// heavy day ever follows another. He usually sees his physio Wed and Fri, and
-// those sessions are strength heavy (BFR, drills), so they ARE two of the three.
-// Monday is the one he does himself.
-const STRENGTH = ['mon', 'wed', 'fri'];
-const BALANCE = ['tue', 'wed', 'thu', 'fri', 'sat'];      // low load, safe next to anything
-const AEROBIC = ['mon', 'tue', 'thu', 'sat', 'sun'];      // 4 real sessions plus an easy Sunday
-export const DEFAULT_DAYS = {
-  pa01: STRENGTH, pa02: STRENGTH, pa03: STRENGTH, pa04: STRENGTH,
-  pa06: STRENGTH, pa07: STRENGTH, pa08: STRENGTH, pa16: STRENGTH,
-  pa09: STRENGTH, pa10: STRENGTH,                           // calves on every strength day
-  pa05: STRENGTH, pa13: STRENGTH, pa14: STRENGTH, tp17: STRENGTH,
-  pa11: BALANCE, pa12: BALANCE,
-  pa15: [],                                                 // not yet — see notYetNote
-  g_knee_ext_full: STRENGTH, g_knee_ext_eor: STRENGTH, g_squat: STRENGTH,
-  g_leg_press: STRENGTH, g_calf_straight: STRENGTH, g_calf_bent: STRENGTH,
-  g_elliptical: AEROBIC,
-  tl18: DAY_KEYS.slice(),                                   // tendon loading: every day of the week
+export const PROGRAM_BY_ID = Object.fromEntries(
+  REHAB_PROGRAM.concat(GYM_PROGRAM).map((p) => [p.id, p]),
+);
+
+// HOW OFTEN COMES FIRST, AND THE DAYS FOLLOW FROM IT.
+//
+// Each program item carries `freq`, days per week, set per EXERCISE rather than
+// per category. That distinction is the whole point: the old numbers came from
+// the plan's category counts, so every strength exercise inherited "3 a week"
+// whether it was a banded calf raise or a loaded step up. Standard ACLR home
+// programs run the low-load work daily (quad and calf work several times a DAY,
+// balance safe daily) and reserve the 48-hour spacing for heavy loading.
+//
+//   7  safe every day: balance, the calf-pulse endurance drill, the wall-sit
+//      isometric, and the tendon loading his physio prescribed daily
+//   6  low-load banded knee extension
+//   5  bridges, sit-to-stand, the banded mini squat, single-leg loaded calf
+//   3  loaded step work, Mon/Wed/Fri so no heavy day follows another
+//   0  not planned: not started yet, or needs a gym he does not have
+//
+// ⚠️ The "do it every day" advice for calf raises and quad work comes from EARLY
+// phase protocols (0 to 8 weeks). He is 18 and 29 weeks post-op, and a phase 3
+// program (4 to 6 months) puts calf and quad work inside 3 strength sessions a
+// week instead. He sits between the two: chronologically phase 3, but his plan
+// has him consolidating phase 2. So the genuinely low-load work stays frequent
+// and anything carrying real load is pulled back. This is a judgement call
+// between two defensible protocols, and Derrick should be the one to settle it.
+// The heavy loading he does get is at the clinic, which is why a clinic day
+// narrows to the everyday minimum instead of adding to it.
+const PREFERRED = {
+  7: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'],
+  6: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat'],
+  5: ['mon', 'tue', 'wed', 'thu', 'sat'],
+  4: ['mon', 'tue', 'thu', 'sat'],
+  3: ['mon', 'wed', 'fri'],
+  2: ['mon', 'thu'],
+  1: ['wed'],
+  0: [],
 };
+
+/** Days per week for a program item. */
+export function freqOf(pid) {
+  const p = PROGRAM_BY_ID[pid];
+  return typeof p?.freq === 'number' ? p.freq : 0;
+}
+
+export const DEFAULT_DAYS = Object.fromEntries(
+  REHAB_PROGRAM.concat(GYM_PROGRAM).map((p) => [p.id, (PREFERRED[p.freq ?? 0] || []).slice()]),
+);
 
 // ------------------------------------------------------------ the day plan --
 // What a given day IS, so Today can say it in a line instead of showing a list
 // and leaving him to work it out. The weekday entry is the fallback; an actual
 // booked clinic day overrides it, because that session is the big workout.
 export const WEEK_PLAN = {
-  mon: { name: 'Strength', sub: 'your own strength session, 48 hours clear of Wednesday' },
-  tue: { name: 'Balance and aerobic', sub: 'easy day between strength sessions' },
-  wed: { name: 'Strength', sub: 'usually your clinic day' },
-  thu: { name: 'Balance and aerobic', sub: 'easy day between strength sessions' },
-  fri: { name: 'Strength', sub: 'usually your clinic day' },
-  sat: { name: 'Balance and aerobic', sub: 'add the interval work here' },
-  sun: { name: 'Easy aerobic', sub: 'the lightest day of the week' },
+  mon: { name: 'Full session', sub: 'the everyday work plus the loaded step work' },
+  tue: { name: 'Everyday rehab', sub: 'the daily list, the bridges and the elliptical' },
+  wed: { name: 'Full session', sub: 'usually your clinic day' },
+  thu: { name: 'Everyday rehab', sub: 'the daily list, the bridges and the elliptical' },
+  fri: { name: 'Full session', sub: 'usually your clinic day' },
+  sat: { name: 'Everyday rehab', sub: 'add the interval work here' },
+  sun: { name: 'Easy day', sub: 'the daily list only, no bridges and no step work' },
 };
 
 // On a clinic day these are the only things the app asks of him at home. The
@@ -389,6 +421,4 @@ export function seedProgramDays(d) {
   return true;
 }
 
-export const PROGRAM_BY_ID = Object.fromEntries(
-  REHAB_PROGRAM.concat(GYM_PROGRAM).map((p) => [p.id, p]),
-);
+
