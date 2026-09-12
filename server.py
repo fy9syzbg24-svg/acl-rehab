@@ -32,6 +32,9 @@ import physiapp  # noqa: E402  (local module, must follow the path insert)
 
 ROOT = Path(__file__).resolve().parent
 APP_DIR = ROOT / "app"
+# Frozen copy of the interface as it was before the redesign, served at
+# /baseline/ for side-by-side comparison. Absent is fine; the route 404s.
+BASELINE_DIR = ROOT / "app-baseline"
 DATA_DIR = ROOT / "data"
 DATA_FILE = DATA_DIR / "rehab-data.json"
 BACKUP_DIR = DATA_DIR / "backups"
@@ -375,13 +378,25 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self._send(code, json.dumps(obj).encode("utf-8"), "application/json; charset=utf-8")
 
     def _resolve(self, path: str) -> Path | None:
-        """Map a URL path to a file inside APP_DIR, or None if it escapes."""
+        """Map a URL path to a file inside APP_DIR, or None if it escapes.
+
+        /baseline/... serves the FROZEN pre-redesign copy instead, so the old
+        and new interfaces can be opened side by side against the same live
+        data. It is a plain snapshot of app/ and talks to the same API, so what
+        you tick in one shows up in the other.
+        """
         rel = path.split("?", 1)[0].split("#", 1)[0].lstrip("/")
+        root = APP_DIR
+        if rel == "baseline" or rel.startswith("baseline/"):
+            if not BASELINE_DIR.is_dir():
+                return None
+            root = BASELINE_DIR
+            rel = rel[len("baseline"):].lstrip("/")
         if rel in ("", "/"):
             rel = "index.html"
-        target = (APP_DIR / rel).resolve()
+        target = (root / rel).resolve()
         try:
-            target.relative_to(APP_DIR)
+            target.relative_to(root)
         except ValueError:
             return None
         return target

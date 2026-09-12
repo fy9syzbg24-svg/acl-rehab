@@ -22,3 +22,6 @@ app/dev-engine.js
 
 # Local notes (UX reviews etc.) — never in the public shell
 *.local.md
+
+# Frozen pre-redesign interface, served at /baseline/ for comparison.
+/app-baseline/

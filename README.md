@@ -198,6 +198,13 @@ interrupted sync safe to repeat.
 `app/m.html`, `mobile.css` and `js/mobile.js` are a purpose-built phone
 interface sharing all business logic with the desktop.
 
+**Device roles, set 2026-09-12.** The iPad and the Mac get the full app. The
+**iPhone is optimised for logging**: Today and Supplements are the day to day
+surface, and analysis belongs on the bigger screens. His reason is screen real
+estate, not a change of mind, so the old rule still binds in one respect: there
+is NO parallel phone implementation. The phone renders the same view modules;
+what changes is what it leads with.
+
 **The document scrolls — do not "fix" that.** An earlier version pinned the
 body and scrolled an inner container. It looked equivalent and was not: iOS
 only collapses Safari's toolbars when the document itself scrolls, and asking
