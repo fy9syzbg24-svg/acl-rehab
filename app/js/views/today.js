@@ -757,6 +757,7 @@ function gymCard(item, entries, ctx, iso) {
           ${weekStrip(item.ex, iso)}
           ${ex?.aka ? `<span class="tiny muted"><em>${esc(ex.aka)}</em></span>` : ''}
         </span>
+        ${item.note ? `<div class="tiny prow-note">${esc(item.note)}</div>` : ''}
       </div>
       ${started && !editing ? `<div class="prow-summary" data-rowclick="${esc(item.id)}">${entryChips(mine)}
         <span class="editcue">edit</span></div>` : ''}

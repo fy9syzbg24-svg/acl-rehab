@@ -264,7 +264,11 @@ export const GYM_PROGRAM = [
   // ONE cardio row, not two: the elliptical and a bike count as the same thing
   // and he logs whichever he has. He owns an elliptical. The separate `bike`
   // exercise stays in the library so his August sessions still read correctly.
-  { id: 'g_elliptical', ex: 'elliptical', freq: 6, sides: 'both', cardio: true },
+  // freq 7, and a clinic day takes it back out, so this lands on every day he
+  // is NOT at physical therapy. His words: even a light 20 minutes helps his
+  // knees, and he wants it on the schedule rather than left to memory.
+  { id: 'g_elliptical', ex: 'elliptical', freq: 7, sides: 'both', cardio: true,
+    note: 'Every day you are not at physical therapy. A light 20 minutes counts; it is a warm up for the knees as much as conditioning. The plan\u2019s 30 minute target is for the harder sessions.' },
 ];
 
 // Who prescribed this, and the PhysiApp access code, are personal — the code
@@ -367,7 +371,7 @@ export const WEEK_PLAN = {
   thu: { name: 'Everyday rehab', sub: 'the daily list, the bridges and the elliptical' },
   fri: { name: 'Full session', sub: 'usually your clinic day' },
   sat: { name: 'Everyday rehab', sub: 'add the interval work here' },
-  sun: { name: 'Easy day', sub: 'the daily list only, no bridges and no step work' },
+  sun: { name: 'Easy day', sub: 'the daily list and the elliptical, no bridges and no step work' },
 };
 
 // On a clinic day these are the only things the app asks of him at home. The

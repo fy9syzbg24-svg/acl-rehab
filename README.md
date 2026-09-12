@@ -101,7 +101,7 @@ tagged strength. That made the everyday work look optional.
 
 | freq | what |
 |---|---|
-| 7 | balance, calf-pulse endurance, wall-sit isometric, tendon loading |
+| 7 | balance, calf-pulse endurance, wall-sit isometric, tendon loading, elliptical |
 | 6 | low-load banded knee extension |
 | 5 | bridges, sit-to-stand, banded mini squat, single-leg loaded calf |
 | 3 | loaded step work (Mon/Wed/Fri) |
@@ -120,6 +120,11 @@ A clinic day drops everything but the tendon loading and balance, so a flat 7
 would be unreachable in a week with two clinic days, and an unreachable target
 reads as failure. The row says so: "3 a week normally; your clinic sessions
 cover the rest".
+
+The elliptical is `freq: 7`, and a clinic day takes it back out, so it lands on
+every day he is NOT at physical therapy. His reason: even a light 20 minutes
+helps his knees, and he wants it on the schedule rather than left to memory.
+The plan's 30 minute aerobic target is for the harder sessions, not for this.
 
 The gym machine exercises are `freq: 0` because **he has no gym membership**. The
 heavy loading happens with his physio. They stay listed so the prescription is on

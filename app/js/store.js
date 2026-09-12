@@ -521,7 +521,7 @@ export function weeklyTargetInfo(exId, iso) {
       from: planned
         ? `${item.title || exId}: ${planned} day${planned === 1 ? '' : 's'} this week`
           + (planned !== item.freq
-            ? ` (${item.freq} a week normally; your clinic sessions cover the rest)` : '')
+            ? ` (${item.freq} a week normally; clinic days are left for the session itself)` : '')
         : `${item.title || exId} is not planned this week`,
     };
   }
