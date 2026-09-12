@@ -16,8 +16,8 @@ const PHASES = [
   { label: 'Phase 4 · Performance', short: 'Phase 4', months: [5, 6], color: '#8a5cd6' },
 ];
 
-export function renderJourney(ctx) {
-  const iso = ctx.date || todayIso();
+export function renderJourney(ctx, atIso = null) {
+  const iso = atIso || ctx.date || todayIso();
   const total = daysBetween(PLAN_START, PLAN_END);
   const at = (d) => (daysBetween(PLAN_START, d) / total) * 100;
   const fx = Math.max(0, Math.min(100, at(iso)));

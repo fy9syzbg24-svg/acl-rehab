@@ -7,16 +7,18 @@ import { monthCompletion } from './planview.js';
 import { renderWeekPanel, bindWeekPanel } from './week.js';
 import { renderMeasuresPanel, bindMeasuresPanel } from './measures.js';
 import { renderMelbourne, bindMelbourne } from './melbourneview.js';
+import { renderOverview, bindOverview } from './overview.js';
 
-const TABS = [['week', 'This week'], ['history', 'History'], ['tests', 'Tests & VALD'],
-              ['melbourne', 'Melbourne'], ['clinical', 'Clinical notes']];
+const TABS = [['overview', 'Overview'], ['week', 'This week'], ['history', 'History'],
+              ['tests', 'Tests & VALD'], ['melbourne', 'Melbourne'], ['clinical', 'Clinical notes']];
 
 export function renderProgress(ctx) {
-  const tab = ctx.gtab || 'week';
+  const tab = ctx.gtab || 'overview';
   return `<div class="stack">
     <div class="tabrow">
       ${TABS.map(([k, l]) => `<button class="btn sm ${tab === k ? 'primary' : ''}" data-gtab="${k}">${l}</button>`).join('')}
     </div>
+    ${tab === 'overview' ? renderOverview(ctx) : ''}
     ${tab === 'week' ? renderWeekPanel(ctx) : ''}
     ${tab === 'history' ? renderHistoryPanel(ctx) : ''}
     ${tab === 'tests' ? renderMeasuresPanel(ctx) : ''}
@@ -26,7 +28,9 @@ export function renderProgress(ctx) {
 }
 
 export function bindProgress(root, ctx, rerender) {
-  if ((ctx.gtab || 'week') === 'melbourne') bindMelbourne(root, ctx, rerender);
+  const tab = ctx.gtab || 'overview';
+  if (tab === 'melbourne') bindMelbourne(root, ctx, rerender);
+  if (tab === 'overview') bindOverview(root, ctx, rerender);
   root.querySelectorAll('[data-gtab]').forEach((b) => b.addEventListener('click', () => {
     ctx.gtab = b.dataset.gtab;
     rerender();

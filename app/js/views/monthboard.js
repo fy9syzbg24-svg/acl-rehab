@@ -31,8 +31,8 @@ function paceOf(p, elapsedFrac) {
   return { cls: 'behind', label: 'Behind' };
 }
 
-export function renderMonthBoard(ctx) {
-  const iso = ctx.date || todayIso();
+export function renderMonthBoard(ctx, atIso = null) {
+  const iso = atIso || ctx.date || todayIso();
   const month = monthForDate(iso);
   if (!month) return '';
   const el = monthElapsed(month, iso);
@@ -105,20 +105,16 @@ function markerBlock(goals, el) {
 }
 
 /**
- * Is the month board collapsed?
- *
- * Default differs by device on purpose: on a phone the expanded board pushes
- * everything else off the screen, so it starts closed and opens on tap. On a
- * desktop there is room, so it starts open. Once you touch the chevron your
- * choice wins for the session either way.
+ * Is the month board collapsed? Open unless he closed it. It used to start
+ * closed on a phone because it sat above the Today list; it lives on Progress
+ * now, where the whole point of the screen is to read it.
  */
 function boardClosed(ctx) {
-  if (ctx.openBoard !== undefined) return ctx.openBoard === false;
-  return document.body.classList.contains('mobile');
+  return ctx.openBoard === false;
 }
 
-// The week cadence bar deliberately does NOT render here — it lives at the top
-// of Today (weekBar in today.js), where it is seen before anything is logged.
+// The week cadence bar renders above this board on Progress > Overview
+// (weekBar in overview.js), not inside it.
 
 // ------------------------------------------------------------ focus work ---
 function focusBlock(month, iso) {
@@ -185,15 +181,17 @@ function carriedBlock(current) {
     }
   }
   if (!out.length) return '';
+  // One line, the list behind a tap. A paragraph here cost real screen space
+  // on a phone and said the same thing every day.
   return `
-  <div class="callout bad small" style="margin-top:1rem">
-    <strong>Still outstanding from earlier months.</strong> These markers were not met by the end of their month,
-    so they carry forward.
+  <details class="disc carried" style="margin-top:.8rem">
+    <summary><span class="pill warn">${out.length} not met ${out.length === 1 ? 'in an' : 'in'} earlier month${out.length === 1 ? '' : 's'}</span>
+      <span class="tiny muted">still counts; tap to see</span></summary>
     <ul class="plain" style="margin-top:.35rem">
       ${out.map(({ m, g, p }) => `<li>${esc(g.text)}
-        <span class="tiny muted">— ${esc(m.name)}${p.detail ? ' · ' + esc(p.detail) : ''}</span></li>`).join('')}
+        <span class="tiny muted">${esc(m.name)}${p.detail ? ' · ' + esc(p.detail) : ''}</span></li>`).join('')}
     </ul>
-  </div>`;
+  </details>`;
 }
 
 export function bindMonthBoard(root, ctx, rerender) {

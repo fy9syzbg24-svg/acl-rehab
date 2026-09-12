@@ -5,6 +5,27 @@ import { CATEGORIES } from '../../data/measurements.js';
 import { exerciseById, thumb } from '../components.js';
 import { REHAB_PROGRAM, GYM_PROGRAM } from '../../data/program.js';
 
+/** The weekly targets this month asks for, each as a group you can log into. */
+export function goalGroups(iso) {
+  const month = monthForDate(iso);
+  if (!month) return [];
+  const days = weekDays(weekStart(iso));
+  return month.weeklyTargets
+    .filter((t) => !t.cats.includes('*'))
+    .map((t) => {
+      let hit = 0;
+      for (const d of days) {
+        if (t.tagged) { if (dayTags(d).has(t.tagged)) hit++; continue; }
+        if (t.cats.some((c) => dayCategories(d).has(c))) hit++;
+      }
+      const goal = state.data.settings.weeklyOverrides?.[t.id] ?? t.target;
+      const label = t.label.replace(/ sessions.*$/, '').replace(/ \(.*\)$/, '');
+      return { t, label, hit, goal, left: Math.max(0, goal - hit), met: hit >= goal,
+               colour: CATEGORIES[t.cats[0]]?.color || 'var(--accent)' };
+    })
+    .sort((a, b) => (a.met - b.met) || (b.left - a.left));
+}
+
 /** Which categories were touched on a given day. */
 // Only LOGGED rows count towards the week.
 //
