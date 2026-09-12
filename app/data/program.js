@@ -228,17 +228,19 @@ export const REHAB_PROGRAM = [
     progressions: ['Increase the depth of the hip drop and lift'],
   },
   {
-    n: 18, id: 'tl18', ex: 'tendon_load_iso_squat', title: 'Tendon loading mini squat', typed: true, sides: 'both',
+    n: 18, id: 'tl18', ex: 'tendon_load_iso_squat', title: 'Tendon loading mini squat, 20 degrees', typed: true, sides: 'both',
     sets: 4, reps: 1, hold: '30s', rest: '2 min',
     pre: 'Collagen 15 g plus vitamin C 100 to 200 mg, taken 30 to 60 minutes before this. The handout says 45 minutes. Mix the collagen into water or juice.',
     steps: [
       'Take the collagen and vitamin C 45 minutes before you start.',
-      'Stand and drop into a mini squat, a shallow bend, just deep enough to put a slight load through the quad tendon.',
+      'Stand and bend the knees into roughly a 20 degree mini squat.',
+      'Keep your torso and shoulders upright. Do not lean forward, or the load comes off the quad tendon.',
       'Hold that position for 30 seconds.',
       'Rest 2 minutes, then repeat. Four holds in total.',
     ],
     notes: [
-      'The point is tendon load, not depth and not fatigue. Keep the squat shallow.',
+      'About 20 degrees is the whole range. The point is a good stretch on the quad tendon, not depth and not fatigue.',
+      'Torso and shoulders stay up. Leaning forward turns it into a hip exercise.',
       'Prescribed at your clinic session, so it is not part of the PhysiApp program.',
     ],
     progressions: ['Hold longer than 30 seconds', 'Add load or go slightly deeper'],
