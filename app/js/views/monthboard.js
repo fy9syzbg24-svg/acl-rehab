@@ -192,7 +192,9 @@ export function shortCat(label) {
 
 /** Focus bullets are long; the grid needs a label, not a paragraph. */
 function shortFocus(text) {
-  let s = text.replace(/^As tolerated:\s*/i, '').replace(/^Continue\s+/i, '').replace(/^Progress(ing)?\s+/i, '');
+  // Drop a leading verb, unless what follows would then start mid-phrase
+  // ("Progress from planned to reactive" keeps its verb).
+  let s = text.replace(/^As tolerated:\s*/i, '').replace(/^Continue\s+/i, '').replace(/^Progress(ing)?\s+(?!from\b|to\b)/i, '');
   s = s.split(/\s*[:(]\s*/)[0];   // the label ends at a gloss or a bracket
   const arrows = s.split('→').map((x) => x.trim()).filter(Boolean);
   if (arrows.length > 1) s = `${arrows[0]} → ${arrows[arrows.length - 1]}`;
