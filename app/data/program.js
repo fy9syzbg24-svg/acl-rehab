@@ -257,8 +257,9 @@ export const GYM_PROGRAM = [
   { id: 'g_leg_press', ex: 'leg_press', sides: 'each', sets: 3, reps: 8 },
   { id: 'g_calf_straight', ex: 'weighted_calf_straight', sides: 'each', sets: 3, reps: 8 },
   { id: 'g_calf_bent', ex: 'weighted_calf_bent', sides: 'each', sets: 3, reps: 8 },
-  // Cardio machines — logged as minutes, level and calories rather than sets.
-  { id: 'g_bike', ex: 'bike', sides: 'both', cardio: true },
+  // ONE cardio row, not two: the elliptical and a bike count as the same thing
+  // and he logs whichever he has. He owns an elliptical. The separate `bike`
+  // exercise stays in the library so his August sessions still read correctly.
   { id: 'g_elliptical', ex: 'elliptical', sides: 'both', cardio: true },
 ];
 
@@ -301,23 +302,63 @@ export const DAY_NAME = Object.fromEntries(DAYS.map((d) => [d[0], d[1]]));
 
 export const DAYS_SOURCE = 'My default from the plan’s weekly targets (3 strength, 3 balance, 4 aerobic) — the program itself gives no frequency. Tap the days on any exercise to change it; what you set is kept.';
 
-// Three strength sessions: home (Mon, Fri) and the gym with the step work (Wed).
-const HOME_STRENGTH = ['mon', 'fri'];
-const CALVES = ['mon', 'wed', 'fri'];
-const BALANCE = ['tue', 'thu', 'sat'];
-const GYM = ['wed'];
+// STRENGTH LANDS ON MON, WED, FRI, and that spacing is the whole point: the
+// evidence for post-ACLR strength work is 2 to 3 sessions a week with 48 hours
+// between them. Mon to Wed is 48h, Wed to Fri is 48h, Fri to Mon is 72h, so no
+// heavy day ever follows another. He usually sees his physio Wed and Fri, and
+// those sessions are strength heavy (BFR, drills), so they ARE two of the three.
+// Monday is the one he does himself.
+const STRENGTH = ['mon', 'wed', 'fri'];
+const BALANCE = ['tue', 'wed', 'thu', 'fri', 'sat'];      // low load, safe next to anything
+const AEROBIC = ['mon', 'tue', 'thu', 'sat', 'sun'];      // 4 real sessions plus an easy Sunday
 export const DEFAULT_DAYS = {
-  pa01: HOME_STRENGTH, pa02: HOME_STRENGTH, pa03: HOME_STRENGTH, pa04: HOME_STRENGTH,
-  pa06: HOME_STRENGTH, pa07: HOME_STRENGTH, pa08: HOME_STRENGTH, pa16: HOME_STRENGTH,
-  pa09: CALVES, pa10: CALVES,                               // calves on every strength day
-  pa05: GYM, pa13: GYM, pa14: GYM, tp17: GYM,               // sit-to-stand and step work at the gym
+  pa01: STRENGTH, pa02: STRENGTH, pa03: STRENGTH, pa04: STRENGTH,
+  pa06: STRENGTH, pa07: STRENGTH, pa08: STRENGTH, pa16: STRENGTH,
+  pa09: STRENGTH, pa10: STRENGTH,                           // calves on every strength day
+  pa05: STRENGTH, pa13: STRENGTH, pa14: STRENGTH, tp17: STRENGTH,
   pa11: BALANCE, pa12: BALANCE,
   pa15: [],                                                 // not yet — see notYetNote
-  g_knee_ext_full: GYM, g_knee_ext_eor: GYM, g_squat: GYM, g_leg_press: GYM,
-  g_calf_straight: GYM, g_calf_bent: GYM,
-  g_bike: ['mon', 'thu'], g_elliptical: ['tue', 'sat'],     // 4 aerobic sessions
+  g_knee_ext_full: STRENGTH, g_knee_ext_eor: STRENGTH, g_squat: STRENGTH,
+  g_leg_press: STRENGTH, g_calf_straight: STRENGTH, g_calf_bent: STRENGTH,
+  g_elliptical: AEROBIC,
   tl18: DAY_KEYS.slice(),                                   // tendon loading: every day of the week
 };
+
+// ------------------------------------------------------------ the day plan --
+// What a given day IS, so Today can say it in a line instead of showing a list
+// and leaving him to work it out. The weekday entry is the fallback; an actual
+// booked clinic day overrides it, because that session is the big workout.
+export const WEEK_PLAN = {
+  mon: { name: 'Strength', sub: 'your own strength session, 48 hours clear of Wednesday' },
+  tue: { name: 'Balance and aerobic', sub: 'easy day between strength sessions' },
+  wed: { name: 'Strength', sub: 'usually your clinic day' },
+  thu: { name: 'Balance and aerobic', sub: 'easy day between strength sessions' },
+  fri: { name: 'Strength', sub: 'usually your clinic day' },
+  sat: { name: 'Balance and aerobic', sub: 'add the interval work here' },
+  sun: { name: 'Easy aerobic', sub: 'the lightest day of the week' },
+};
+
+// On a clinic day these are the only things the app asks of him at home. The
+// clinic session already covers the strength work, and doubling it is how you
+// end up sore enough to skip the next day.
+export const CLINIC_DAY_IDS = ['tl18', 'pa11', 'pa12'];
+
+export const CLINIC_DAY_PLAN = {
+  name: 'Clinic day',
+  sub: 'the session with your physio is the workout; at home just the tendon loading and balance',
+};
+
+/** Has he marked this date as a clinic day? */
+export function isClinicDay(doc, iso) {
+  return !!doc?.program?.clinicDays?.[iso];
+}
+
+/** What today IS: a name, a one line reason, and whether it is a clinic day. */
+export function dayPlanFor(doc, iso) {
+  if (isClinicDay(doc, iso)) return { ...CLINIC_DAY_PLAN, clinic: true, key: dayKeyOf(iso) };
+  const key = dayKeyOf(iso);
+  return { ...(WEEK_PLAN[key] || { name: '', sub: '' }), clinic: false, key };
+}
 
 /** Weekday key ('mon'…'sun') of an ISO date. */
 export function dayKeyOf(iso) {
@@ -327,6 +368,7 @@ export function dayKeyOf(iso) {
 
 /** Is this program item planned for that date? No entry at all means every day. */
 export function plannedOn(doc, pid, iso) {
+  if (isClinicDay(doc, iso)) return CLINIC_DAY_IDS.includes(pid);
   const days = doc.program?.days?.[pid];
   if (!Array.isArray(days)) return true;
   return days.includes(dayKeyOf(iso));

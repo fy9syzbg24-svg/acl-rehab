@@ -5,7 +5,7 @@ import { state, update, ensureDay, getDay, lastEntry, maxLoad, loadSeries,
          weekDots, weeklyTargetInfo } from '../store.js';
 import { monthForDate } from '../../data/plan.js';
 import { CATEGORIES, MEASURE_BY_ID, UNIT_LABEL } from '../../data/measurements.js';
-import { REHAB_PROGRAM, GYM_PROGRAM, PROGRAM_SOURCE, BAND_BY_ID, THERABAND, plannedOn, dayKeyOf, DAY_NAME } from '../../data/program.js';
+import { REHAB_PROGRAM, GYM_PROGRAM, PROGRAM_SOURCE, BAND_BY_ID, THERABAND, plannedOn, dayKeyOf, DAY_NAME, dayPlanFor, isClinicDay } from '../../data/program.js';
 import { CLINIC_HEP } from '../../data/history.js';
 import { dayCategories, dayTags } from './week.js';
 import { openExercisePicker, allExercises, exerciseById, openMeasureEntry, loadBars, thumb, iconTile, openPicture, renderDatePill } from '../components.js';
@@ -125,6 +125,7 @@ export function renderToday(ctx) {
         </div>
       </header>
       <div class="card-body tight">
+        ${dayPlanBanner(iso)}
         ${seg === 'rehab' ? rehabSegment(iso, entries, ctx) : ''}
         ${seg === 'gym' ? gymSegment(iso, entries, ctx) : ''}
         ${seg === 'extra' ? extraSegment(extras, month, ctx.flash, ctx) : ''}
@@ -657,6 +658,21 @@ function entryFields(e, ex) {
   </div>`;
 }
 
+/**
+ * What today IS, in one line, above the list. The list alone never answered
+ * "what am I meant to do today" — that is the whole reason this exists.
+ */
+function dayPlanBanner(iso) {
+  const plan = dayPlanFor(state.data, iso);
+  if (!plan.name) return '';
+  return `<div class="dayplan ${plan.clinic ? 'clinic' : ''}">
+    <button class="dayplan-mark" data-clinic-toggle="${esc(iso)}"
+      title="${plan.clinic ? 'Not a clinic day after all' : 'Mark this as a clinic day'}">${plan.clinic ? '◆' : '◇'}</button>
+    <span class="dayplan-name">${esc(plan.name)}</span>
+    <span class="dayplan-sub">${esc(plan.sub)}</span>
+  </div>`;
+}
+
 function rehabSegment(iso, entries, ctx) {
   const { today, rest } = splitByDay(REHAB_PROGRAM, iso);
   const done = today.filter((p) => isLogged(entries.filter((e) => e.pid === p.id))).length;
@@ -940,6 +956,17 @@ export function bindToday(root, ctx, rerender) {
   }));
   root.querySelectorAll('[data-seg]').forEach((b) => b.addEventListener('click', () => {
     ctx.seg = b.dataset.seg;
+    rerender();
+  }));
+
+  // Mark or unmark a clinic day. Marking one narrows the day to the tendon
+  // loading and balance work, because the session itself is the big workout.
+  root.querySelectorAll('[data-clinic-toggle]').forEach((b) => b.addEventListener('click', () => {
+    const day = b.dataset.clinicToggle;
+    update((d) => {
+      const map = ((d.program ||= {}).clinicDays ||= {});
+      if (map[day]) delete map[day]; else map[day] = true;
+    });
     rerender();
   }));
 

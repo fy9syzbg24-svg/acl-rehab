@@ -40,7 +40,7 @@ const ID_LISTS = { m: 'measurements', r: 'mrss', c: 'customExercises',
 // Any new top-level key must be registered here or it will not survive a sync.
 const KEY_MAPS = { s: 'settings', g: 'planGoals', f: 'planFocus', k: 'caseFile' };
 // name -> [parent, allowed sub-maps]
-const SUB_MAPS = { b: ['melbourne', ['phases', 'measures']], p: ['program', ['stage', 'band', 'weeklyTarget', 'days']] };
+const SUB_MAPS = { b: ['melbourne', ['phases', 'measures']], p: ['program', ['stage', 'band', 'weeklyTarget', 'days', 'clinicDays']] };
 
 const enc = (s) => String(s).replace(/\|/g, '%7C');
 const dec = (s) => String(s).replace(/%7C/g, '|');

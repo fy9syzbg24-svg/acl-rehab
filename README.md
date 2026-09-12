@@ -91,6 +91,43 @@ Media needs its own content-addressed store (file per blob, hash as the name) wi
 only the hash and metadata in the document — decide that before adding the first
 attachment, not after.
 
+## The week, and what a day IS
+
+The Today tab opens with one line saying what the day is for, above the list.
+A list on its own never answers "what am I meant to do today".
+
+Strength lands on **Monday, Wednesday and Friday**. That spacing is the point:
+the evidence for strength work after an ACL reconstruction is two to three
+sessions a week with 48 hours between them. Mon to Wed is 48h, Wed to Fri is
+48h, Fri to Mon is 72h, so no heavy day ever follows another. Balance work is
+low load and sits on the days between. Aerobic work is most days.
+
+**A clinic day overrides the weekday.** A session with the physio is itself a
+big strength workout, so on a clinic day the app asks only for the tendon
+loading and the balance work at home. Doubling up is how you end up too sore to
+train the next day. Clinic days live in `program.clinicDays` (ISO date -> true);
+tap the diamond on the day plan line to mark or unmark one by hand.
+
+`tools/clinic_days.py` fills them in from the calendar:
+
+```bash
+python3 tools/clinic_days.py            # report only
+python3 tools/clinic_days.py --write    # write them in
+```
+
+It reads the primary calendar's secret iCal address from the fringe planner's
+`config/calendars.json` rather than keeping a second copy of that credential,
+never prints the URL, only ever adds days (it will not remove one marked by
+hand), skips days already past, snapshots the data file first, and **stamps each
+record it writes** so the write is visible to sync. A Mac job, necessarily:
+Google sends no CORS header on the iCal feed, and the URL must never reach a
+phone. The Mac writes the days and sync carries them, exactly as the fringe
+planner does it.
+
+⚠️ `clinicDays` is a sub-map of `program`, so it had to be named in `SUB_MAPS`
+in `app/js/sync/records.js`. The "no unregistered top-level keys" test does NOT
+cover sub-maps; there is now a separate regression test for this one.
+
 ## Two devices, one log
 
 The desktop app and the phone each keep a COMPLETE local copy and are fully
