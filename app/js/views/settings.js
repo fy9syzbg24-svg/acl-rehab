@@ -44,7 +44,21 @@ function syncCard() {
       <summary>Screen diagnostics</summary>
       <pre class="tiny mono" id="geo-report" style="white-space:pre-wrap;line-height:1.5;margin:.4rem 0 0">measuring…</pre>
     </details>
-    ${syncState.lastError ? `<div class="callout warn small" style="margin-top:.6rem">
+    ${syncState.lastError?.reason === 'auth' ? `<div class="callout warn small" style="margin-top:.6rem">
+      <strong>This device's access token is no longer accepted.</strong> GitHub returned 401,
+      which means the token has expired, been revoked, or was mistyped. Nothing is wrong with
+      your log or the repo, and nothing here is lost: everything is on this device and uploads
+      as soon as a working token is in.
+      <div class="row" style="margin-top:.6rem;align-items:flex-end;gap:.5rem">
+        <label class="fld" style="flex:1;max-width:360px">New access token
+          <input id="sy-newtoken" type="password" placeholder="github_pat_…" autocomplete="off" spellcheck="false"></label>
+        <button class="btn primary" data-sy-retoken>Save and sync</button>
+      </div>
+      <div class="tiny muted" style="margin-top:.4rem">
+        Needs read and write on <span class="mono">Contents</span> for
+        ${esc(c.owner)}/${esc(c.repo)}, and nothing else. Stored on this device only.
+      </div>
+    </div>` : syncState.lastError ? `<div class="callout warn small" style="margin-top:.6rem">
       Last sync failed (${esc(syncState.lastError.reason || 'error')}). Your data is safe here and
       will upload on the next attempt.</div>` : ''}
     <div class="tiny muted" style="margin-top:.5rem">
@@ -355,6 +369,28 @@ export function bindSettings(root, ctx, rerender) {
     toast(res.ok
       ? `✅ <b>Synced</b><br><span>${res.pulled || 0} in · ${res.pushed || 0} out</span>`
       : `⚠️ <b>Sync failed</b><br><span>${esc(res.reason || '')}</span>`, res.ok ? '' : 'warn');
+    rerender();
+  });
+
+  root.querySelector('[data-sy-retoken]')?.addEventListener('click', async () => {
+    const token = root.querySelector('#sy-newtoken').value.trim();
+    if (!token) return toast('⚠️ <b>Paste the new token first</b>', 'warn');
+    const { owner, repo } = getConfig();
+    toast('Checking access…');
+    // Verify BEFORE storing: a bad paste must not replace a token that might
+    // still be the good one, and must not leave the device unable to explain why.
+    const check = await ghCheckAccess({ owner, repo, token });
+    if (!check.ok) {
+      return toast(check.reason === 'bad-token'
+        ? '⚠️ <b>That token was rejected too</b><br><span>check it has Contents read and write on this repo, and has not expired</span>'
+        : check.reason === 'no-repo' ? '⚠️ <b>The token cannot see that repo</b>'
+        : `⚠️ <b>${esc(check.reason)}</b>`, 'warn');
+    }
+    setConfig({ token });
+    const res = await runSync('retoken');
+    toast(res.ok
+      ? `✅ <b>Reconnected</b><br><span>${res.pulled || 0} in · ${res.pushed || 0} out</span>`
+      : `⚠️ <b>Still failing</b><br><span>${esc(res.reason || '')}</span>`, res.ok ? '' : 'warn');
     rerender();
   });
 
