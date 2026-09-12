@@ -1,4 +1,4 @@
-// Exercise library. Names are written out in full — no abbreviations.
+// Exercise library. Names are written out in full, no abbreviations.
 //
 //   months     which months suggest this first on the Today tab
 //   track      what the quick-log row asks for: 'setsreps' | 'time' | 'pct'
@@ -7,7 +7,7 @@
 //   gym        appears on the Open chain tab with a resistance history board
 //   cardio     logs minutes, a 1-20 machine level and calories instead of
 //              sets/reps/load
-//   secs       a hold or balance time — logged in seconds, not minutes
+//   secs       a hold or balance time, logged in seconds, not minutes
 //   aka        what a clinic called it, when that differs
 
 export const EXERCISES = [
@@ -25,9 +25,9 @@ export const EXERCISES = [
   { id: 'tendon_load_iso_squat', name: 'Tendon loading mini squat, isometric hold', cat: 'strength', months: [1, 2, 3, 4, 5, 6], track: 'time', clinic: true, secs: true },
 
   // ---- Knee extension (open chain) --------------------------------------
-  { id: 'sl_full_quad', name: 'Single-leg knee extension — full range', cat: 'strength', months: [1, 2, 3, 4, 5, 6], track: 'setsreps', chain: 'open', gym: true, clinic: true,
+  { id: 'sl_full_quad', name: 'Single-leg knee extension, full range', cat: 'strength', months: [1, 2, 3, 4, 5, 6], track: 'setsreps', chain: 'open', gym: true, clinic: true,
     aka: 'also called "single-leg full-range quads"' },
-  { id: 'sl_inner_quad', name: 'Single-leg knee extension — end of range', cat: 'strength', months: [1, 2, 3, 4, 5, 6], track: 'setsreps', chain: 'open', gym: true, clinic: true,
+  { id: 'sl_inner_quad', name: 'Single-leg knee extension, end of range', cat: 'strength', months: [1, 2, 3, 4, 5, 6], track: 'setsreps', chain: 'open', gym: true, clinic: true,
     aka: 'also called "single-leg inner-range quads"' },
   { id: 'seated_knee_ext_band', name: 'Resisted knee extension, seated', cat: 'strength', months: [1, 2, 3], track: 'setsreps', chain: 'open', usesBand: true, clinic: true },
   { id: 'tke', name: 'Terminal knee extension', cat: 'strength', months: [1, 2, 3], track: 'setsreps', chain: 'open', usesBand: true, clinic: true,
@@ -60,8 +60,8 @@ export const EXERCISES = [
   { id: 'sl_calf', name: 'Single-leg calf raise', cat: 'strength', months: [1, 2, 3, 4, 5, 6], track: 'setsreps', measure: 'sl_calf_raise' },
   { id: 'sl_calf_foam', name: 'Single-leg calf raise on foam', cat: 'strength', months: [1, 2, 3], track: 'setsreps' },
   { id: 'sl_calf_coord', name: 'Single-leg calf raise with a coordination task', cat: 'strength', months: [1, 2, 3], track: 'setsreps' },
-  { id: 'weighted_calf_straight', name: 'Weighted calf raise — straight knee', cat: 'strength', months: [1, 2, 3, 4, 5, 6], track: 'setsreps', gym: true, clinic: true },
-  { id: 'weighted_calf_bent', name: 'Weighted calf raise — bent knee', cat: 'strength', months: [1, 2, 3, 4, 5, 6], track: 'setsreps', gym: true, clinic: true },
+  { id: 'weighted_calf_straight', name: 'Weighted calf raise, straight knee', cat: 'strength', months: [1, 2, 3, 4, 5, 6], track: 'setsreps', gym: true, clinic: true },
+  { id: 'weighted_calf_bent', name: 'Weighted calf raise, bent knee', cat: 'strength', months: [1, 2, 3, 4, 5, 6], track: 'setsreps', gym: true, clinic: true },
   { id: 'seated_calf_raise', name: 'Seated calf raise, loaded', cat: 'strength', months: [1, 2, 3], track: 'setsreps', clinic: true },
   { id: 'standing_calf_raise_load', name: 'Standing calf raise, loaded', cat: 'strength', months: [1, 2, 3, 4, 5, 6], track: 'setsreps', clinic: true },
 
@@ -143,7 +143,7 @@ export const EXERCISES = [
   { id: 'show_section', name: 'Show section rehearsal', cat: 'dance', months: [5, 6], track: 'time' },
   { id: 'partial_run', name: 'Partial show run-through', cat: 'show', months: [5, 6], track: 'pct', measure: 'show_runthrough_pct' },
   { id: 'full_run', name: 'Full show run-through', cat: 'show', months: [6], track: 'time', measure: 'show_minutes' },
-  { id: 'stage_env', name: 'Full performance environment — stage, shoes, costume', cat: 'show', months: [6], track: 'time' },
+  { id: 'stage_env', name: 'Full performance environment, stage, shoes, costume', cat: 'show', months: [6], track: 'time' },
 
   // ---- Kneeling ---------------------------------------------------------
   { id: 'kneel_floor_transfer', name: 'Stand to sit on the ground through kneeling, then back up', cat: 'kneeling', months: [1, 2, 3, 4, 5, 6], track: 'setsreps', clinic: true },
@@ -153,7 +153,7 @@ export const EXERCISES = [
   { id: 'kneel_perf', name: 'Performance-specific kneeling', cat: 'kneeling', months: [5, 6], track: 'time', secs: true },
 
   // ---- Mobility ---------------------------------------------------------
-  { id: 'ext_prop', name: 'Knee extension stretch — heel prop or prone hang', cat: 'mobility', months: [1, 2, 3, 4, 5, 6], track: 'time', secs: true },
+  { id: 'ext_prop', name: 'Knee extension stretch, heel prop or prone hang', cat: 'mobility', months: [1, 2, 3, 4, 5, 6], track: 'time', secs: true },
   { id: 'flexion', name: 'Knee bending work', cat: 'mobility', months: [1, 2, 3, 4, 5, 6], track: 'setsreps' },
   { id: 'quad_sets', name: 'Quad sets', cat: 'mobility', months: [1, 2], track: 'setsreps' },
   { id: 'patella', name: 'Kneecap mobilisation', cat: 'mobility', months: [1, 2], track: 'time', secs: true },
@@ -168,7 +168,7 @@ export const EXERCISES = [
   { id: 'warmup', name: 'Warm-up / injury-prevention routine', cat: 'recovery', months: [1, 2, 3, 4, 5, 6], track: 'time' },
 ];
 
-/** Loaded through a freely moving foot — the quad-specific resistance numbers. */
+/** Loaded through a freely moving foot, the quad-specific resistance numbers. */
 export const OPEN_CHAIN = new Set(EXERCISES.filter((e) => e.chain === 'open').map((e) => e.id));
 
 export const EXERCISE_BY_ID = Object.fromEntries(EXERCISES.map((e) => [e.id, e]));

@@ -46,12 +46,12 @@ export function weekDays(startIso) {
  * When the SUPPLEMENT CHECKLIST's day rolls over.
  *
  * Opening the app at 2am to finish ticking the day's supplements off, the list
- * wanted should be the one for the day being finished — not a fresh empty one
+ * wanted should be the one for the day being finished, not a fresh empty one
  * that has to be corrected by tapping back a date. So that one screen's "today"
  * holds until 5am and then moves on.
  *
- * DELIBERATELY NARROW. Everything else in the app — Today, the plan, tests, and
- * the timed medication below the checklist — uses the real calendar date via
+ * DELIBERATELY NARROW. Everything else in the app. Today, the plan, tests, and
+ * the timed medication below the checklist, uses the real calendar date via
  * todayIso(). A dose is a timed event and belongs to the clock's day.
  */
 export const DAY_ROLLOVER_HOUR = 5;
@@ -172,7 +172,7 @@ export function debounce(fn, ms) {
  * the device's own preference; 'light'/'dark' force it.
  *
  * Also updates <meta name="theme-color">, which is what iOS paints behind the
- * status bar in an installed app — leaving it fixed makes a light theme look
+ * status bar in an installed app, leaving it fixed makes a light theme look
  * broken at the very top of the screen.
  */
 export const THEME_KEY = 'rehab.theme';

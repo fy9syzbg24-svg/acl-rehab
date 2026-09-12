@@ -1,4 +1,4 @@
-// The sync orchestration: pull, merge, push, retry. Backend-agnostic — it is
+// The sync orchestration: pull, merge, push, retry. Backend-agnostic, it is
 // handed a local getter/setter and talks to whatever github.js provides.
 //
 // The shape of one sync:
@@ -6,7 +6,7 @@
 //   2. merge remote INTO local; if local changed, persist it
 //   3. if local now holds anything remote lacks, PUT it back quoting the sha
 //   4. on 409 (someone else wrote between our GET and PUT): re-GET, re-merge,
-//      retry — bounded, because each retry strictly incorporates more
+//      retry: bounded, because each retry strictly incorporates more
 //
 // Every step is idempotent. A sync interrupted anywhere loses nothing: the
 // local document already holds the change (stamped, queued), so the next sync
@@ -60,7 +60,7 @@ export async function syncNow(getLocal, setLocal, opts = {}) {
       save({ remoteSha: put.sha, lastSyncedAt: Date.now(), lastPushedAt: maxStamp(doc) });
       return { ok: true, created: true, pulled: 0, pushed: 'all', deleted: 0 };
     } catch (err) {
-      // Lost a race to create it — fall through to the normal path next time.
+      // Lost a race to create it, fall through to the normal path next time.
       if (err instanceof ConflictError) return { ok: false, reason: 'retry' };
       return classifyFailure(err);
     }

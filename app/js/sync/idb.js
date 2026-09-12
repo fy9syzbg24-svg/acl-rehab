@@ -1,6 +1,6 @@
 // The iPhone's persistent local database.
 //
-// One document under one key — the whole rehab document, exactly the shape the
+// One document under one key, the whole rehab document, exactly the shape the
 // Mac keeps in its JSON file. IndexedDB (not localStorage) because it is the
 // store iOS treats as durable for an installed PWA, and because the pending
 // sync queue lives INSIDE this document (any record stamped newer than the

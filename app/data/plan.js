@@ -32,7 +32,7 @@ export const PLAN_MONTHS = [
         ],
       },
       {
-        heading: 'Strength — bilateral and unilateral lower limb (quads, hamstrings, glutes, calf)',
+        heading: 'Strength, bilateral and unilateral lower limb (quads, hamstrings, glutes, calf)',
         items: [
           { t: 'As tolerated: high sit-to-stand → low sit-to-stand → double-leg squat → split squat → single-leg squat', ex: ['sts_high', 'sts_low', 'dl_squat', 'split_squat', 'sl_squat', 'sts_band_foam', 'sl_mini_squat_band'] },
           { t: 'As tolerated: double-leg bridge → single-leg bridge', ex: ['dl_bridge', 'sl_bridge', 'dl_bridge_band', 'bridge_band_sl_ext', 'sl_bridge_band_abd', 'sl_glute_bridge', 'dl_glute_bridge_chair', 'bridge_butterfly'] },
@@ -49,7 +49,7 @@ export const PLAN_MONTHS = [
         items: [
           { t: 'Stationary bike / elliptical', ex: ['bike', 'elliptical', 'airbike'] },
           { t: 'Progressive daily walks', ex: ['walk', 'brisk_walk'] },
-          { t: 'Hydrotherapy if you have pool access — walking / leg swings → build to light swimming', ex: ['pool', 'swim'] },
+          { t: 'Hydrotherapy if you have pool access, walking / leg swings → build to light swimming', ex: ['pool', 'swim'] },
         ],
       },
     ],
@@ -75,7 +75,7 @@ export const PLAN_MONTHS = [
     end: '2026-09-30',
     title: 'Consolidate Phase 2 and prepare for impact',
     melbournePhase: 2,
-    note: 'Target ≥85–90% limb symmetry, recognising that bilateral ACL reconstruction makes the uninvolved limb a less reliable "normal" reference.',
+    note: 'Target ≥85 to 90% limb symmetry, recognising that bilateral ACL reconstruction makes the uninvolved limb a less reliable "normal" reference.',
     goals: [
       { id: 'm2g1', text: '20x single-leg calf raises', kind: 'metric', measure: 'sl_calf_raise', target: 20 },
       { id: 'm2g2', text: '10x single-leg squats', kind: 'metric', measure: 'sl_squat_reps', target: 10 },
@@ -108,7 +108,7 @@ export const PLAN_MONTHS = [
         ],
       },
       {
-        heading: 'Impact preparation — only if knee discomfort is <2/10 with the above',
+        heading: 'Impact preparation, only if knee discomfort is <2/10 with the above',
         items: [
           { t: 'Jump board reformer (if you have access) → double-leg plyometrics, building towards single leg', ex: ['reformer_jump', 'dl_plyo'] },
           { t: 'Double-leg drop landings, starting with a small box', ex: ['dl_drop_land'] },
@@ -149,7 +149,7 @@ export const PLAN_MONTHS = [
       { id: 'm3g3', text: 'Maintain progressive loading alongside increased impact exposure', kind: 'check' },
     ],
     focus: [
-      { heading: 'Strength', items: [{ t: 'Continue 2–3 strength sessions/week to maintain progressive loading alongside increased impact exposure', cat: 'strength' }] },
+      { heading: 'Strength', items: [{ t: 'Continue 2 to 3 strength sessions/week to maintain progressive loading alongside increased impact exposure', cat: 'strength' }] },
       {
         heading: 'Landing',
         items: [
@@ -177,7 +177,7 @@ export const PLAN_MONTHS = [
       },
     ],
     weeklyTargets: [
-      { id: 'm3w1', label: 'Strength sessions', target: 3, cats: ['strength'], src: 'plan', note: 'Plan says 2–3/week' },
+      { id: 'm3w1', label: 'Strength sessions', target: 3, cats: ['strength'], src: 'plan', note: 'Plan says 2 to 3/week' },
       { id: 'm3w2', label: 'Landing / impact sessions', target: 2, cats: ['impact'], src: 'derived' },
       { id: 'm3w3', label: 'Walk-jog / treadmill interval sessions', target: 2, cats: ['running'], src: 'derived' },
       { id: 'm3w4', label: 'Dance-specific sessions', target: 2, cats: ['dance'], src: 'derived' },
@@ -232,7 +232,7 @@ export const PLAN_MONTHS = [
       {
         heading: 'Dance-specific exposure',
         items: [
-          { t: 'Introduce dance-specific jumping and dynamic movement, initially at min–mod intensity', ex: ['dance_jump'] },
+          { t: 'Introduce dance-specific jumping and dynamic movement, initially at min to mod intensity', ex: ['dance_jump'] },
         ],
       },
       {
@@ -280,7 +280,7 @@ export const PLAN_MONTHS = [
         kind: 'metric',
         measure: 'repeated_hops',
         target: 10,
-        caution: 'The plan writes "hop (min x10 bilat)". I read that as 10 repeated hops on each leg — worth confirming with your physio.',
+        caution: 'The plan writes "hop (min x10 bilat)". I read that as 10 repeated hops on each leg, worth confirming with your physio.',
       },
       { id: 'm5g3', text: '>50% show run-through completed', kind: 'metric', measure: 'show_runthrough_pct', target: 50, unitless: true },
     ],
@@ -351,7 +351,7 @@ export const PLAN_MONTHS = [
     focus: [
       {
         heading: 'Strength maintenance',
-        items: [{ t: 'Continue 1–2 weekly strength sessions to maintain quadriceps, hamstring, gluteal and calf capacity', cat: 'strength' }],
+        items: [{ t: 'Continue 1 to 2 weekly strength sessions to maintain quadriceps, hamstring, gluteal and calf capacity', cat: 'strength' }],
       },
       {
         heading: 'Neuromuscular maintenance',
@@ -379,7 +379,7 @@ export const PLAN_MONTHS = [
       },
     ],
     weeklyTargets: [
-      { id: 'm6w1', label: 'Strength sessions', target: 2, cats: ['strength'], src: 'plan', note: 'Plan says 1–2/week' },
+      { id: 'm6w1', label: 'Strength sessions', target: 2, cats: ['strength'], src: 'plan', note: 'Plan says 1 to 2/week' },
       { id: 'm6w2', label: 'Show run-throughs', target: 2, cats: ['show'], src: 'derived' },
       { id: 'm6w3', label: 'Neuromuscular warm-up / maintenance', target: 3, cats: ['balance', 'impact', 'agility'], src: 'plan', note: 'Plan says "as part of the warm-up"; frequency is mine' },
       { id: 'm6w4', label: 'Dance / rehearsal sessions', target: 3, cats: ['dance'], src: 'derived' },

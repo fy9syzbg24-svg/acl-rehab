@@ -1,6 +1,6 @@
 // The iPhone app.
 //
-// It renders the REAL desktop views — the same renderToday, renderProgram,
+// It renders the REAL desktop views, the same renderToday, renderProgram,
 // renderPlan, renderMelbourne, renderProgress and renderSettings the Mac uses,
 // with the same ctx contract and the same bind functions. So the phone has
 // every feature the desktop has: the journey road, the month board and its
@@ -10,7 +10,7 @@
 // What is mobile-specific is the CHROME and the styling, not the content:
 // a fixed header that clears the Dynamic Island, a bottom tab bar that clears
 // the home indicator, a single scrolling region between them, and touch-sized
-// controls (mobile.css). That is the right split — a phone-only reimplementation
+// controls (mobile.css). That is the right split, a phone-only reimplementation
 // of the views would inevitably drift from the desktop and be missing things.
 
 import {
@@ -152,8 +152,8 @@ document.getElementById('sync-btn').addEventListener('click', async () => {
 // the spring back are drawn here instead.
 //
 // It costs nothing while you are not pulling. The non-passive touchmove
-// listener — the one that stops the browser scrolling on its fast path, and so
-// the one that would cost smoothness everywhere — is attached only for the
+// listener: the one that stops the browser scrolling on its fast path, and so
+// the one that would cost smoothness everywhere, is attached only for the
 // length of a touch that began at the very top, and only when sync is set up
 // at all.
 const PULL_TRIGGER = 72;    // finger travel that counts as "sync"
@@ -210,7 +210,7 @@ function onPullMove(e) {
   // attached to your finger rather than sliding.
   pullTo(PULL_MAX * (1 - Math.exp(-pullDy / (PULL_MAX * 1.1))));
   // The chip lights up while your finger is still down, the moment you have
-  // pulled far enough — so you know letting go will sync BEFORE you commit,
+  // pulled far enough, so you know letting go will sync BEFORE you commit,
   // rather than having to catch a flash afterwards. Pull back up and it goes out.
   syncBtn.classList.toggle('armed', pullDy >= PULL_TRIGGER);
 }
@@ -231,7 +231,7 @@ window.addEventListener('touchstart', (e) => {
 const pullRelease = () => { if (pullWatching) pullStop(pulling && pullDy >= PULL_TRIGGER); };
 window.addEventListener('touchend', pullRelease, { passive: true });
 // touchcancel honours the pull exactly as touchend does. iOS cancels a touch
-// when the system takes it over — a notification arriving, an edge gesture —
+// when the system takes it over, a notification arriving, an edge gesture,
 // and treating that as "never happened" meant a pull you had completed could
 // silently do nothing. Syncing is idempotent, so acting on a committed pull is
 // always the safer of the two.
@@ -245,7 +245,7 @@ window.addEventListener('hashchange', () => {
 subscribe(paintChrome);
 onRemoteChange(() => paint());
 
-// Sync when the app returns to the foreground or regains a connection — this
+// Sync when the app returns to the foreground or regains a connection, this
 // is what uploads the queue after Airplane Mode without you doing anything.
 window.addEventListener('online', () => { if (isConfigured()) runSync('online'); });
 document.addEventListener('visibilitychange', () => {
@@ -267,7 +267,7 @@ load().then(() => {
   // Adopt a new deploy automatically.
   //
   // The worker serves the shell cache-first, which is what makes a cold
-  // offline launch work — but it also means a fresh deploy would otherwise sit
+  // offline launch work, but it also means a fresh deploy would otherwise sit
   // unused until the SECOND launch, with the page still running the previous
   // CSS and code. Reloading once when a new worker takes control closes that
   // gap. Local data lives in IndexedDB and is untouched by any of this, so an
@@ -281,7 +281,7 @@ load().then(() => {
   });
 
   navigator.serviceWorker.register('./sw.js', { scope: './' }).then((reg) => {
-    // Check for a new version on foreground, but at most every 30 minutes —
+    // Check for a new version on foreground, but at most every 30 minutes:
     // it is a network request, and a deploy is not something that happens
     // between glances at the app.
     const CHECK_GAP_MS = 30 * 60 * 1000;

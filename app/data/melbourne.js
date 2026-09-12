@@ -1,4 +1,4 @@
-// Melbourne ACL Rehabilitation Guide 2.0 (Cooper & Hughes) — phase criteria,
+// Melbourne ACL Rehabilitation Guide 2.0 (Cooper & Hughes), phase criteria,
 // outcome measures and the MRSS2.0 scoring tables.
 //
 // Test method summaries are condensed; the goal thresholds are exactly as
@@ -16,7 +16,7 @@ export const MELBOURNE_PHASES = [
       { id: 'p0_ext', label: 'Passive knee extension', measure: 'knee_extension', goal: { kind: 'absolute', target: 0, cmp: '<=' }, goalText: '0°' },
       { id: 'p0_flex', label: 'Passive knee flexion', measure: 'knee_flexion', goal: { kind: 'absolute', target: 125, cmp: '>=' }, goalText: '125°+' },
       { id: 'p0_strength', label: 'Quads & hamstring strength (hand-held dynamometer)', goal: { kind: 'manual' }, goalText: '90% vs other side' },
-      { id: 'p0_eff', label: 'Effusion — stroke test', measure: 'effusion', goal: { kind: 'grade', allowed: ['Zero', 'Trace', '1+'] }, goalText: 'Zero – 1+' },
+      { id: 'p0_eff', label: 'Effusion, stroke test', measure: 'effusion', goal: { kind: 'grade', allowed: ['Zero', 'Trace', '1+'] }, goalText: 'Zero to 1+' },
       { id: 'p0_hop', label: 'Single hop test', measure: 'single_hop', goal: { kind: 'lsi', target: 90 }, goalText: '90% vs other side' },
     ],
   },
@@ -33,7 +33,7 @@ export const MELBOURNE_PHASES = [
       { id: 'p1_flex', label: 'Passive knee flexion', measure: 'knee_flexion', goal: { kind: 'absolute', target: 125, cmp: '>=' }, goalText: '125°+' },
       { id: 'p1_lag', label: 'Quadriceps lag test', goal: { kind: 'manual' }, goalText: '0 to 5° lag',
         how: 'Sitting on the edge of a bed, the knee is taken into full passive extension. Hold full active extension when support is removed.' },
-      { id: 'p1_eff', label: 'Effusion — stroke test', measure: 'effusion', goal: { kind: 'grade', allowed: ['Zero', 'Trace', '1+'] }, goalText: 'Zero – 1+' },
+      { id: 'p1_eff', label: 'Effusion, stroke test', measure: 'effusion', goal: { kind: 'grade', allowed: ['Zero', 'Trace', '1+'] }, goalText: 'Zero to 1+' },
     ],
   },
 
@@ -48,14 +48,14 @@ export const MELBOURNE_PHASES = [
         goal: { kind: 'absolute', target: 0, cmp: '<=' }, goalText: 'Equal to the other side',
         how: 'Prone with the lower legs off the bed. Measure the heel height difference (approx 1 cm = 1°).' },
       { id: 'p2_flex', label: 'Passive knee flexion', measure: 'knee_flexion', goal: { kind: 'absolute', target: 125, cmp: '>=' }, goalText: '125°+' },
-      { id: 'p2_sls', label: 'Functional alignment — single-leg squat test', goal: { kind: 'rating', allowed: ['Good'], options: ['Poor', 'Fair', 'Good'] }, goalText: 'Good',
+      { id: 'p2_sls', label: 'Functional alignment, single-leg squat test', goal: { kind: 'rating', allowed: ['Good'], options: ['Poor', 'Fair', 'Good'] }, goalText: 'Good',
         how: 'Stand on one leg on a 20 cm box, arms crossed. 5 slow squats (2 s each). "Good" = balance maintained, smooth, ≥60°, no trunk or pelvic movement, no hip adduction/IR, no knee valgus, knee centre stays over the foot centre.' },
-      { id: 'p2_eff', label: 'Effusion — stroke test', measure: 'effusion', goal: { kind: 'grade', allowed: ['Zero'] }, goalText: 'Zero' },
+      { id: 'p2_eff', label: 'Effusion, stroke test', measure: 'effusion', goal: { kind: 'grade', allowed: ['Zero'] }, goalText: 'Zero' },
       { id: 'p2_bridge', label: 'Single-leg bridges', measure: 'sl_bridge', goal: { kind: 'hurdle_lsi', hurdle: 20, lsi: 85 }, goalText: '>85% vs other side · hurdle >20 reps' },
       { id: 'p2_calf', label: 'Single-leg calf raises', measure: 'sl_calf_raise', goal: { kind: 'hurdle_lsi', hurdle: 20, lsi: 85 }, goalText: '>85% vs other side · hurdle >20 reps' },
       { id: 'p2_sidebridge', label: 'Side bridge endurance', measure: 'side_bridge', goal: { kind: 'hurdle_lsi', hurdle: 30, lsi: 85 }, goalText: '>85% vs other side · hurdle 30 s' },
-      { id: 'p2_bal_eo', label: 'Balance — unipedal stance, eyes open', measure: 'balance_eyes_open', goal: { kind: 'absolute', target: 43, cmp: '>=' }, goalText: '43 s (normative, 18–39 yrs)' },
-      { id: 'p2_bal_ec', label: 'Balance — unipedal stance, eyes closed', measure: 'balance_eyes_closed', goal: { kind: 'absolute', target: 9, cmp: '>=' }, goalText: '9 s (normative, 18–39 yrs)' },
+      { id: 'p2_bal_eo', label: 'Balance, unipedal stance, eyes open', measure: 'balance_eyes_open', goal: { kind: 'absolute', target: 43, cmp: '>=' }, goalText: '43 s (normative, 18 to 39 yrs)' },
+      { id: 'p2_bal_ec', label: 'Balance, unipedal stance, eyes closed', measure: 'balance_eyes_closed', goal: { kind: 'absolute', target: 9, cmp: '>=' }, goalText: '9 s (normative, 18 to 39 yrs)' },
       { id: 'p2_slrise', label: 'Single-leg rise test', measure: 'sl_squat_reps', goal: { kind: 'hurdle_lsi', hurdle: 10, lsi: 85 }, goalText: '>85% vs other side · hurdle >10 reps each leg' },
     ],
     supplementary: [
@@ -84,7 +84,7 @@ export const MELBOURNE_PHASES = [
       { id: 'p3_slrise', label: 'Single-leg rise test', measure: 'sl_squat_reps', goal: { kind: 'absolute', target: 22, cmp: '>=' }, goalText: 'Hurdle: >22 reps both limbs' },
       { id: 'p3_sebt', label: 'Star Excursion Balance Test', measure: 'sebt_composite', goal: { kind: 'lsi', target: 95 }, goalText: '>95% vs other side' },
       { id: 'p3_vestib', label: 'Cooper & Hughes vestibular balance test', goal: { kind: 'manual' }, goalText: 'Pass both limbs',
-        how: 'Single-leg stance, slight hip, knee and ankle flexion, hands on waist. (1) Head side to side 70–90°, 60 bpm, 15 s. (2) Head up and down, 60 bpm, 15 s. Pass = stance held and hands stay on the waist for both.' },
+        how: 'Single-leg stance, slight hip, knee and ankle flexion, hands on waist. (1) Head side to side 70 to 90°, 60 bpm, 15 s. (2) Head up and down, 60 bpm, 15 s. Pass = stance held and hands stay on the waist for both.' },
     ],
     supplementary: [
       { id: 'p3_press', label: 'One-rep-max single-leg incline press', measure: 'leg_press_1rm', goal: { kind: 'ratio', target: 1.8 }, goalText: '1.8x bodyweight (sled + weight)' },
@@ -135,9 +135,9 @@ export const MELBOURNE_BY_ID = Object.fromEntries(MELBOURNE_PHASES.map((p) => [p
 
 export const MRSS_PART_A = [
   { id: 'effusion', label: 'Effusion', options: [['Absent', 5], ['Present', 0]] },
-  { id: 'stability', label: 'Stability (pivot shift test)', options: [['Nil', 5], ['Grade I', 3], ['Grade II', 1], ['Grade III–IV', 0]] },
-  { id: 'flexion', label: 'Flexion', options: [['0–5° deficit', 5], ['5–20° deficit', 3], ['20°+ deficit', 0]] },
-  { id: 'extension', label: 'Extension (prone hang test)', options: [['0–1 cm deficit', 5], ['1–5 cm deficit', 3], ['5 cm+ deficit', 0]] },
+  { id: 'stability', label: 'Stability (pivot shift test)', options: [['Nil', 5], ['Grade I', 3], ['Grade II', 1], ['Grade III to IV', 0]] },
+  { id: 'flexion', label: 'Flexion', options: [['0 to 5° deficit', 5], ['5 to 20° deficit', 3], ['20°+ deficit', 0]] },
+  { id: 'extension', label: 'Extension (prone hang test)', options: [['0 to 1 cm deficit', 5], ['1 to 5 cm deficit', 3], ['5 cm+ deficit', 0]] },
 ];
 
 // LSI -> points. `full` is 10 or 5 depending on the item.

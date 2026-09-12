@@ -1,6 +1,6 @@
 // The six-month road across the top of Today.
 //
-// Built from HTML positioned by percentage — not a stretched SVG — so the
+// Built from HTML positioned by percentage, not a stretched SVG, so the
 // type stays crisp at any width. Click a month to open it in the plan tab.
 
 import { esc, todayIso, daysBetween } from '../util.js';

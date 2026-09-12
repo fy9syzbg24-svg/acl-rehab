@@ -77,7 +77,7 @@ function renderHistoryPanel(ctx) {
 
     <div class="grid2">
       <section class="card">
-        <header><h2>Pain trend</h2><span class="sub">0–10, per knee</span></header>
+        <header><h2>Pain trend</h2><span class="sub">0 to 10, per knee</span></header>
         <div class="card-body">
           ${painPts.length ? lineChart([
             { label: 'Left', cls: 'lineL', color: 'left', points: painPts.filter((p) => num(p.c.painL) != null).map((p) => ({ date: p.date, value: num(p.c.painL) })) },
@@ -116,11 +116,11 @@ function renderHistoryPanel(ctx) {
 function renderClinicalPanel() {
   return `<div class="stack">
     <section class="card">
-      <header><h2>Clinical history</h2><span class="sub">from your notes — background, not something to tick off</span></header>
+      <header><h2>Clinical history</h2><span class="sub">from your notes: background, not something to tick off</span></header>
       <div class="card-body">
         ${CLINIC_TIMELINE.map((t) => `
           <div style="margin-bottom:.9rem">
-            <div class="row" style="gap:.4rem"><strong class="small">${esc(fmtDate(t.date, 'short'))} — ${esc(t.title)}</strong>
+            <div class="row" style="gap:.4rem"><strong class="small">${esc(fmtDate(t.date, 'short'))}: ${esc(t.title)}</strong>
               <span class="tiny muted">${esc(t.who)}</span></div>
             <ul class="plain">${t.points.map((p) => `<li>${esc(p)}</li>`).join('')}</ul>
           </div>`).join('')}
@@ -168,10 +168,10 @@ function timeline(today) {
     { label: 'Injury', date: s.injuryDate, tone: '' },
     { label: 'Left ACL reconstruction', date: s.surgeryLeft, tone: 'left', note: CASE.legs.left.procedure + ' · ' + CASE.legs.left.weightBearing },
     { label: 'Right ACL reconstruction', date: s.surgeryRight, tone: 'right', note: CASE.legs.right.procedure + ' · ' + CASE.legs.right.weightBearing },
-    { label: 'Plan starts — Month 1', date: PLAN_MONTHS[0].start, tone: '' },
+    { label: 'Plan starts: Month 1', date: PLAN_MONTHS[0].start, tone: '' },
     { label: 'Left knee reaches 9 months', date: addMonths(s.surgeryLeft, 9), tone: 'left', note: 'Melbourne guide: research suggests a minimum of 9 months before return to sport, guided by your surgeon.' },
     { label: 'Right knee reaches 9 months', date: addMonths(s.surgeryRight, 9), tone: 'right', note: 'Same 9-month marker for the right knee.' },
-    { label: 'Plan target — full 1-hour show', date: PLAN_MONTHS[5].end, tone: '', note: 'Month 6 also asks for two full show runs in one day by the end of January.' },
+    { label: 'Plan target: full 1-hour show', date: PLAN_MONTHS[5].end, tone: '', note: 'Month 6 also asks for two full show runs in one day by the end of January.' },
   ].filter((r) => r.date).sort((a, b) => (a.date < b.date ? -1 : 1));
 
   return `<div>${rows.map((r) => {
@@ -194,8 +194,8 @@ function gapNote() {
   if (!nine) return '';
   const gap = daysBetween(nine, PLAN_MONTHS[5].end);
   return `<div class="tiny muted" style="margin-top:.6rem">
-    The 9-month markers come from the Melbourne guide's return-to-sport section. Your plan's Month 6 target — the full
-    1-hour show — sits <strong>${Math.abs(gap)} days ${gap < 0 ? 'before' : 'after'}</strong> the right knee reaches
+    The 9-month markers come from the Melbourne guide's return-to-sport section. Your plan's Month 6 target, the full
+    1-hour show: sits <strong>${Math.abs(gap)} days ${gap < 0 ? 'before' : 'after'}</strong> the right knee reaches
     9 months. Worth raising with your team.
   </div>`;
 }

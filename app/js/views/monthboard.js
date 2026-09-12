@@ -1,4 +1,4 @@
-// "This month" — the 6-month plan surfaced on the Today page, so the goals
+// "This month", the 6-month plan surfaced on the Today page, so the goals
 // chase you rather than waiting in a tab you have to remember to open.
 //
 // Three questions it answers at a glance:
@@ -12,7 +12,7 @@ import { openMeasureEntry } from '../components.js';
 import { PLAN_MONTHS, monthForDate } from '../../data/plan.js';
 import { goalProgress } from './planview.js';
 
-/** Fraction of the month gone, 0–1. */
+/** Fraction of the month gone, 0 to 1. */
 function monthElapsed(month, iso) {
   const total = daysBetween(month.start, month.end) + 1;
   const gone = Math.min(total, Math.max(0, daysBetween(month.start, iso) + 1));
@@ -22,7 +22,7 @@ function monthElapsed(month, iso) {
 function paceOf(p, elapsedFrac) {
   if (p.done) return { cls: 'met', label: 'Met' };
   if (p.p == null) return { cls: '', label: '' };
-  // Nothing measured yet is not "behind" — the detail already says "not tested yet",
+  // Nothing measured yet is not "behind", the detail already says "not tested yet",
   // and a marker cannot be off pace before it has a first number.
   if (p.untested) return { cls: '', label: '' };
   // A blunt check: are you as far through the goal as you are through the month?
@@ -137,7 +137,7 @@ function focusBlock(month, iso) {
         <span class="fcount tiny mono">${x.cov.days ? x.cov.days + 'd' : ''}</span>
       </div>`).join('')}
   </div>
-  ${manual.length ? `<details class="disc" style="margin-top:.5rem"><summary>${manual.length} judgement calls — tick these yourself</summary>
+  ${manual.length ? `<details class="disc" style="margin-top:.5rem"><summary>${manual.length} judgement calls: tick these yourself</summary>
     ${manual.map((x) => {
       const on = !!state.data.planFocus[x.key];
       return `<label class="checkline ${on ? 'done' : ''}">
@@ -164,7 +164,7 @@ export function shortCat(label) {
 /** Focus bullets are long; the grid needs a label, not a paragraph. */
 function shortFocus(text) {
   let s = text.replace(/^As tolerated:\s*/i, '').replace(/^Continue\s+/i, '').replace(/^Progress(ing)?\s+/i, '');
-  s = s.split(/\s*[—(]\s*/)[0];
+  s = s.split(/\s*[, (]\s*/)[0];
   const arrows = s.split('→').map((x) => x.trim()).filter(Boolean);
   if (arrows.length > 1) s = `${arrows[0]} → ${arrows[arrows.length - 1]}`;
   return s.length > 76 ? s.slice(0, 74).trimEnd() + '…' : s;

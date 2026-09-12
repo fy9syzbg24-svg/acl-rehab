@@ -1,4 +1,4 @@
-// Record-level merge. Pure functions, no I/O — every rule here is unit-tested
+// Record-level merge. Pure functions, no I/O, every rule here is unit-tested
 // in tools/test_merge.mjs, because this is the one file where a bug silently
 // eats data rather than throwing.
 //
@@ -6,7 +6,7 @@
 // Ties break on device id (string compare) so both devices independently reach
 // the SAME answer without talking to each other. Deletions are tombstones and
 // compete on the same timeline, so an old offline device cannot resurrect a
-// record that was deleted elsewhere — its live copy is simply older.
+// record that was deleted elsewhere, its live copy is simply older.
 //
 // Why per record and not per document: the app PUTs one big object, so a
 // document-level merge would mean whichever device synced second wiped the
@@ -20,7 +20,7 @@
 import { collectRecords, putRecord, dropRecord, fingerprint, ensureSync, pruneHollowDays } from './records.js';
 
 // Tombstones are pruned after this long. Any device offline longer than this
-// could resurrect a deleted record — see README's limitations.
+// could resurrect a deleted record, see README's limitations.
 export const TOMBSTONE_TTL_MS = 90 * 24 * 60 * 60 * 1000;
 
 /** Record what a mutation changed. Called from store.update() with the record
@@ -185,7 +185,7 @@ export function hasPending(doc, lastPushedAt = 0) {
   return false;
 }
 
-/** Count of records still waiting to reach the server — shown in the UI. */
+/** Count of records still waiting to reach the server, shown in the UI. */
 export function pendingCount(doc, lastPushedAt = 0) {
   const s = doc?._sync;
   if (!s) return 0;

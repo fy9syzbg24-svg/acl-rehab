@@ -23,7 +23,7 @@ export function setConfig(patch) {
   try {
     localStorage.setItem(KEY, JSON.stringify(next));
   } catch {
-    /* private mode or full disk — sync just stays this-session-only */
+    /* private mode or full disk, sync just stays this-session-only */
   }
   return next;
 }
@@ -37,7 +37,7 @@ export function clearConfig() {
   return { lastSyncedAt };
 }
 
-/** True once a repo and token are set — sync is a no-op until then. */
+/** True once a repo and token are set, sync is a no-op until then. */
 export function isConfigured() {
   const c = getConfig();
   return !!(c.token && c.owner && c.repo);

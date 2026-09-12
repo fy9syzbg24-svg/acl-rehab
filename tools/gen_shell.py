@@ -2,7 +2,7 @@
 """Regenerate the service worker's precache list from the real import graph.
 
 Hand-maintaining that list does not work: adding a view and forgetting to list
-it gives a file that is fetched ad-hoc — so it is missing offline, and it
+it gives a file that is fetched ad-hoc, so it is missing offline, and it
 updates on a different schedule from everything else. That is exactly what
 happened to supplements.js.
 

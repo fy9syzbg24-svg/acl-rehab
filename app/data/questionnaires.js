@@ -5,7 +5,7 @@ export const ACL_RSI = {
   id: 'aclrsi',
   name: 'ACL-RSI',
   scale: 'slider0100',
-  note: 'Answer each 0–100. Your score is the average. The MRSS awards 10/10 for >90%, otherwise 0.',
+  note: 'Answer each 0 to 100. Your score is the average. The MRSS awards 10/10 for >90%, otherwise 0.',
   items: [
     { q: 'Are you confident that you can perform at your previous level of sport participation?', lo: 'Not at all confident', hi: 'Fully confident' },
     { q: 'Do you think you are likely to re-injure your knee by participating in your sport?', lo: 'Extremely likely', hi: 'Not likely at all' },
@@ -25,7 +25,7 @@ export const ACL_RSI = {
 export const TSK11 = {
   id: 'tsk11',
   name: 'TSK-11 (Tampa Scale of Kinesiophobia)',
-  note: 'Each item 1–4. Total 11–18 = pass. 19 or more = fail — the guide says not to continue MRSS testing on a fail.',
+  note: 'Each item 1 to 4. Total 11 to 18 = pass. 19 or more = fail, the guide says not to continue MRSS testing on a fail.',
   choices: [
     [1, 'Strongly disagree'],
     [2, 'Somewhat disagree'],

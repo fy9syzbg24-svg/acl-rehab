@@ -14,7 +14,7 @@ for (const p of REHAB_PROGRAM) {
 }
 
 // Only the 16 clinician-program exercises came with photos. These other movements are close
-// enough that her picture still shows the shape of it — flagged as `borrowed`
+// enough that her picture still shows the shape of it, flagged as `borrowed`
 // so nothing pretends to be a photo of that exact exercise.
 const BORROWED = {
   // bridges
@@ -26,7 +26,7 @@ const BORROWED = {
   sts_high: 'pa05',
   sts_low: 'pa05',
   high_sts_band: 'pa05',
-  // knee extension — band, machine and terminal are the same movement
+  // knee extension: band, machine and terminal are the same movement
   sl_full_quad: 'pa06',
   sl_inner_quad: 'pa06',
   leg_extension: 'pa06',
@@ -170,7 +170,7 @@ export function loadBars(series, height = 30) {
     const h = Math.max(3, Math.round((s.load / max) * height));
     const top = i === series.length - 1;
     return `<i style="height:${h}px" class="${top ? 'now' : ''}"
-      title="${esc(fmtDateNum(s.date))} — ${round(s.load, 2)} ${esc(s.unit)}"></i>`;
+      title="${esc(fmtDateNum(s.date))}: ${round(s.load, 2)} ${esc(s.unit)}"></i>`;
   }).join('')}</div>`;
 }
 
@@ -321,7 +321,7 @@ export function unitFor(measure) {
 
 /** Modal that records one measurement (both legs at once when relevant). */
 export function openMeasureEntry({ measureId, date, onSave, prefill = null, lockMeasure = false }) {
-  const opts = MEASURES.map((m) => `<option value="${m.id}" ${m.id === measureId ? 'selected' : ''}>${esc(m.group)} — ${esc(m.label)}</option>`).join('');
+  const opts = MEASURES.map((m) => `<option value="${m.id}" ${m.id === measureId ? 'selected' : ''}>${esc(m.group)}: ${esc(m.label)}</option>`).join('');
   const build = (id) => {
     const m = MEASURE_BY_ID[id];
     if (!m) return '';
@@ -330,7 +330,7 @@ export function openMeasureEntry({ measureId, date, onSave, prefill = null, lock
       const lbl = leg === 'L' ? 'Left' : leg === 'R' ? 'Right' : 'Value';
       if (isGrade) {
         return `<label class="fld" style="flex:1">${lbl}
-          <select data-v="${leg || 'X'}"><option value="">—</option>${m.options.map((o) => `<option>${o}</option>`).join('')}</select></label>`;
+          <select data-v="${leg || 'X'}"><option value="">·</option>${m.options.map((o) => `<option>${o}</option>`).join('')}</select></label>`;
       }
       const pre = prefill ? prefill[leg || 'X'] ?? prefill.L ?? '' : '';
       return `<label class="fld" style="flex:1">${lbl} <span class="muted">${esc(unitFor(id))}</span>

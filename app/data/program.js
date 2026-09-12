@@ -29,7 +29,7 @@ export const REHAB_PROGRAM = [
       'Raise your hips up into a bridge, keeping the knees hips width apart.',
       'Control the movement back down to the start position, maintaining constant tension on the band.',
     ],
-    progressions: ['Single-leg bridge — exercises 2 and 3 below', 'Add weight over the hips'],
+    progressions: ['Single-leg bridge, exercises 2 and 3 below', 'Add weight over the hips'],
   },
   {
     n: 2, id: 'pa02', freq: 5, ex: 'bridge_band_sl_ext', title: 'Bridge with resisted hip abduction, into single-leg extension',
@@ -148,7 +148,7 @@ export const REHAB_PROGRAM = [
     img: 'img/program/ex-11.png', thumb: 'img/program/ex-11-thumb.png',
     sides: 'left', sets: 1, reps: 5, hold: '30s',
     steps: [
-      'Stand with your working leg on an unstable surface — a pillow, or a folded towel or yoga mat.',
+      'Stand with your working leg on an unstable surface, a pillow, or a folded towel or yoga mat.',
       'Maintain your balance while you throw and catch a ball.',
     ],
     notes: ['Left side only for now.', 'Adding an unstable surface makes it harder.'],
@@ -198,8 +198,8 @@ export const REHAB_PROGRAM = [
     steps: [
       'Standing side-on to a step, step up with one leg so your foot is parallel to the edge and your opposite leg is suspended.',
       'Keeping one foot in contact with the step, drop down onto the opposite foot.',
-      'Landing focus — cushion your landing by working through the foot and bending the knee as you land.',
-      'Push-off focus — spring off the landing leg, pushing through your toes and pointing your foot as you push up.',
+      'Landing focus, cushion your landing by working through the foot and bending the knee as you land.',
+      'Push-off focus, spring off the landing leg, pushing through your toes and pointing your foot as you push up.',
     ],
     notes: ['Keep most of your weight on the landing leg, using the leg on the step to assist.'],
   },
@@ -213,14 +213,14 @@ export const REHAB_PROGRAM = [
       'Squeeze the ball between your knees as hard as you can as you slide down the wall into a squat.',
       'Return to the starting position, keeping the pressure on the ball.',
     ],
-    notes: ['Targets the vastus medialis — the inner quad just above the kneecap.'],
+    notes: ['Targets the vastus medialis, the inner quad just above the kneecap.'],
   },
 
   // --- from the user's typed list, not in the PhysiApp program ---------------
   {
     n: 17, id: 'tp17', freq: 3, ex: 'hip_lift_step', title: 'Hip lift and lower off a step', typed: true, sides: 'each',
     img: 'img/program/ex-14.png', thumb: 'img/program/ex-14-thumb.png',
-    photoNote: 'Same set-up as exercise 14 — the photo is of the sideways step up.',
+    photoNote: 'Same set-up as exercise 14, the photo is of the sideways step up.',
     steps: [
       'Stand side-on with one foot on a step and the other hanging free.',
       'Let the free hip drop, then lift it back up by working the leg on the step.',
@@ -271,8 +271,8 @@ export const GYM_PROGRAM = [
     note: 'Every day you are not at physical therapy. A light 20 minutes counts; it is a warm up for the knees as much as conditioning. The plan\u2019s 30 minute target is for the harder sessions.' },
 ];
 
-// Who prescribed this, and the PhysiApp access code, are personal — the code
-// is half a login credential — so they live in your synced caseFile, not here.
+// Who prescribed this, and the PhysiApp access code, are personal, the code
+// is half a login credential, so they live in your synced caseFile, not here.
 // These are the neutral defaults a device sees before its first sync.
 export let PROGRAM_SOURCE = {
   title: 'Rehab program',
@@ -308,7 +308,7 @@ export const DAYS = [
 export const DAY_KEYS = DAYS.map((d) => d[0]);
 export const DAY_NAME = Object.fromEntries(DAYS.map((d) => [d[0], d[1]]));
 
-export const DAYS_SOURCE = 'My default from the plan’s weekly targets (3 strength, 3 balance, 4 aerobic) — the program itself gives no frequency. Tap the days on any exercise to change it; what you set is kept.';
+export const DAYS_SOURCE = 'My default from the plan’s weekly targets (3 strength, 3 balance, 4 aerobic), the program itself gives no frequency. Tap the days on any exercise to change it; what you set is kept.';
 
 export const PROGRAM_BY_ID = Object.fromEntries(
   REHAB_PROGRAM.concat(GYM_PROGRAM).map((p) => [p.id, p]),
@@ -412,7 +412,7 @@ export function plannedOn(doc, pid, iso) {
 
 /**
  * Seed the day sets once. Same contract as the supplement seed: gated on a
- * settings flag, and refuses outright if ANY days exist — a lost flag can never
+ * settings flag, and refuses outright if ANY days exist, a lost flag can never
  * overwrite his arrangement.
  */
 export function seedProgramDays(d) {

@@ -9,7 +9,7 @@
 // the existing UI expects; sync metadata lives in a sidecar (`_sync`), so none
 // of the view code had to change.
 //
-// Key grammar — a flat string per record, stable across devices:
+// Key grammar: a flat string per record, stable across devices:
 //
 //   s|<settingKey>            settings
 //   k|<caseFileKey>           clinical history (case, timeline, hep, sources)
@@ -172,7 +172,7 @@ export function dropRecord(doc, key) {
  * Records are applied in map order, so a day's own tombstone can land before
  * the tombstones for the entries inside it. `dropRecord` will not remove a day
  * that still holds entries, which left `{entries: []}` behind once those
- * entries were dropped a moment later. This sweeps afterwards — but only for
+ * entries were dropped a moment later. This sweeps afterwards, but only for
  * days that were genuinely tombstoned, so a day you just opened and have not
  * filled in yet is never swept out from under you.
  */

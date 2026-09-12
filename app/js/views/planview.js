@@ -31,7 +31,7 @@ export function goalProgress(g) {
     const lo = Math.min(bl?.value ?? 0, br?.value ?? 0);
     return {
       p: pct(lo, g.target),
-      detail: `L ${bl ? round(bl.value, 1) : '—'} · R ${br ? round(br.value, 1) : '—'} ${UNIT_LABEL[m.unit] || ''}`,
+      detail: `L ${bl ? round(bl.value, 1) : '·'} · R ${br ? round(br.value, 1) : '·'} ${UNIT_LABEL[m.unit] || ''}`,
       done: lo >= g.target,
     };
   }
@@ -127,7 +127,7 @@ function monthCard(m) {
 
       <div class="section-title" style="margin-top:1rem">Weekly targets this month</div>
       <ul class="plain">
-        ${m.weeklyTargets.map((t) => `<li>${esc(t.label)} — <strong>${state.data.settings.weeklyOverrides?.[t.id] ?? t.target}x/week</strong>
+        ${m.weeklyTargets.map((t) => `<li>${esc(t.label)}: <strong>${state.data.settings.weeklyOverrides?.[t.id] ?? t.target}x/week</strong>
           ${t.src === 'plan' ? '<span class="pill">from plan</span>' : '<span class="pill">my default</span>'}</li>`).join('')}
       </ul>
     </div>

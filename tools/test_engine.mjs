@@ -1,6 +1,6 @@
 // Sync-engine tests: the round trip between two devices and a fake server.
 //
-// Covers the spec's scenarios 1-4 and 11-12 — the ones about the NETWORK
+// Covers the spec's scenarios 1-4 and 11-12, the ones about the NETWORK
 // rather than the merge rules (those are in test_merge.mjs).
 
 import { collectRecords, fingerprint } from '../app/js/sync/records.js';
@@ -73,7 +73,7 @@ function makeDevice(id, doc) {
 }
 
 // ---------------------------------------------------------------------------
-section('SCENARIO 1 & 2 — an edit on one device reaches the other');
+section('SCENARIO 1 & 2, an edit on one device reaches the other');
 {
   const server = makeServer();
   const mac = makeDevice('mac', stampAll(baseDoc(), 'mac', t(0)));
@@ -96,7 +96,7 @@ section('SCENARIO 1 & 2 — an edit on one device reaches the other');
   check('nothing was lost either way', entryIds(iphone.doc, '2026-08-07'), ['e1', 'e2']);
 }
 
-section('SCENARIO 3 & 4 — offline edits queue, survive, then upload');
+section('SCENARIO 3 & 4, offline edits queue, survive, then upload');
 {
   const server = makeServer();
   const mac = makeDevice('mac', stampAll(baseDoc(), 'mac', t(0)));
@@ -125,7 +125,7 @@ section('SCENARIO 3 & 4 — offline edits queue, survive, then upload');
   check('nothing left pending', pendingCount(reopened.doc, reopened.cfg.lastPushedAt), 0);
 }
 
-section('SCENARIO 11 — backend outage: keep working, retry later');
+section('SCENARIO 11: backend outage: keep working, retry later');
 {
   const server = makeServer();
   const mac = makeDevice('mac', stampAll(baseDoc(), 'mac', t(0)));
@@ -145,7 +145,7 @@ section('SCENARIO 11 — backend outage: keep working, retry later');
   check('the edit made it up', server.srv.doc.settings.note, 'kept working');
 }
 
-section('SCENARIO 12 — a sync interrupted mid-write loses nothing');
+section('SCENARIO 12: a sync interrupted mid-write loses nothing');
 {
   const server = makeServer();
   const mac = makeDevice('mac', stampAll(baseDoc(), 'mac', t(0)));
@@ -153,7 +153,7 @@ section('SCENARIO 12 — a sync interrupted mid-write loses nothing');
 
   mac.edit(t(3000), (d) => { d.days['2026-08-07'].entries.push({ id: 'mid', ex: 'z', side: 'B', logged: true }); });
 
-  // Die during the PUT — the classic "did it land or not?" case.
+  // Die during the PUT, the classic "did it land or not?" case.
   server.srv.fail = 'put';
   const r = await mac.sync(server);
   check('the attempt reports failure', r.ok, false);

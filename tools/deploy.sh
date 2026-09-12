@@ -30,7 +30,7 @@ sed -i '' "s/const SHELL_VERSION = '[^']*';/const SHELL_VERSION = '$SHA';/" "$ST
 #    and apple-mobile-web-app-status-bar-style from the exact page you Add to
 #    Home Screen. A redirect stub carries none of them, so iOS refused to
 #    extend the web view into the safe areas and letterboxed the app with black
-#    system bands top and bottom — which no CSS can fill.
+#    system bands top and bottom, which no CSS can fill.
 mv "$STAGE/index.html" "$STAGE/desktop.html"
 cp "$STAGE/m.html" "$STAGE/index.html"
 

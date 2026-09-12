@@ -58,9 +58,9 @@ function baselines() {
         const top = (L && R ? (L.load >= R.load ? L : R) : L || R);
         return `<tr>
           <td>${esc(exerciseById(id)?.name || id)} ${top.seeded ? '<span class="seeded-dot" title="from clinical notes">●</span>' : ''}</td>
-          <td class="num mono">${L ? `${round(L.load, 2)} ${esc(L.unit)}` : '—'}</td>
-          <td class="num mono">${R ? `${round(R.load, 2)} ${esc(R.unit)}` : '—'}</td>
-          <td class="num mono tiny ${delta ? '' : 'muted'}">${esc(delta || '—')}</td>
+          <td class="num mono">${L ? `${round(L.load, 2)} ${esc(L.unit)}` : '·'}</td>
+          <td class="num mono">${R ? `${round(R.load, 2)} ${esc(R.unit)}` : '·'}</td>
+          <td class="num mono tiny ${delta ? '' : 'muted'}">${esc(delta || '·')}</td>
           <td class="tiny muted mono">${top.sets ? `${top.sets} x ${top.reps ?? '?'}` : ''}</td>
           <td class="tiny muted">${esc(fmtDateNum(top.date))}</td>
         </tr>`;
@@ -140,8 +140,8 @@ function prTable() {
       const lat = m.perLeg ? [latest(m.id, 'L'), latest(m.id, 'R')] : [latest(m.id, null)];
       return `<tr>
         <td>${esc(m.label)} ${m.lower ? '<span class="pill" title="lower is better">↓ better</span>' : ''}</td>
-        <td class="num mono">${single ? '' : cells[0] ? `${round(cells[0].value, 2)} ${esc(u)}` : '—'}</td>
-        <td class="num mono">${single ? '' : cells[1] ? `${round(cells[1].value, 2)} ${esc(u)}` : '—'}</td>
+        <td class="num mono">${single ? '' : cells[0] ? `${round(cells[0].value, 2)} ${esc(u)}` : '·'}</td>
+        <td class="num mono">${single ? '' : cells[1] ? `${round(cells[1].value, 2)} ${esc(u)}` : '·'}</td>
         <td class="num mono">${lat.filter(Boolean).map((r) => round(r.value, 2)).join(' / ')} ${esc(u)}</td>
         <td class="tiny muted">${esc(fmtDateNum(when))}</td>
       </tr>`;
@@ -200,8 +200,8 @@ function valdRow(m) {
   const L = latest(m.id, 'L'); const R = latest(m.id, 'R');
   return `<tr>
     <td>${esc(m.label)}${m.lower ? ' <span class="pill" title="lower is better">↓</span>' : ''}</td>
-    <td class="num mono">${L ? `${round(L.value, 2)} ${esc(u)}` : '—'} ${L?.pctile != null ? `<span class="pill">${esc(ord(L.pctile))}</span>` : ''}</td>
-    <td class="num mono">${R ? `${round(R.value, 2)} ${esc(u)}` : '—'} ${R?.pctile != null ? `<span class="pill">${esc(ord(R.pctile))}</span>` : ''}</td>
+    <td class="num mono">${L ? `${round(L.value, 2)} ${esc(u)}` : '·'} ${L?.pctile != null ? `<span class="pill">${esc(ord(L.pctile))}</span>` : ''}</td>
+    <td class="num mono">${R ? `${round(R.value, 2)} ${esc(u)}` : '·'} ${R?.pctile != null ? `<span class="pill">${esc(ord(R.pctile))}</span>` : ''}</td>
     <td class="num mono tiny">${asymCell(L, R)}</td>
     <td class="tiny muted">${esc(fmtDateNum((L || R).date))}</td>
     <td class="num"><button class="btn sm" data-record="${esc(m.id)}">+</button></td>
@@ -216,7 +216,7 @@ function valdCharts() {
   const withData = MEASURES.filter((m) => m.vald && distinctDates(m.id) > 1);
   if (!withData.length) {
     return `<section class="card"><div class="card-body">
-      <div class="empty">Charts appear once a metric has two or more test dates. Right now everything has a single data point — your 24 and 31 July baselines.</div>
+      <div class="empty">Charts appear once a metric has two or more test dates. Right now everything has a single data point: your 24 and 31 July baselines.</div>
     </div></section>`;
   }
   return `<section class="card"><header><h2>Trends</h2></header><div class="card-body">
@@ -242,8 +242,8 @@ function allTests() {
             return `<tr>
               <td>${esc(m.label)}
                 ${m.how ? `<details class="disc" style="margin-top:.25rem"><summary>how to test</summary><div class="tiny">${esc(m.how)}</div></details>` : ''}</td>
-              <td class="num mono">${L ? `${round(L.value, 2)} ${esc(m.unit === 'grade' ? '' : u)}` : '—'}</td>
-              <td class="num mono">${m.perLeg ? (R ? `${round(R.value, 2)} ${esc(m.unit === 'grade' ? '' : u)}` : '—') : ''}</td>
+              <td class="num mono">${L ? `${round(L.value, 2)} ${esc(m.unit === 'grade' ? '' : u)}` : '·'}</td>
+              <td class="num mono">${m.perLeg ? (R ? `${round(R.value, 2)} ${esc(m.unit === 'grade' ? '' : u)}` : '·') : ''}</td>
               <td class="tiny muted">${when ? esc(fmtDateNum(when)) : ''}</td>
               <td class="num nowrap">
                 <button class="btn sm" data-record="${esc(m.id)}">Record</button>

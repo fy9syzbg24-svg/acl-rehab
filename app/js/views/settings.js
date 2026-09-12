@@ -16,7 +16,7 @@ function syncCard() {
       <div class="callout small" style="margin-bottom:.8rem">
         This Mac keeps its own complete copy of your log on disk and works with no
         internet at all. Connecting adds a private GitHub repo as a relay, so your
-        iPhone can pick up changes when either device is online — neither needs the
+        iPhone can pick up changes when either device is online, neither needs the
         other to be switched on.
       </div>
       <div class="grid3">
@@ -62,7 +62,7 @@ function syncCard() {
       Last sync failed (${esc(syncState.lastError.reason || 'error')}). Your data is safe here and
       will upload on the next attempt.</div>` : ''}
     <div class="tiny muted" style="margin-top:.5rem">
-      Disconnecting only forgets the token — nothing is deleted from this Mac.
+      Disconnecting only forgets the token. Nothing is deleted from this Mac.
     </div>`;
 }
 
@@ -82,8 +82,8 @@ export function renderSettings() {
           <label class="fld">Right ACL reconstruction<input type="date" data-set="surgeryRight" value="${esc(s.surgeryRight || '')}"></label>
         </div>
         <div class="callout small" style="margin-top:.8rem">
-          <strong>Left</strong> — ${esc(CASE.legs.left.procedure)}. ${esc(CASE.legs.left.weightBearing)}. ${esc(CASE.legs.left.complication)}<br>
-          <strong>Right</strong> — ${esc(CASE.legs.right.procedure)}. ${esc(CASE.legs.right.weightBearing)}. ${esc(CASE.legs.right.complication)}<br>
+          <strong>Left</strong>, ${esc(CASE.legs.left.procedure)}. ${esc(CASE.legs.left.weightBearing)}. ${esc(CASE.legs.left.complication)}<br>
+          <strong>Right</strong>, ${esc(CASE.legs.right.procedure)}. ${esc(CASE.legs.right.weightBearing)}. ${esc(CASE.legs.right.complication)}<br>
           ${esc(CASE.protocolNote)}
         </div>
         <div class="callout warn small" style="margin-top:.6rem">
@@ -147,7 +147,7 @@ export function renderSettings() {
           <label class="btn" style="cursor:pointer">Import a backup<input type="file" accept="application/json" data-import hidden></label>
         </div>
         <div class="tiny muted" style="margin-top:.5rem">
-          The server also keeps rolling auto-backups in <span class="mono">data/backups/</span> —
+          The server also keeps rolling auto-backups in <span class="mono">data/backups/</span>:
           one per save: the newest 300, plus everything from the last 7 days.
         </div>
         <div class="row" style="margin-top:.9rem">
@@ -166,7 +166,7 @@ export function renderSettings() {
           <span class="tiny muted" data-refresh-status></span>
         </div>
         <div class="tiny muted" style="margin-top:.35rem">
-          Re-downloads the app's files and reloads. <strong>Your data is not touched</strong> —
+          Re-downloads the app's files and reloads. <strong>Your data is not touched</strong>:
           it lives in a separate store, and on the server. Use this if a change you expected
           has not appeared; you never need to re-add the Home Screen icon.
         </div>
@@ -177,7 +177,7 @@ export function renderSettings() {
       <header><h2>PhysiApp sync</h2><span class="sub">pulls what you actually ticked off</span></header>
       <div class="card-body">
         <div class="callout small" style="margin-bottom:.8rem">
-          Signs in to au.physiapp.com the way the website does and reads your real numbers —
+          Signs in to au.physiapp.com the way the website does and reads your real numbers:
           the reps, sets and hold you entered when you tapped an exercise done. It reads only;
           it never marks anything complete on their side.
         </div>
@@ -191,7 +191,7 @@ export function renderSettings() {
         </div>` : ''}
 
         <details class="disc" style="margin-bottom:.6rem" ${connected ? '' : 'open'}>
-          <summary>${connected ? 'Change the sign-in details' : 'Sign in — enter these once'}</summary>
+          <summary>${connected ? 'Change the sign-in details' : 'Sign in: enter these once'}</summary>
           <div class="grid2" style="padding:.4rem 0 .2rem">
             <label class="fld">Program code
               <input data-pa="code" value="${esc(pa.code || '')}" placeholder="from your clinician" autocomplete="off" spellcheck="false">
@@ -222,11 +222,11 @@ export function renderSettings() {
         <div class="callout small">
           <strong>Runs on your Mac.</strong> Reading PhysiApp needs a server: they send no
           CORS header, so a browser here is blocked from signing in to them. The results
-          still reach this device — they travel with your normal data sync.
+          still reach this device, they travel with your normal data sync.
         </div>`}
         ${SERVER_MODE ? `
         <div class="tiny muted" style="margin-top:.4rem">
-          30 days reads every completed exercise on every day one at a time — a few
+          30 days reads every completed exercise on every day one at a time, a few
           minutes if the month is full. Nothing else stops working while it runs, and you
           can leave the tab.
         </div>` : ''}
@@ -235,7 +235,7 @@ export function renderSettings() {
           <summary>What it will and won't bring across</summary>
           <div class="tiny" style="padding:.2rem 0 .1rem;line-height:1.55">
             <strong>Only exercises you genuinely ticked off.</strong> PhysiApp shows a filled-in
-            results form for untouched exercises too — prefilled with the prescription — and
+            results form for untouched exercises too, prefilled with the prescription, and
             reading those would invent a session you never did. The sync ignores anything without a
             real recorded result behind it, whatever the form says.
             <br><br>
@@ -258,7 +258,7 @@ export function renderSettings() {
       <header><h2>Where this came from</h2></header>
       <div class="card-body">
         <ul class="plain">
-          ${CASE.sources.map((s2) => `<li><strong>${esc(s2.label)}</strong> — ${esc(s2.note)}</li>`).join('')}
+          ${CASE.sources.map((s2) => `<li><strong>${esc(s2.label)}</strong>, ${esc(s2.note)}</li>`).join('')}
         </ul>
         <div class="callout small" style="margin-top:.7rem">
           This is a tracker, not medical advice. Every threshold in it is copied from your own documents;
@@ -274,7 +274,7 @@ export function bindSettings(root, ctx, rerender) {
   // shell, so "did my change land?" is otherwise guesswork.
   // Report the real viewport geometry. If the installed app is letterboxed by
   // iOS, innerHeight will be visibly SHORTER than screen.height and the insets
-  // will read 0 — which is the difference between "my CSS is wrong" and "iOS
+  // will read 0, which is the difference between "my CSS is wrong" and "iOS
   // never gave us the space".
   root.querySelector('[data-app-refresh]')?.addEventListener('click', async (ev) => {
     const btn = ev.currentTarget;
@@ -357,7 +357,7 @@ export function bindSettings(root, ctx, rerender) {
         : check.reason === 'no-repo' ? '⚠️ <b>Repo not found</b><br><span>check the name, and that the token can see it</span>'
         : `⚠️ <b>${esc(check.reason)}</b>`, 'warn');
     }
-    if (!check.private) toast('⚠️ <b>That repo is public</b><br><span>your log would be readable — use a private one</span>', 'warn');
+    if (!check.private) toast('⚠️ <b>That repo is public</b><br><span>your log would be readable. Use a private one</span>', 'warn');
     setConfig({ owner, repo, token, path: 'state.json' });
     const res = await runSync('connect');
     toast(res.ok ? '✅ <b>Connected and synced</b>' : `⚠️ <b>Connected, but sync failed</b><br><span>${esc(res.reason || '')}</span>`, res.ok ? '' : 'warn');
@@ -396,7 +396,7 @@ export function bindSettings(root, ctx, rerender) {
 
   root.querySelector('[data-sy-disconnect]')?.addEventListener('click', () => {
     clearConfig();
-    toast('Disconnected — your data is still on this Mac');
+    toast('Disconnected: your data is still on this Mac');
     rerender();
   });
 

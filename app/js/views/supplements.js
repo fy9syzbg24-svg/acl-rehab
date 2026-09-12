@@ -2,7 +2,7 @@
 //
 // Two separate things live here:
 //
-//   supplements[]   a daily checklist — take it or you don't
+//   supplements[]   a daily checklist, take it or you don't
 //   prnMeds[] + doses[]   as-needed drugs where the QUESTION is "when may I
 //                         take another?", so each dose is timestamped
 //
@@ -15,7 +15,7 @@
 //
 // SEEDED IDS ARE DETERMINISTIC
 // The first version used uid() for the seeded list. The Mac seeded ten rows
-// and the phone seeded ten more with different ids, and sync — correctly —
+// and the phone seeded ten more with different ids, and sync, correctly,
 // kept all twenty. Anything seeded independently on multiple devices must
 // derive its id from its content so every device produces the same record.
 
@@ -28,7 +28,7 @@ export const WHENS = [['morning', 'Morning'], ['anytime', 'Anytime'], ['evening'
 // The owner's own arrangement, read back out of the app (Aug 2026).
 //
 // THE RULE: whatever he has arranged in the app IS the default. This list only
-// ever seeds a device that has never had one — `settings.suppsSeeded` means it
+// ever seeds a device that has never had one, `settings.suppsSeeded` means it
 // never runs twice, so an update can never reorder, regroup or re-add anything
 // he has curated. When these defaults are refreshed, they are copied FROM the
 // live data, not imposed on it.
@@ -64,7 +64,7 @@ export function seedPrnMeds(d) {
   return added > 0;
 }
 
-/** Stable id from a name — the same on every device, so seeding cannot duplicate. */
+/** Stable id from a name, the same on every device, so seeding cannot duplicate. */
 export function suppId(name) {
   return 'sup_' + String(name).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
 }
@@ -89,7 +89,7 @@ export function seedSupplements(d) {
 // The old dedupeSupplements() has been REMOVED on purpose. It collapsed rows by
 // name, which is now wrong: the same supplement may legitimately appear twice
 // (a morning dose and an evening one). The duplicate seeding it existed to
-// repair was fixed at the source — seeded ids are deterministic — and the
+// repair was fixed at the source, seeded ids are deterministic, and the
 // shared copy carries tombstones for the old random ids, so any stale device
 // converges by pulling those rather than by re-deriving the fix locally.
 
@@ -296,7 +296,7 @@ function renderPrn(ctx, iso) {
 
   return `
   <section class="card">
-    <header><h2>As needed</h2><span class="sub">timed doses — aspirin, naproxen, paracetamol…</span></header>
+    <header><h2>As needed</h2><span class="sub">timed doses: aspirin, naproxen, paracetamol</span></header>
     <div class="card-body">
       ${meds.length ? meds.map((m) => {
         const st = prnStatus(m);
@@ -381,7 +381,7 @@ function bindDragReorder(root, rerender) {
         const after = e.clientY > r.top + r.height / 2;
         over.parentNode.insertBefore(dragging, after ? over.nextSibling : over);
       } else {
-        // Not over a row — maybe over an empty group's list.
+        // Not over a row, maybe over an empty group's list.
         const zone = zoneUnder(e.clientX, e.clientY);
         if (zone && !zone.contains(dragging)) zone.appendChild(dragging);
       }
@@ -423,7 +423,7 @@ let prnVisHandler = null;
  * something is actually counting down, and it stops itself once everything is
  * clear. A timer ticking behind a closed Safari costs battery and buys nothing,
  * and a full re-render every second would fight anything being typed. It also
- * touches no network — every value here is computed from data already on the
+ * touches no network, every value here is computed from data already on the
  * device.
  */
 function startPrnTicker(root) {
@@ -527,7 +527,7 @@ export function bindSupplements(root, ctx, rerender) {
 
   root.querySelectorAll('[data-prn-dose]').forEach((b) => b.addEventListener('click', () => {
     const med = (state.data.prnMeds || []).find((m) => m.id === b.dataset.prnDose);
-    // The real calendar date, not the checklist's — a dose logged at 2am is
+    // The real calendar date, not the checklist's: a dose logged at 2am is
     // stamped with the clock's day, so the countdown measures from the moment
     // it actually happened.
     if (med) logDoseSheet(med, prnDateFor(iso), rerender);
@@ -560,7 +560,7 @@ function addSupplementSheet(iso, rerender) {
         const when = m.querySelector('#sa-when').value;
         update((d) => {
           d.supplements = d.supplements || [];
-          // Always a NEW row, even if the name already exists — the same
+          // Always a NEW row, even if the name already exists, the same
           // supplement is often taken morning AND evening, and merging them
           // made the second one silently move the first.
           const max = d.supplements.reduce((n, s) => Math.max(n, s.order ?? 0), -1);
@@ -580,7 +580,7 @@ function addPrnSheet(iso, rerender) {
     body: `
       <label class="fld">Start from a common one
         <select id="pa-preset">
-          <option value="">— choose, or type your own below —</option>
+          <option value="">choose, or type your own below</option>
           ${PRN_PRESETS.map(([n, d, h], i) => `<option value="${i}">${esc(n)} ${esc(d)} · every ${h}h</option>`).join('')}
         </select>
       </label>
@@ -628,11 +628,11 @@ function logDoseSheet(med, iso, rerender) {
   const st = prnStatus(med);
   const now = new Date();
   openModal({
-    title: `${med.name} — log a dose`,
+    title: `${med.name}: log a dose`,
     body: `
       ${!st.clear ? `<div class="callout warn small" style="margin-bottom:.7rem">
         <strong>${esc(humanLeft(st.msLeft))} early.</strong> Clear at ${esc(hhmm(st.nextAt))}.
-        Logging it anyway is fine — every dose belongs in the record.
+        Logging it anyway is fine. Every dose belongs in the record.
       </div>` : ''}
       <div class="grid2">
         <label class="fld">Time<input id="pd-time" type="time" value="${esc(hhmm(now))}"></label>

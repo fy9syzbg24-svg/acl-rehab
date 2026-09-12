@@ -27,9 +27,9 @@ export const MEASURE_GROUPS = [
   'Hop tests',
   'Show',
   'VALD Dynamo (isometric)',
-  'VALD force plates — balance',
-  'VALD force plates — squat',
-  'VALD force plates — jump',
+  'VALD force plates, balance',
+  'VALD force plates, squat',
+  'VALD force plates, jump',
 ];
 
 // unit keys: reps | sec | deg | cm | weight | grade | pct | min | N | mm | mmps | wkg
@@ -37,7 +37,7 @@ export const MEASURES = [
   // --- Phase 2 style capacity tests -------------------------------------
   { id: 'sl_calf_raise', label: 'Single-leg calf raises', unit: 'reps', perLeg: true, group: 'Strength endurance',
     how: 'On one foot at the edge of a step, full range, 1 rep every 2 seconds. Stop when you lose range or drop below the cadence.' },
-  { id: 'sl_squat_reps', label: 'Single-leg rise test — stand up from a chair on one leg', unit: 'reps', perLeg: true, group: 'Strength endurance',
+  { id: 'sl_squat_reps', label: 'Single-leg rise test, stand up from a chair on one leg', unit: 'reps', perLeg: true, group: 'Strength endurance',
     how: 'Sit on a chair/plinth, test knee at 90°, 10 cm from the edge. Arms crossed. Stand up and sit down as many times as possible.' },
   { id: 'sl_bridge', label: 'Single-leg bridge', unit: 'reps', perLeg: true, group: 'Strength endurance',
     how: 'Lying on your back, heel on a 60 cm box, test knee bent 20°, other hip and knee at 90°, arms crossed. Lift hips as high as possible, repeat to the same height each rep.' },
@@ -47,10 +47,10 @@ export const MEASURES = [
 
   // --- Balance -----------------------------------------------------------
   { id: 'sl_foam_task', label: 'Single-leg stance on foam with a task (juggling and similar)', unit: 'sec', perLeg: true, group: 'Balance' },
-  { id: 'balance_eyes_open', label: 'Single-leg stance — eyes open', unit: 'sec', perLeg: true, group: 'Balance',
+  { id: 'balance_eyes_open', label: 'Single-leg stance, eyes open', unit: 'sec', perLeg: true, group: 'Balance',
     how: 'Stand on one leg, other leg raised, arms crossed. Stop on arm use, foot touch-down, stance-foot movement, or 45 s.' },
-  { id: 'balance_eyes_closed', label: 'Single-leg stance — eyes closed', unit: 'sec', perLeg: true, group: 'Balance' },
-  { id: 'sebt_composite', label: 'Star Excursion Balance — composite', unit: 'cm', perLeg: true, group: 'Balance',
+  { id: 'balance_eyes_closed', label: 'Single-leg stance, eyes closed', unit: 'sec', perLeg: true, group: 'Balance' },
+  { id: 'sebt_composite', label: 'Star Excursion Balance, composite', unit: 'cm', perLeg: true, group: 'Balance',
     how: 'Sum of the anterior, posteromedial and posterolateral reach distances for that leg.' },
 
   // --- Range of motion / swelling ---------------------------------------
@@ -60,9 +60,9 @@ export const MEASURES = [
     how: '0° = full extension. Record a flexion deficit as a positive number.' },
   { id: 'extension_lag', label: 'Extension lag', unit: 'deg', perLeg: true, group: 'Range of motion', lower: true,
     how: 'Active extension deficit against a fully passively extended knee.' },
-  { id: 'prone_hang', label: 'Prone hang — heel height difference', unit: 'cm', perLeg: false, group: 'Range of motion', lower: true,
+  { id: 'prone_hang', label: 'Prone hang, heel height difference', unit: 'cm', perLeg: false, group: 'Range of motion', lower: true,
     how: 'Lie prone with the lower legs off the end of the bed. Measure the heel-height difference between sides (approx 1 cm = 1°).' },
-  { id: 'effusion', label: 'Effusion — stroke test', unit: 'grade', perLeg: true, group: 'Swelling', lower: true,
+  { id: 'effusion', label: 'Effusion, stroke test', unit: 'grade', perLeg: true, group: 'Swelling', lower: true,
     options: ['Zero', 'Trace', '1+', '2+', '3+'],
     how: 'Zero: no wave on downstroke. Trace: small medial wave. 1+: large medial bulge. 2+: effusion returns spontaneously. 3+: cannot move the fluid out of the medial side.' },
 
@@ -89,32 +89,32 @@ export const MEASURES = [
   { id: 'show_minutes', label: 'Continuous show minutes', unit: 'min', perLeg: false, group: 'Show' },
 
   // --- VALD Dynamo -------------------------------------------------------
-  { id: 'dyno_knee_ext', label: 'Knee extension — peak force', unit: 'N', perLeg: true, group: 'VALD Dynamo (isometric)', vald: true,
+  { id: 'dyno_knee_ext', label: 'Knee extension, peak force', unit: 'N', perLeg: true, group: 'VALD Dynamo (isometric)', vald: true,
     how: 'Seated, hip and knee at 90°. Dynamometer on the front of the shank just above the ankle. Maximal isometric push.' },
-  { id: 'dyno_knee_flex', label: 'Knee flexion — peak force', unit: 'N', perLeg: true, group: 'VALD Dynamo (isometric)', vald: true,
+  { id: 'dyno_knee_flex', label: 'Knee flexion, peak force', unit: 'N', perLeg: true, group: 'VALD Dynamo (isometric)', vald: true,
     how: 'Seated, hip and knee at 90°. Dynamometer behind the shank just above the ankle. Maximal isometric pull.' },
-  { id: 'dyno_hip_abd', label: 'Hip abduction — peak force', unit: 'N', perLeg: true, group: 'VALD Dynamo (isometric)', vald: true },
-  { id: 'dyno_hip_ext', label: 'Hip extension — peak force', unit: 'N', perLeg: true, group: 'VALD Dynamo (isometric)', vald: true },
+  { id: 'dyno_hip_abd', label: 'Hip abduction, peak force', unit: 'N', perLeg: true, group: 'VALD Dynamo (isometric)', vald: true },
+  { id: 'dyno_hip_ext', label: 'Hip extension, peak force', unit: 'N', perLeg: true, group: 'VALD Dynamo (isometric)', vald: true },
 
   // --- VALD force plates: balance ---------------------------------------
-  { id: 'fp_sls_excursion', label: 'Single-leg stand — total sway path', unit: 'mm', perLeg: true, lower: true, group: 'VALD force plates — balance', vald: true,
+  { id: 'fp_sls_excursion', label: 'Single-leg stand, total sway path', unit: 'mm', perLeg: true, lower: true, group: 'VALD force plates, balance', vald: true,
     how: 'Total path the centre of pressure travels during the single-leg stand trial. Less sway is better.' },
-  { id: 'fp_sls_velocity', label: 'Single-leg stand — average sway speed', unit: 'mmps', perLeg: true, lower: true, group: 'VALD force plates — balance', vald: true },
-  { id: 'fp_qs_excursion', label: 'Quiet stand — total sway path (both legs)', unit: 'mm', perLeg: false, lower: true, group: 'VALD force plates — balance', vald: true },
-  { id: 'fp_qs_velocity', label: 'Quiet stand — average sway speed (both legs)', unit: 'mmps', perLeg: false, lower: true, group: 'VALD force plates — balance', vald: true },
+  { id: 'fp_sls_velocity', label: 'Single-leg stand, average sway speed', unit: 'mmps', perLeg: true, lower: true, group: 'VALD force plates, balance', vald: true },
+  { id: 'fp_qs_excursion', label: 'Quiet stand, total sway path (both legs)', unit: 'mm', perLeg: false, lower: true, group: 'VALD force plates, balance', vald: true },
+  { id: 'fp_qs_velocity', label: 'Quiet stand, average sway speed (both legs)', unit: 'mmps', perLeg: false, lower: true, group: 'VALD force plates, balance', vald: true },
 
   // --- VALD force plates: squat -----------------------------------------
-  { id: 'fp_squat_peak_force', label: 'Squat — peak force pushing up', unit: 'N', perLeg: true, group: 'VALD force plates — squat', vald: true },
-  { id: 'fp_squat_depth', label: 'Squat — average depth', unit: 'cm', perLeg: false, group: 'VALD force plates — squat', vald: true },
-  { id: 'fp_squat_con_power', label: 'Squat — average power pushing up, per kg bodyweight', unit: 'wkg', perLeg: false, group: 'VALD force plates — squat', vald: true },
-  { id: 'fp_squat_ecc_power', label: 'Squat — peak power lowering down, per kg bodyweight', unit: 'wkg', perLeg: false, group: 'VALD force plates — squat', vald: true },
+  { id: 'fp_squat_peak_force', label: 'Squat, peak force pushing up', unit: 'N', perLeg: true, group: 'VALD force plates, squat', vald: true },
+  { id: 'fp_squat_depth', label: 'Squat, average depth', unit: 'cm', perLeg: false, group: 'VALD force plates, squat', vald: true },
+  { id: 'fp_squat_con_power', label: 'Squat, average power pushing up, per kg bodyweight', unit: 'wkg', perLeg: false, group: 'VALD force plates, squat', vald: true },
+  { id: 'fp_squat_ecc_power', label: 'Squat, peak power lowering down, per kg bodyweight', unit: 'wkg', perLeg: false, group: 'VALD force plates, squat', vald: true },
 
-  // --- VALD force plates: jump (not tested yet — here for when you are) ---
-  { id: 'fp_cmj_height', label: 'Countermovement jump — height', unit: 'cm', perLeg: false, group: 'VALD force plates — jump', vald: true, future: true },
-  { id: 'fp_cmj_power_bm', label: 'Countermovement jump — peak power per kg bodyweight', unit: 'wkg', perLeg: false, group: 'VALD force plates — jump', vald: true, future: true },
-  { id: 'fp_cmj_asym', label: 'Countermovement jump — left/right push-off imbalance', unit: 'pct', perLeg: false, lower: true, group: 'VALD force plates — jump', vald: true, future: true },
-  { id: 'fp_slcmj_height', label: 'Single-leg countermovement jump — height', unit: 'cm', perLeg: true, group: 'VALD force plates — jump', vald: true, future: true },
-  { id: 'fp_imtp_peak', label: 'Isometric mid-thigh pull — peak force', unit: 'N', perLeg: false, group: 'VALD force plates — jump', vald: true, future: true },
+  // --- VALD force plates: jump (not tested yet, here for when you are) ---
+  { id: 'fp_cmj_height', label: 'Countermovement jump, height', unit: 'cm', perLeg: false, group: 'VALD force plates, jump', vald: true, future: true },
+  { id: 'fp_cmj_power_bm', label: 'Countermovement jump, peak power per kg bodyweight', unit: 'wkg', perLeg: false, group: 'VALD force plates, jump', vald: true, future: true },
+  { id: 'fp_cmj_asym', label: 'Countermovement jump, left/right push-off imbalance', unit: 'pct', perLeg: false, lower: true, group: 'VALD force plates, jump', vald: true, future: true },
+  { id: 'fp_slcmj_height', label: 'Single-leg countermovement jump, height', unit: 'cm', perLeg: true, group: 'VALD force plates, jump', vald: true, future: true },
+  { id: 'fp_imtp_peak', label: 'Isometric mid-thigh pull, peak force', unit: 'N', perLeg: false, group: 'VALD force plates, jump', vald: true, future: true },
 ];
 
 export const MEASURE_BY_ID = Object.fromEntries(MEASURES.map((m) => [m.id, m]));

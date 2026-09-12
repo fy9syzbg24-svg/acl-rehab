@@ -57,7 +57,7 @@ section('records decompose and reassemble');
   check('settings are per key', keys.filter((k) => k.startsWith('s|')).length, 2);
 }
 
-section('SCENARIO 5 — both devices edit DIFFERENT records offline');
+section('SCENARIO 5: both devices edit DIFFERENT records offline');
 {
   const start = stampAll(base(), 'mac', t(0));
   const mac = edit(clone(start), 'mac', t(1000), (d) => {
@@ -74,7 +74,7 @@ section('SCENARIO 5 — both devices edit DIFFERENT records offline');
   check('converged', JSON.stringify(collectRecords(a).size), JSON.stringify(collectRecords(b).size));
 }
 
-section('SCENARIO 6 — both devices edit the SAME record offline');
+section('SCENARIO 6: both devices edit the SAME record offline');
 {
   const start = stampAll(base(), 'mac', t(0));
   const mac = edit(clone(start), 'mac', t(1000), (d) => { d.days['2026-08-07'].entries[0].reps = 11; });
@@ -96,7 +96,7 @@ section('  …and a dead tie resolves the same way on both devices');
   check('both sides agree', a.days['2026-08-07'].entries[0].reps, b.days['2026-08-07'].entries[0].reps);
 }
 
-section('SCENARIO 7 — a deletion propagates');
+section('SCENARIO 7: a deletion propagates');
 {
   const start = stampAll(base(), 'mac', t(0));
   const mac = edit(clone(start), 'mac', t(1000), (d) => {
@@ -109,7 +109,7 @@ section('SCENARIO 7 — a deletion propagates');
   check('unrelated entry survived', entriesOf(iph, '2026-08-07').includes('e1'), true);
 }
 
-section('SCENARIO 8 — a stale device does NOT resurrect a deleted record');
+section('SCENARIO 8: a stale device does NOT resurrect a deleted record');
 {
   const start = stampAll(base(), 'mac', t(0));
   // Mac deletes at t=t(4000) and syncs.

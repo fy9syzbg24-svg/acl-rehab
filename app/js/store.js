@@ -17,7 +17,7 @@ import { isConfigured, getConfig } from './sync/config.js';
 const SCHEMA = 7;   // 7 adds supplements/doses; 6 added _sync and caseFile
 
 /**
- * A stable id for THIS device, kept out of the synced document on purpose —
+ * A stable id for THIS device, kept out of the synced document on purpose:
  * it identifies the machine, not the data, and is what breaks a dead-heat
  * conflict the same way on both devices.
  */
@@ -101,9 +101,9 @@ export async function load() {
   if (!reachable) {
     if (SERVER_MODE) {
       // Mac only: the server is down. Never seed and never save off a failed
-      // read — that is how a blank document overwrites a real one on disk.
+      // read: that is how a blank document overwrites a real one on disk.
       state.readOnly = true;
-      state.error = 'Cannot reach the server. Nothing you type will be saved — start the server and reload.';
+      state.error = 'Cannot reach the server. Nothing you type will be saved. Start the server and reload.';
       state.data = migrate(blank());
       emit();
       return;
@@ -157,7 +157,7 @@ export async function load() {
 
   // Baseline-stamp anything on a populated device that has no timestamp yet.
   // Runs unconditionally (it only fills gaps) so that records introduced by a
-  // LATER version — caseFile was one — get stamped and pushed rather than
+  // LATER version: caseFile was one, get stamped and pushed rather than
   // sitting invisible to sync forever.
   if (seedSupplements(state.data)) queueSave();
   if (seedPrnMeds(state.data)) queueSave();
@@ -172,7 +172,7 @@ export async function load() {
   emit();
 
   // Pull anything new the moment we open, if this device is connected. Never
-  // blocks startup — the app is already usable from local data above.
+  // blocks startup: the app is already usable from local data above.
   if (isConfigured()) runSync('startup');
 }
 
@@ -241,7 +241,7 @@ function markExistingLogged(d) {
 }
 
 // `seeds` comes from the Mac's local clinical file. A device without that file
-// seeds nothing — its history arrives over sync instead, and seeding here too
+// seeds nothing: its history arrives over sync instead, and seeding here too
 // would duplicate what sync is already delivering.
 function seed(d, seeds) {
   if (!seeds) return;
@@ -273,14 +273,14 @@ const doSave = debounce(async () => {
     state.error = null;
   } catch (err) {
     state.error = SERVER_MODE
-      ? 'Save failed — the server may have stopped. Your data is still on screen.'
+      ? 'Save failed. The server may have stopped. Your data is still on screen.'
       : 'Could not save locally. Your data is still on screen.';
   } finally {
     state.saving = false;
     emit();
   }
   // A local save is durable on its own; the cloud is a follow-on. Nudge a sync
-  // shortly after edits settle, so the other device sees them soon — but never
+  // shortly after edits settle, so the other device sees them soon, but never
   // block the save on it.
   scheduleSync();
 }, 450);
@@ -324,7 +324,7 @@ export async function runSync(reason = 'manual') {
   if (syncing) return { ok: false, reason: 'busy' };
 
   // Anything waiting to upload always goes, whatever the reason. Only an
-  // already-clean device is asked to wait — so a change you made can never sit
+  // already-clean device is asked to wait, so a change you made can never sit
   // unsent because of a timer.
   if (!ALWAYS_SYNC.has(reason) && pendingSyncCount() === 0
       && Date.now() - lastAutoSyncAt < IDLE_SYNC_GAP_MS) {
@@ -490,7 +490,7 @@ function exerciseFor(exId) {
 /**
  * How often to do an exercise in a given week.
  *
- * The 6-month plan sets weekly *session* counts per category — Month 1 asks for
+ * The 6-month plan sets weekly *session* counts per category. Month 1 asks for
  * 3 strength, 4 balance, 5 aerobic. Each exercise inherits the number for its
  * own category in whichever month the date falls in, so the quota changes as
  * you move through the plan. A number you type yourself always wins.

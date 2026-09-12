@@ -85,7 +85,7 @@ export function renderWeekPanel(ctx) {
     const p = pct(hit, goal);
     return `<div class="targetrow">
       <span class="small tlabel">${esc(t.label)}
-        ${t.src === 'plan' ? '<span class="pill">from plan</span>' : '<span class="pill" title="I set this starting number — change it freely">my default</span>'}
+        ${t.src === 'plan' ? '<span class="pill">from plan</span>' : '<span class="pill" title="I set this starting number. Change it freely">my default</span>'}
       </span>
       <span class="tcount">
         <strong class="mono small">${hit} /</strong>
@@ -106,13 +106,13 @@ export function renderWeekPanel(ctx) {
       <div class="row between weeknav">
         <div class="datenav">
           <button class="icon-btn" data-wnav="-7">‹</button>
-          <span class="d">${esc(fmtDate(ws, 'short'))} – ${esc(fmtDate(addDays(ws, 6), 'short'))}</span>
+          <span class="d">${esc(fmtDate(ws, 'short'))} to ${esc(fmtDate(addDays(ws, 6), 'short'))}</span>
           <button class="icon-btn" data-wnav="7">›</button>
           ${(() => {
             // One control in one place, exactly like the "today" pill on Today:
             // always rendered, dimmed and inert when you are already here. It
             // used to swap between an accent pill and a borderless button that
-            // read as plain text — same words, two different objects.
+            // read as plain text, same words, two different objects.
             const isNow = ws === weekStart(todayIso());
             return `<button class="dp-today ${isNow ? 'is-today' : ''}" data-wnav="now"
               ${isNow ? 'disabled aria-disabled="true"' : ''}>this week</button>`;
@@ -126,7 +126,7 @@ export function renderWeekPanel(ctx) {
       <section class="card">
         <header><h2>Weekly targets</h2><span class="sub">edit any number to suit</span></header>
         <div class="card-body">
-          ${targets.length ? rows : '<div class="empty">No targets for this week — it sits outside the plan window.</div>'}
+          ${targets.length ? rows : '<div class="empty">No targets for this week: it sits outside the plan window.</div>'}
         </div>
       </section>
 
@@ -140,7 +140,7 @@ export function renderWeekPanel(ctx) {
                 <td>${esc(fmtDate(p.iso, 'dow'))} <span class="muted tiny">${esc(fmtDate(p.iso, 'short'))}</span></td>
                 <td class="num mono">${p.l ?? '·'}</td>
                 <td class="num mono">${p.r ?? '·'}</td>
-                <td>${p.eff.length ? `<span class="pill bad">${esc(p.eff.join(', '))}</span>` : '<span class="muted tiny">—</span>'}</td>
+                <td>${p.eff.length ? `<span class="pill bad">${esc(p.eff.join(', '))}</span>` : '<span class="muted tiny">·</span>'}</td>
               </tr>`).join('')}
             </tbody>
           </table>
@@ -202,7 +202,7 @@ function exerciseGrid(ws, days) {
         </td>`).join('')}
         <td class="num nowrap">
           <span class="wk-count ${met ? 'met' : atRisk ? 'risk' : ''}">${n}/</span><input
-            type="number" min="0" max="14" value="${target ?? ''}" placeholder="–"
+            type="number" min="0" max="14" value="${target ?? ''}" placeholder="·"
             data-extarget="${esc(item.ex)}" title="${esc(info.from)}" class="in-num">
         </td>
         <td class="tiny">
@@ -237,10 +237,10 @@ function exerciseGrid(ws, days) {
     <div class="card-body tight">
       <div class="callout small" style="margin:.4rem 0 .2rem">
         The clinician program gives sets, reps and holds but never says how often. So each exercise takes the
-        weekly session count its <strong>category</strong> has in the 6-month plan for whichever month you are in —
+        weekly session count its <strong>category</strong> has in the 6-month plan for whichever month you are in:
         in ${esc(monthForDate(ws)?.name || 'this month')}, a strength exercise inherits the plan's strength-sessions number.
         Move into the next month and the quotas move with it. Type over any number to fix it to your own.
-        Most of the plan's weekly numbers are still my starting points rather than the document's — hover a target to see which.
+        Most of the plan's weekly numbers are still my starting points rather than the document's: hover a target to see which.
       </div>
       ${section('Rehab program', REHAB_PROGRAM)}
       ${section('Open chain', GYM_PROGRAM)}

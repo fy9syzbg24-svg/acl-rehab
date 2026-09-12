@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""ACL Rehab Tracker — tiny stdlib-only web server.
+"""ACL Rehab Tracker: tiny stdlib-only web server.
 
 Serves the single-page app in ./app and persists all user data to
 ./data/rehab-data.json (atomic writes + rolling backups).
@@ -68,7 +68,7 @@ def _uid() -> str:
 
 
 def load_program_items() -> list:
-    """Read the clinician program out of app/data/program.js — that file stays the
+    """Read the clinician program out of app/data/program.js, that file stays the
     single source of truth, so the bridge never drifts from the app."""
     src = (APP_DIR / "data" / "program.js").read_text(encoding="utf-8")
     m = re.search(r"REHAB_PROGRAM = \[(.*?)\n\];", src, re.S)
@@ -98,7 +98,7 @@ def _pretty(date: str) -> str:
 
 
 # PhysiApp's session cookie is good for 14 days, so signing in on every sync
-# would be pure waste. Cached in memory only — the cookie never touches disk.
+# would be pure waste. Cached in memory only, the cookie never touches disk.
 _pa_session = None
 _pa_session_for = None
 AUTO_COOLDOWN_SECS = 600
@@ -122,8 +122,8 @@ def _pa_drop_session() -> None:
     _pa_session = _pa_session_for = None
 
 
-# Fields PhysiApp is the authority on. Anything else on an entry — load, band,
-# secs, notes you typed — is yours and never written by a sync.
+# Fields PhysiApp is the authority on. Anything else on an entry, load, band,
+# secs, notes you typed, is yours and never written by a sync.
 PA_FIELDS = ("reps", "sets", "hold")
 
 
@@ -159,8 +159,8 @@ def physiapp_sync(payload) -> dict:
     """Pull what PhysiApp actually recorded and write it into the log.
 
     Only exercises you genuinely ticked off come across. PhysiApp renders a
-    fully populated form for untouched exercises too — prefilled with the
-    prescribed sets and reps — and physiapp.parse_exercise refuses those, so nothing is
+    fully populated form for untouched exercises too, prefilled with the
+    prescribed sets and reps, and physiapp.parse_exercise refuses those, so nothing is
     ever invented here.
 
     Entries land with side "B". PhysiApp records one figure per exercise with
@@ -229,7 +229,7 @@ def physiapp_sync(payload) -> dict:
         # (before the program started); all of them means we are no longer
         # reading their page correctly, and silence would be worse than noise.
         raise physiapp.PhysiAppError(
-            "PhysiApp showed no program at all between %s and %s — their page layout may have changed."
+            "PhysiApp showed no program at all between %s and %s, their page layout may have changed."
             % (_pretty(dates[0]), _pretty(dates[-1])), "markup")
 
     # ---- phase 2: merge and save, locked and quick --------------------
@@ -261,19 +261,19 @@ def physiapp_sync(payload) -> dict:
                     # an exercise, not a claim about what you did. Letting them
                     # block a real PhysiApp result left the exercise showing as
                     # not done when you had in fact done it. Fill them instead.
-                    # Both sides get the same figure — PhysiApp does not split
+                    # Both sides get the same figure. PhysiApp does not split
                     # left from right.
                     for e in manual:
                         _pa_apply(e, rec)
                     filled += len(manual)
                     continue
                 if theirs:
-                    # There can be more than one — a filled left/right pair.
+                    # There can be more than one, a filled left/right pair.
                     # Each is judged on its own: an edited row is yours and
                     # stands, the rest track PhysiApp.
                     for e in theirs:
                         if _pa_edited(e):
-                            # You corrected this after it synced. Leave it —
+                            # You corrected this after it synced. Leave it , 
                             # an auto-sync on every open must never undo that.
                             kept += 1
                         else:
@@ -291,12 +291,12 @@ def physiapp_sync(payload) -> dict:
         write_data(data)
 
     touched = added + updated + filled
-    span = _pretty(dates[0]) if days == 1 else "%s–%s" % (_pretty(dates[0]), _pretty(dates[-1]))
+    span = _pretty(dates[0]) if days == 1 else "%s to %s" % (_pretty(dates[0]), _pretty(dates[-1]))
     if touched:
         msg = "Brought in %d exercise%s from PhysiApp (%s)" % (
             touched, "" if touched == 1 else "s", span)
     elif kept:
-        msg = "Nothing new — %s already logged here by hand (%s)" % (
+        msg = "Nothing new: %s already logged here by hand (%s)" % (
             "it was" if kept == 1 else "they were", span)
     else:
         msg = "PhysiApp has nothing ticked off for %s" % span
@@ -306,7 +306,7 @@ def physiapp_sync(payload) -> dict:
 
 
 class DataUnreadable(Exception):
-    """The file exists but cannot be parsed — never treat that as 'no data'."""
+    """The file exists but cannot be parsed, never treat that as 'no data'."""
 
 
 def read_data() -> dict:
@@ -362,7 +362,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
         # Code and data must never be stale, but the exercise photos never
-        # change — letting them cache stops every re-render re-downloading
+        # change: letting them cache stops every re-render re-downloading
         # them, which showed up as thumbnails flashing grey.
         if ctype.startswith("image/"):
             self.send_header("Cache-Control", "public, max-age=604800")
@@ -505,7 +505,7 @@ class Server(socketserver.ThreadingTCPServer):
     def handle_error(self, request, client_address):
         # macOS can revoke this process's access to the Desktop folder once the
         # app that launched it is gone. Every request then fails with
-        # "Operation not permitted" while the port stays bound — the app looks
+        # "Operation not permitted" while the port stays bound, the app looks
         # broken and a healthy relaunch cannot take the port. Quit instead of
         # squatting on it; start.command relaunches cleanly.
         if isinstance(sys.exc_info()[1], PermissionError) and not app_readable():

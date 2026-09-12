@@ -1,4 +1,4 @@
-// Public stub — deliberately contains no clinical detail.
+// Public stub: deliberately contains no clinical detail.
 //
 // Everything personal (surgeries, complications, clinician and clinic names,
 // seeded clinic sessions and VALD results) lives in your SYNCED data, under
@@ -35,7 +35,7 @@ export let CLINIC_HEP = { label: '', entries: [] };
 
 // Only ever used to seed a brand-new document on the Mac. A device that syncs
 // receives the real days and measurements as ordinary records, so these stay
-// empty everywhere else — seeding from here on a second device would duplicate
+// empty everywhere else, seeding from here on a second device would duplicate
 // what sync is already delivering.
 export let SEED_DAYS = {};
 export let SEED_MEASUREMENTS = [];

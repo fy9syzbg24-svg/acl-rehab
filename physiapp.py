@@ -7,7 +7,7 @@ their side.
 
 The one rule that matters
 -------------------------
-An exercise you have *not* logged still renders a fully populated form —
+An exercise you have *not* logged still renders a fully populated form , 
 prefilled with the clinician's prescription. Reading those numbers would invent a
 session you never did. A real log is identifiable two ways, and this module
 requires both:
@@ -67,7 +67,7 @@ NAME_TO_PID = {
 }
 
 # Fallback only, if the clinician renames an exercise. Their tile order is not our
-# numbering — index 12 is the jump-prep progression, which we call pa15.
+# numbering: index 12 is the jump-prep progression, which we call pa15.
 INDEX_TO_PID = {
     0: "pa01", 1: "pa02", 2: "pa03", 3: "pa04", 4: "pa05", 5: "pa06",
     6: "pa07", 7: "pa08", 8: "pa09", 9: "pa10", 10: "pa11", 11: "pa12",
@@ -80,13 +80,13 @@ class PhysiAppError(Exception):
 
     `kind` separates the transient from the permanent. An auto-sync that fires
     on every app open must not nag about a dropped Wi-Fi connection, but it
-    must speak up if the credentials stopped working — otherwise syncing dies
+    must speak up if the credentials stopped working, otherwise syncing dies
     quietly and the log silently goes stale.
 
-      network  — offline, timeout, their server erroring. Transient; stay quiet.
-      auth     — code or birth year rejected, or signed out. Needs attention.
-      config   — nothing entered yet.
-      markup   — their HTML changed and the parser needs updating.
+      network: offline, timeout, their server erroring. Transient; stay quiet.
+      auth: code or birth year rejected, or signed out. Needs attention.
+      config: nothing entered yet.
+      markup: their HTML changed and the parser needs updating.
     """
 
     def __init__(self, message: str, kind: str = "network") -> None:
@@ -147,7 +147,7 @@ class Session:
         page, _ = self._open(BASE + "/login")
         m = re.search(r'name="authenticity_token"\s+value="([^"]+)"', page)
         if not m:
-            raise PhysiAppError("PhysiApp's sign-in page has changed — no CSRF token found.", "markup")
+            raise PhysiAppError("PhysiApp's sign-in page has changed, no CSRF token found.", "markup")
         form = urllib.parse.urlencode({
             "utf8": "✓",
             "authenticity_token": m.group(1),
@@ -198,7 +198,7 @@ def parse_exercise(page: str) -> dict:
     """Real numbers for one exercise on one day.
 
     Returns recorded=False unless BOTH the `recorded` class and the
-    edit_exercise_action_* id are present — see the module docstring.
+    edit_exercise_action_* id are present, see the module docstring.
     """
     name = None
     t = re.search(r"<title>(.*?)</title>", page, re.S)
@@ -246,7 +246,7 @@ def pid_for(name: str | None, index: int) -> str | None:
 
 def fetch_day(session: Session, date: str) -> dict:
     """Everything actually logged on one date. One request for the day, plus
-    one per completed tile — an untouched day costs a single request.
+    one per completed tile, an untouched day costs a single request.
 
     Returns {"records": [...], "hasProgram": bool}. A date with no tiles is
     normal, not an error: it is any day before the program started, or one
@@ -269,7 +269,7 @@ def fetch_day(session: Session, date: str) -> dict:
         info = parse_exercise(page)
         if not info["recorded"]:
             # Marked done on the tile but no exercise_action behind it. Trust
-            # the form, not the tile — this is the invented-data guard.
+            # the form, not the tile, this is the invented-data guard.
             continue
         info["index"] = tile["index"]
         info["pid"] = pid_for(info.get("name"), tile["index"])

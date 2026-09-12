@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Generate PWA icons with the standard library only (no Pillow on this Mac).
 
-Draws a brand-gradient square with a bold white checkmark — a "done / progress"
+Draws a brand-gradient square with a bold white checkmark, a "done / progress"
 mark that suits a rehab tracker and reads at every size. Full-bleed so it works
 as an iOS home-screen icon (iOS applies its own rounded mask) and as an Android
 maskable icon (glyph kept inside the safe zone).

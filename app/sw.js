@@ -1,4 +1,4 @@
-// Service worker — the thing that makes the installed PWA launch with no
+// Service worker: the thing that makes the installed PWA launch with no
 // network at all.
 //
 // Two caches, on purpose:
@@ -75,7 +75,7 @@ self.addEventListener('install', (event) => {
     //
     // Each fetch carries the deploy id as a query string. The CDN keys its
     // cache on the full URL, so this forces every file past any edge still
-    // serving the PREVIOUS deploy — without it, a worker installing in that
+    // serving the PREVIOUS deploy, without it, a worker installing in that
     // window sealed a cache mixing old HTML with new CSS, and nothing inside
     // a generation ever revalidates. (Stored under the clean URL: runtime
     // lookups know nothing about the query.)
@@ -169,7 +169,7 @@ self.addEventListener('fetch', (event) => {
   // background refetch.
   //
   // The cache name carries the deploy id, so an entry inside a generation can
-  // never be stale — a new deploy builds a new cache from scratch. Revalidating
+  // never be stale, a new deploy builds a new cache from scratch. Revalidating
   // each file anyway meant every launch quietly re-downloaded the entire app
   // over mobile data to confirm nothing had changed. Updates arrive through the
   // worker's own version check instead.

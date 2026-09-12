@@ -1,4 +1,4 @@
-// The per-device local persistence layer — the one seam between the two
+// The per-device local persistence layer, the one seam between the two
 // environments the app runs in.
 //
 //   Mac    → the existing Python server at /api/data (UNCHANGED behaviour)
@@ -9,7 +9,7 @@
 //
 // Detection is by hostname: the Mac app is always opened on localhost; the PWA
 // is served from github.io. A Mac reached over the LAN by IP would be misread
-// as a PWA — but the phone now uses the installed PWA, not the Mac's LAN
+// as a PWA, but the phone now uses the installed PWA, not the Mac's LAN
 // server, so that path is retired.
 
 import { idbGetDoc, idbPutDoc, requestPersistence } from './idb.js';
@@ -20,7 +20,7 @@ export const SERVER_MODE = host === 'localhost' || host === '127.0.0.1';
 /**
  * Read this device's local document.
  * Returns {} when there is nothing yet (fresh device). Throws only when the
- * store should have answered but could not — on the Mac that means the server
+ * store should have answered but could not, on the Mac that means the server
  * is down, which the caller turns into read-only mode.
  */
 export async function readLocalDoc() {

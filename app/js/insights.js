@@ -90,12 +90,12 @@ export function computeInsights(iso) {
   const out = [];
 
   const s = streak(iso);
-  if (s >= 2) out.push({ icon: '🔥', title: `${s}-day streak`, sub: 'logged every day — keep the chain going', kind: 'good' });
+  if (s >= 2) out.push({ icon: '🔥', title: `${s}-day streak`, sub: 'logged every day. Keep the chain going', kind: 'good' });
 
   const pb = recentPB(iso);
   if (pb) {
     const name = EXERCISE_BY_ID[pb.ex]?.name || pb.ex;
-    out.push({ icon: '🏆', title: `New best: ${round(pb.now, 1)} ${pb.unit}`, sub: `${name} — up from ${round(pb.was, 1)}`, kind: 'good' });
+    out.push({ icon: '🏆', title: `New best: ${round(pb.now, 1)} ${pb.unit}`, sub: `${name}: up from ${round(pb.was, 1)}`, kind: 'good' });
   }
 
   const g = testGain(iso);
@@ -106,7 +106,7 @@ export function computeInsights(iso) {
   const p = painTrend(iso);
   if (p) {
     if (p.now < p.was) out.push({ icon: '💚', title: 'Pain trending down', sub: `avg ${p.was} → ${p.now} over two weeks`, kind: 'good' });
-    else if (p.now > p.was + 0.5) out.push({ icon: '⚠️', title: 'Pain creeping up', sub: `avg ${p.was} → ${p.now} — worth easing off`, kind: 'warn' });
+    else if (p.now > p.was + 0.5) out.push({ icon: '⚠️', title: 'Pain creeping up', sub: `avg ${p.was} → ${p.now}. Ease off`, kind: 'warn' });
   }
 
   return out.slice(0, 3);

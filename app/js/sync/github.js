@@ -1,4 +1,4 @@
-// GitHub Contents API transport — the shared cloud store.
+// GitHub Contents API transport, the shared cloud store.
 //
 // One file, state.json, in a private repo. GET reads it and its blob SHA; PUT
 // writes it back quoting that SHA, so GitHub itself rejects (409) a write made
@@ -53,7 +53,7 @@ const fileUrl = ({ owner, repo, path }) =>
 /**
  * Read state.json.
  * Returns { doc, sha }. On an empty repo (file not yet created) returns
- * { doc: null, sha: null } — a normal first-run state, not an error.
+ * { doc: null, sha: null }, a normal first-run state, not an error.
  */
 export async function ghGetFile(conn) {
   const res = await fetch(fileUrl(conn), { headers: headers(conn.token), cache: 'no-store' });

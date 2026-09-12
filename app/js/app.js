@@ -78,7 +78,7 @@ function paintChrome() {
   else { el.textContent = ''; el.className = 'save-state'; }
 
   // The same sync chip the phone shows. save-state is the LOCAL save (the
-  // JSON file on this Mac); the chip is the cloud relay — different facts.
+  // JSON file on this Mac); the chip is the cloud relay, different facts.
   const dot = document.getElementById('sync-dot');
   const label = document.getElementById('sync-label');
   if (!dot || !label) return;
@@ -109,12 +109,12 @@ window.addEventListener('hashchange', () => {
 });
 
 subscribe(paintChrome);
-// A pull that changed the document must repaint the visible view — the phone
+// A pull that changed the document must repaint the visible view, the phone
 // has always done this; the Mac was quietly showing stale data until a click.
 onRemoteChange(() => paint());
 
 // Opening the app pulls anything new from PhysiApp. Silent unless it actually
-// finds something — the server skips the call outright when the credentials
+// finds something: the server skips the call outright when the credentials
 // are missing, auto-sync is off, or it already ran in the last few minutes.
 async function autoSync() {
   if (state.readOnly) return;
@@ -129,7 +129,7 @@ async function autoSync() {
     const out = await res.json();
     if (!out.ok) {
       // Offline or their server hiccuping is not worth a nag on every open.
-      // A rejected code is — otherwise syncing dies quietly and the log goes
+      // A rejected code is, otherwise syncing dies quietly and the log goes
       // stale without you ever being told.
       if (out.kind && out.kind !== 'network') {
         toast(`⚠️ <b>PhysiApp sync stopped</b><br><span>${esc(out.message)}</span>`, 'warn');
@@ -142,7 +142,7 @@ async function autoSync() {
     paint();
     toast(`✅ <b>${esc(out.message)}</b><br><span>from PhysiApp, just now</span>`);
   } catch (err) {
-    /* offline, or the Mac woke without Wi-Fi — never block the app for it */
+    /* offline, or the Mac woke without Wi-Fi, never block the app for it */
   }
 }
 

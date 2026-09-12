@@ -14,7 +14,7 @@ stay fully usable offline.
 python3 server.py
 ```
 
-Then open <http://localhost:8757>. Pure Python standard library — no
+Then open <http://localhost:8757>. Pure Python standard library, no
 dependencies, no build step.
 
 But normally you don't start it at all: **the server runs as a login service**
@@ -25,7 +25,7 @@ at login and restarts itself if it dies. After changing `server.py`, restart it:
 launchctl kickstart -k gui/501/com.reuben.acl-rehab
 ```
 
-`start.command` is still there for a manual run — it reclaims the port first
+`start.command` is still there for a manual run; it reclaims the port first
 and checks the app really answers before handing you the window.
 
 ## "The server unexpectedly dropped the connection"
@@ -51,14 +51,14 @@ Two guards also make it self-correcting, so don't re-diagnose it:
 
 - `server.py` probes `app/index.html` at startup and refuses to start if it
   can't read it, and `Server.handle_error` treats a `PermissionError` that it
-  can confirm (by re-probing) as fatal — it exits so the port is released
+  can confirm (by re-probing) as fatal; it exits so the port is released
   rather than squatted.
 - `start.command` reclaims the port from a previous copy of *this* server
   before starting (it refuses to touch a process that isn't one), then polls
   until the app returns HTTP 200 and prints the permission hint if it doesn't.
 
 **Never hand-background one of these servers** with `&` or `nohup` "so it keeps
-running" — that is what created the orphan both times. Let launchd own it, or
+running". That is what created the orphan both times. Let launchd own it, or
 run it in the foreground via `start.command` and let the window own it.
 
 ## Layout
@@ -73,14 +73,14 @@ tools/              tests
 
 ## Data
 
-All personal data — logged sessions, measurements, clinical history — lives
+All personal data (logged sessions, measurements, clinical history) lives
 outside this repository: on the local machine, and in a private repository used
 purely as a sync relay. Nothing identifying is published here.
 
 ### Photos and videos are originals
 
-If media is ever attached here — progress photos, scan images, clinic paperwork,
-exercise clips — the file is stored **byte for byte as supplied**. Never compress,
+If media is ever attached here (progress photos, scan images, clinic paperwork,
+exercise clips), the file is stored **byte for byte as supplied**. Never compress,
 re-encode, resize, rotate, crop, convert or strip EXIF from an original, and never
 delete one. Thumbnails and web-sized previews are additional files written
 alongside, never replacements. See Rule zero in the workspace `CLAUDE.md`.
@@ -88,7 +88,7 @@ alongside, never replacements. See Rule zero in the workspace `CLAUDE.md`.
 Note this collides with the sync design: `state.json` is a JSON document relayed
 through a repository, so binary media must NOT be inlined as base64 into it.
 Media needs its own content-addressed store (file per blob, hash as the name) with
-only the hash and metadata in the document — decide that before adding the first
+only the hash and metadata in the document. Decide that before adding the first
 attachment, not after.
 
 ## How often, per exercise
@@ -171,7 +171,7 @@ cover sub-maps; there is now a separate regression test for this one.
 
 The desktop app and the phone each keep a COMPLETE local copy and are fully
 usable with no connection. A private repository holds one `state.json` and acts
-purely as a relay between them — neither device needs the other to be switched
+purely as a relay between them; neither device needs the other to be switched
 on, and neither needs the relay to function.
 
 Sync is record level, not file level. The app stores everything in one
@@ -191,7 +191,7 @@ interrupted sync safe to repeat.
     app/js/sync/local-store.js  the only seam: local server vs IndexedDB
     app/js/sync/github.js    transport (the only backend-aware file)
     app/js/sync/engine.js    pull / merge / push, with conflict retry
-    app/js/sync/config.js    per-device token — never synced, never committed
+    app/js/sync/config.js    per-device token: never synced, never committed
 
 ## Mobile
 
@@ -205,7 +205,7 @@ estate, not a change of mind, so the old rule still binds in one respect: there
 is NO parallel phone implementation. The phone renders the same view modules;
 what changes is what it leads with.
 
-**The document scrolls — do not "fix" that.** An earlier version pinned the
+**The document scrolls: do not "fix" that.** An earlier version pinned the
 body and scrolled an inner container. It looked equivalent and was not: iOS
 only collapses Safari's toolbars when the document itself scrolls, and asking
 iOS to lay out a full-screen fixed box left a dead band at the bottom of the
@@ -224,7 +224,7 @@ chip that is already there.
 
 Feedback comes in two stages, because one flash was not enough to read. The
 chip lights up **while your finger is still down**, the moment you have pulled
-far enough, so you know letting go will sync before you commit — pull back up
+far enough, so you know letting go will sync before you commit; pull back up
 and it goes out again. On release it shows the normal syncing state, held for a
 minimum of 750ms: a sync with nothing to send finishes within a couple of
 frames, and a blue dot shown that briefly reads as nothing having happened.
@@ -232,7 +232,7 @@ Tapping the button gets away with it because you are looking straight at it; a
 pull does not, because your eye is on the content springing back.
 
 The gesture is taken over outright rather than ridden on top of iOS's, because
-an installed web app has its OWN pull-to-refresh and it RELOADS — which would
+an installed web app has its OWN pull-to-refresh and it RELOADS, which would
 throw away the tab you were on and where you had scrolled to.
 `overscroll-behavior-y: contain` stops iOS acting on the overscroll; the pull
 and the spring back are drawn in `mobile.js`. The document still scrolls
@@ -242,16 +242,16 @@ Only `#view` is transformed, never `body`: a transform on an ancestor makes
 `position: fixed` descendants position against it, which would break the fixed
 tab bar. The header and tab bar sit outside `#view`, so neither follows.
 
-The non-passive `touchmove` listener — the one that stops the browser scrolling
-on its fast path — is attached only for the length of a touch that began at the
+The non-passive `touchmove` listener (the one that stops the browser scrolling
+on its fast path) is attached only for the length of a touch that began at the
 very top, and only when sync is configured, so ordinary scrolling never pays
 for it. The pull disarms on a first move that is upward or sideways, and stays
 out of gestures that belong to something else (`[data-drag]` reordering, range
 sliders, sideways-scrolling tables, and any open modal).
 
 `touchcancel` honours a completed pull exactly as `touchend` does. iOS cancels
-a touch when the system takes it over — a notification arriving, an edge
-gesture — and treating that as "never happened" meant a pull you had finished
+a touch when the system takes it over (a notification arriving, an edge
+gesture), and treating that as "never happened" meant a pull you had finished
 could silently do nothing. Syncing is idempotent, so acting on a committed pull
 is the safer of the two.
 
@@ -261,7 +261,7 @@ sha and pushes `app/` to the `gh-pages` branch.
 ## iOS traps this app already hit
 
 Each of these looked like trivia and was not. They are the reason the mobile shell is
-shaped the way it is — changing any of them back reintroduces a real bug.
+shaped the way it is; changing any of them back reintroduces a real bug.
 
 - **`index.html` on Pages is a COPY of `m.html`, not a redirect.** iOS reads
   `apple-mobile-web-app-capable` and `-status-bar-style` from the exact page you Add
@@ -273,7 +273,7 @@ shaped the way it is — changing any of them back reintroduces a real bug.
   (~8pt). In Safari its own toolbar already covers the home indicator, so reserving it
   too double-counts. Only swipes from the edge are captured, not taps.
 - **Inputs are 16px minimum** or iOS zooms the page on focus.
-- **The service worker never registers on `localhost`** — it would claim every
+- **The service worker never registers on `localhost`**: it would claim every
   navigation on that origin and serve the mobile shell in place of the desktop app.
 - **The worker reloads once on `controllerchange`**, or a deploy would sit unused
   until the second launch.
@@ -285,18 +285,18 @@ shaped the way it is — changing any of them back reintroduces a real bug.
 ## The supplement checklist's day runs to 5am
 
 Opening the app at 2am to finish ticking the day's supplements off, the list
-wanted is the one for the day being finished — not a fresh empty one that has
+wanted is the one for the day being finished, not a fresh empty one that has
 to be corrected by tapping back a date. So the CHECKLIST's "today" holds until
 **5am** and then moves on: `currentDayIso()` in `util.js`, one constant
 (`DAY_ROLLOVER_HOUR`) to change it.
 
-**Deliberately narrow — this is a convenience, not a model of time.** It
+**Deliberately narrow: this is a convenience, not a model of time.** It
 applies to the supplement checklist and nothing else:
 
 - The checklist keeps its own date (`ctx.suppDate`), separate from the shared
   `ctx.date` every other view uses. Nothing outside this file reads the
   supplement list, so the two never need to agree.
-- Its date pill's "today" button returns to that shifted day — hence the
+- Its date pill's "today" button returns to that shifted day, hence the
   `today` option on `renderDatePill` / `bindDatePill`, which defaults to the
   real calendar date for every other caller.
 - Today, the plan, tests, measurements, the week panel and the activity
@@ -307,7 +307,7 @@ applies to the supplement checklist and nothing else:
 event: its day is the clock's day, and the countdown to the next one measures
 from the real moment. `prnDateFor()` returns the real date while the checklist
 is on its current day, and follows you to an older date when you navigate
-deliberately — so a dose logged at 2am is stamped 2am on the real date, appears
+deliberately, so a dose logged at 2am is stamped 2am on the real date, appears
 immediately, and its countdown is honest. Filing it under the checklist's day
 instead would put the instant 24 hours in the past and report a 12-hour wait as
 already clear.
@@ -324,7 +324,7 @@ re-adding opens a new one. So yesterday keeps whatever was true yesterday, and
 the window while something was off the list stays off.
 
 **Seeded ids must be deterministic.** The first version used `uid()`, so the
-Mac seeded ten rows and the phone seeded ten more and sync — correctly — kept
+Mac seeded ten rows and the phone seeded ten more and sync, correctly, kept
 all twenty. Ids now derive from the name (`suppId()`); `dedupeSupplements()`
 repairs documents created before that, deterministically so both devices
 converge on the same result.
@@ -333,9 +333,9 @@ As-needed drugs (`prnMeds` + `doses`) are a different shape: each dose is
 timestamped, so the question "when may I take another?" can be answered.
 The countdown runs from the most recent dose regardless of date, which is what
 makes a wait crossing midnight read correctly the next morning. Logging a dose
-early is allowed and recorded — the log is a record of what happened.
+early is allowed and recorded; the log is a record of what happened.
 
-## Day sets — "what do I do today?"
+## Day sets: "what do I do today?"
 
 `program.days[pid]` (synced as `p|days|<pid>`) holds the weekdays each program
 item is planned for. Today shows the day's set first, counts done against THAT
@@ -344,19 +344,19 @@ still tickable. A day with nothing planned says so and shows the whole list.
 Edit the days on the Program tab (seven chips per exercise, always all seven
 rendered); the "Your week" card at the top shows how the week lands.
 
-The seed in `DEFAULT_DAYS` is **my default, not the clinician's** — the PhysiApp
+The seed in `DEFAULT_DAYS` is **my default, not the clinician's**: the PhysiApp
 export gives no frequency. It follows the plan's Month 2 weekly targets (3
 strength · 3 balance · 4 aerobic): home strength Mon/Fri, gym + step work Wed,
 calves every strength day, balance Tue/Thu/Sat, bike Mon/Thu and elliptical
 Tue/Sat, Sunday rest. `seedProgramDays` runs once (`settings.daysSeeded`) and
-refuses if any days exist — same contract as the supplement seed, so his
+refuses if any days exist; same contract as the supplement seed, so his
 arrangement is never overwritten. An item with no entry means every day; an
 empty list means never (the jump-prep exercise, until it is cleared).
 
 **"Same as last time"** (Rehab and Gym segments) ticks whatever was LOGGED on
 the most recent earlier day for that list, with its numbers; rows already on
 today keep today's numbers. Rows with numbers typed but never ticked are not a
-session — the same rule as the week bar — so they do not count as "last time".
+session (the same rule as the week bar), so they do not count as "last time".
 
 Month markers with no measurement yet show "Not tested yet" and no pace badge:
 untested is not behind.
@@ -366,7 +366,7 @@ untested is not behind.
 `tools/gen_shell.py` rebuilds it from the real import graph, and `deploy.sh`
 runs it on every deploy. Never hand-edit `SHELL_ASSETS`. A view added and not
 listed is missing offline and updates on a different schedule from everything
-else — that is exactly what happened to `supplements.js`, and it is the same
+else: that is exactly what happened to `supplements.js`, and it is the same
 class of mistake as forgetting to register a record for sync.
 
 Navigations revalidate in the background too, so the shell HTML (and therefore
@@ -381,7 +381,7 @@ Learned from his corrections, one screenshot at a time. Follow these before
 adding any surface; each one exists because its violation was called out.
 
 - **Hero blocks centre on a phone; data stays left.** A header that INTRODUCES
-  a section — title with subtitle and badge stacked beneath — reads centred
+  a section (title with subtitle and badge stacked beneath) reads centred
   (`header.hero`, ≤640px). Rows, tables and logging surfaces stay left. His
   words: "left aligned sometimes works, but not in these two examples."
 - **Controls are constant.** Nothing appears, disappears, or changes identity
@@ -392,12 +392,12 @@ adding any surface; each one exists because its violation was called out.
   code. Test with /\d/ where content varies.
 - **Chrome icons are drawn SVG, never emoji characters.** iOS renders ⚙ as a
   3-D sticker.
-- **Inputs are sized by class, never inline font-size** — an inline size beats
+- **Inputs are sized by class, never inline font-size**: an inline size beats
   the 16px floor and iOS zooms the page on focus (`.in-num`, `.sel-sm`).
 - **Segment labels shorten on a phone, in his words:** Rehab, Gym, Goals,
   Other, Completed (`.lbl-full` / `.lbl-short`). Full wording everywhere else.
 - **Sub-tab rows scroll on one line** (`.tabrow`; Tests pins its action beside
-  them with `.panelbar`). Today's session segments deliberately WRAP instead —
+  them with `.panelbar`). Today's session segments deliberately WRAP instead , 
   all five stay visible.
 - **Numbers pin, labels wrap.** A count and its input sit in a fixed grid
   column (`.targetrow`), never in a flex row that rewraps per label length.
@@ -407,15 +407,15 @@ adding any surface; each one exists because its violation was called out.
 
 ## His arrangement IS the default
 
-Anything Reuben curates in the running app — the supplement list, its grouping
-and order, the as-needed medications, units, theme — is the source of truth. Code
+Anything Reuben curates in the running app (the supplement list, its grouping
+and order, the as-needed medications, units, theme) is the source of truth. Code
 defaults exist only to seed a device that has never had any, and they are
 refreshed by copying FROM the live data, never by imposing on it.
 
 Practically:
 
 - `seedSupplements` / `seedPrnMeds` run once, gated on `settings.suppsSeeded` /
-  `prnSeeded`, and additionally refuse to run at all if a list already exists —
+  `prnSeeded`, and additionally refuse to run at all if a list already exists,
   so a lost flag cannot overwrite a curated list.
 - Adding a new item to `DEFAULTS` will NOT appear on his devices. That is the
   intended trade: his arrangement outranks a later idea of mine.
@@ -434,7 +434,7 @@ The app is used on mobile data, so redundant traffic is a bug:
   stale-while-revalidate re-downloaded all 32 modules on every launch just to
   confirm nothing had changed. Updates arrive via the worker's version check.
 - **Idle syncs are throttled to one per 5 minutes**, but anything PENDING syncs
-  immediately whatever the reason — a change you made can never sit unsent
+  immediately whatever the reason: a change you made can never sit unsent
   because of a timer. Manual, post-edit and reconnect syncs are never throttled.
 - **Update checks are at most half-hourly.**
 - **The countdown ticker runs only while the page is visible and only while
@@ -446,7 +446,7 @@ The app is used on mobile data, so redundant traffic is a bug:
 A migration that quietly edits the document leaves no tombstones, so the next
 sync sees records the device has "never heard of" and pulls every one of them
 back. The supplement dedupe did exactly this: it ran inside `migrate()`,
-removed twenty duplicates locally, and sync restored them — twice, ending at
+removed twenty duplicates locally, and sync restored them, twice, ending at
 thirty.
 
 Anything that DELETES during a repair must go through the stamping path
@@ -459,7 +459,7 @@ delete gets resurrected and a stamped one does not.
 Any new top-level key MUST be registered in `app/js/sync/records.js`. An unregistered
 key is invisible to the merge engine, and a device that has never seen it will push a
 document without it and delete it everywhere. `caseFile` was exactly this bug. There
-is a test asserting no unregistered top-level keys — keep it passing.
+is a test asserting no unregistered top-level keys; keep it passing.
 
 ## Tests
 

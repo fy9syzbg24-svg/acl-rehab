@@ -3,7 +3,7 @@
 #
 #   bash tools/set_icon.sh ~/Desktop/icon-source.png
 #
-# Uses sips, which ships with macOS — there is no Pillow or ImageMagick on this
+# Uses sips, which ships with macOS, there is no Pillow or ImageMagick on this
 # machine. The source should be SQUARE; anything else is centre-cropped first,
 # because iOS masks the icon into a squircle and a stretched subject looks wrong.
 set -euo pipefail
@@ -34,5 +34,5 @@ done
 
 echo
 echo "Now run:  bash tools/deploy.sh"
-echo "Then on the phone, remove the Home Screen icon and re-add it — iOS caches"
+echo "Then on the phone, remove the Home Screen icon and re-add it, iOS caches"
 echo "the old artwork and will not refresh it in place."
