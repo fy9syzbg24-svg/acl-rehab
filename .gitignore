@@ -25,3 +25,6 @@ app/dev-engine.js
 
 # Frozen pre-redesign interface, served at /baseline/ for comparison.
 /app-baseline/
+
+# Clinician source documents. PERSONAL: this repo is public.
+/intake/
