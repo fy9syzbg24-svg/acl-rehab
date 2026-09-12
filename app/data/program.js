@@ -229,6 +229,7 @@ export const REHAB_PROGRAM = [
   },
   {
     n: 18, id: 'tl18', ex: 'tendon_load_iso_squat', title: 'Tendon loading mini squat, 20 degrees', typed: true, sides: 'both',
+    img: 'img/program/ex-18.png', thumb: 'img/program/ex-18-thumb.png',
     sets: 4, reps: 1, hold: '30s', rest: '2 min',
     pre: 'Collagen 15 g plus vitamin C 100 to 200 mg, taken 30 to 60 minutes before this. The handout says 45 minutes. Mix the collagen into water or juice.',
     steps: [
