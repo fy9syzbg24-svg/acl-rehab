@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""ACL REHAB TRACKER — LIVE STATE BRIEFING (read-only; run by the /rehab skill).
+"""ACL REHAB TRACKER: LIVE STATE BRIEFING (read-only; run by the /rehab skill).
 
 Never writes. Prints service health, the sync-registration invariant (the trap that wipes
 data), repo/deploy state, and the standing rules. Pattern from STC Hebrew's catchup.py.
@@ -19,12 +19,12 @@ def run(cmd, timeout=6):
 
 
 print("=" * 72)
-print("ACL REHAB TRACKER — LIVE STATE BRIEFING     today:", datetime.date.today())
+print("ACL REHAB TRACKER: LIVE STATE BRIEFING     today:", datetime.date.today())
 print("=" * 72)
 print("""
 ⛔ THE NEVER LINES
   1. RULE ZERO: data/rehab-data.json and the private state.json are HIS REHAB
-     RECORD — never clear/reset/truncate; assume he is using the app right now;
+     RECORD: never clear/reset/truncate; assume he is using the app right now;
      unexplained data is his. Test against a separate store, never live files.
   2. ⛔ THE SYNC WIPE TRAP: any NEW top-level key in the document MUST be
      registered in app/js/sync/records.js, or it is invisible to sync and a
@@ -33,10 +33,11 @@ print("""
      is the PUBLIC shell (fy9syzbg24-svg/acl-rehab) -- nothing personal may ever
      be committed here, INCLUDING in this script. The PhysiApp access code is a
      credential. case.local.js is gitignored.
-  4. FULL PARITY on phone/tablet — the mobile shell renders the real desktop
-     view modules, never a cut-down logger. His in-app arrangement is the
-     default; never overwrite it with code defaults.
-  5. The server is a launchd service — never start it by hand, never background
+  4. DEVICE ROLES (his call, 2026-09-12): iPad and Mac get the full app; the
+     iPhone is optimised for LOGGING (Today and Supplements lead). Still never
+     a parallel phone codebase: the mobile shell renders the real view modules.
+     His in-app arrangement is the default; never overwrite it with code defaults.
+  5. The server is a launchd service, never start it by hand, never background
      it; kickstart after code changes. Photos/attachments are originals.
 """)
 
@@ -97,5 +98,5 @@ print("\n── Facts " + "─" * 63)
 # and clinical details live in MEMORY (project-acl-rehab) and in the SYNCED DATA only.
 print("  Medical context, dates and the clinician program: memory `project-acl-rehab`")
 print("  (never in this repo -- it is the PUBLIC shell). PhysiApp sync is MAC-ONLY (CORS).")
-print("  Tests: open /dev-tests.html against the RUNNING server (71 assertions; no Node).")
+print("  Tests: open /dev-tests.html against the RUNNING server (103 assertions; no Node).")
 print("=" * 72)
