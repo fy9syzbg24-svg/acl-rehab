@@ -18,6 +18,7 @@ import { shortCat } from './monthboard.js';
 import { openExercisePicker, allExercises, exerciseById, openMeasureEntry, loadBars, thumb,
          openPicture, renderDatePill, prescriptionLine, toast, openModal, closeModal } from '../components.js';
 import { minutesFor, fmtMins } from '../timing.js';
+import { streakDays } from '../insights.js';
 import { renderSuppGroups, bindSuppGroups, suppScore, prnSummary } from './supplements.js';
 
 const EFFUSION = ['', 'Zero', 'Trace', '1+', '2+', '3+'];
@@ -60,7 +61,7 @@ export function renderToday(ctx) {
     ${day?.seeded ? `<div class="notice info">Seeded from ${esc(day.source || 'your clinical notes')}. Edit anything that is not right.</div>` : ''}
 
     <section class="card listcard" id="session-card">
-      ${dayHead(iso, planned, extras, entries)}
+      ${dayHead(iso, planned, extras, entries, ctx)}
       <div class="checklist">
         ${planned.map((p) => checkRow(p, iso, entries, ctx)).join('')}
         ${extras.map((e) => extraRow(e, iso, ctx)).join('')}
@@ -82,7 +83,7 @@ export function renderToday(ctx) {
  * answered "what am I meant to do today", so the day keeps its name; the
  * count and the minutes tell him what he is in for before he starts.
  */
-function dayHead(iso, planned, extras, entries) {
+function dayHead(iso, planned, extras, entries, ctx) {
   const plan = dayPlanFor(state.data, iso);
   const doneP = planned.filter((p) => isLogged(entries.filter((e) => e.pid === p.id)));
   const doneN = doneP.length + extras.filter((e) => e.logged).length;
@@ -90,14 +91,22 @@ function dayHead(iso, planned, extras, entries) {
   const mins = planned.reduce((a, p) => a + rowMinutes(p).mins, 0);
   const left = planned.filter((p) => !doneP.includes(p)).reduce((a, p) => a + rowMinutes(p).mins, 0);
 
+  const complete = total > 0 && doneN >= total;
+  const streak = streakDays(iso);
   let sub;
   if (!total) sub = 'Nothing planned. Everything is below if you want it.';
   else if (!doneN) sub = `${total} to do · about ${fmtMins(mins)}`;
-  else if (doneN >= total) sub = `All ${total} done · ${fmtMins(mins)}`;
+  else if (complete) sub = `All ${total} done · ${fmtMins(mins)} of rehab. Nice work.`;
   else sub = `${doneN} of ${total} done · about ${fmtMins(left)} left`;
+  if (streak >= 2) sub += ` · ${streak} days in a row`;
+
+  // The ring bursts once, on the render where the day becomes complete.
+  const celebrate = complete && ctx.lastComplete !== iso;
+  ctx.lastComplete = complete ? iso : null;
 
   return `
-  <header class="dayhead">
+  <header class="dayhead ${complete ? 'complete' : ''} ${celebrate ? 'celebrate' : ''}">
+    ${ring(doneN, total)}
     <div class="dayhead-main">
       <h2>${esc(plan.name || (total ? 'Today' : 'Rest day'))}</h2>
       <div class="dayhead-sub">${esc(sub)}${plan.clinic ? ` · ${esc(plan.sub)}` : ''}</div>
@@ -106,6 +115,20 @@ function dayHead(iso, planned, extras, entries) {
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
     </button>
   </header>`;
+}
+
+/** Progress ring for the day: done over total, a check when full. */
+function ring(done, total) {
+  const r = 18;
+  const c = 2 * Math.PI * r;
+  const frac = total ? Math.min(1, done / total) : 0;
+  const on = frac * c;
+  return `<span class="dayring ${total && done >= total ? 'full' : ''}" aria-hidden="true">
+    <svg viewBox="0 0 46 46">
+      <circle class="bg" cx="23" cy="23" r="${r}"/>
+      <circle class="on" cx="23" cy="23" r="${r}" stroke-dasharray="${on.toFixed(1)} ${(c - on).toFixed(1)}" transform="rotate(-90 23 23)"/>
+    </svg>
+    <b>${total ? `${done}/${total}` : ''}</b></span>`;
 }
 
 // ------------------------------------------------------------- the rows ----
@@ -132,7 +155,7 @@ function checkRow(item, iso, entries, ctx) {
   const m = logged ? { mins: Math.round(logged), src: 'logged' } : rowMinutes(item, ex);
 
   return `
-  <div class="crow ${done ? 'done' : ''} ${started && !done ? 'started' : ''} ${editing ? 'editing' : ''}" data-pid="${esc(item.id)}"${catStyle(ex)}>
+  <div class="crow ${done ? 'done' : ''} ${started && !done ? 'started' : ''} ${editing ? 'editing' : ''} ${ctx.pop === item.id ? 'pop' : ''}" data-pid="${esc(item.id)}"${catStyle(ex)}>
     <div class="crow-head">
       <input type="checkbox" class="tick" data-ptoggle="${esc(item.id)}" ${done ? 'checked' : ''} aria-label="Done: ${esc(name)}">
       ${item.thumb
@@ -158,7 +181,7 @@ function extraRow(e, iso, ctx) {
   const done = !!e.logged;
   const cat = CATEGORIES[ex?.cat];
   return `
-  <div class="crow ${done ? 'done' : 'started'} ${editing ? 'editing' : ''} ${e.id === ctx.flash ? 'flash' : ''}"${catStyle(ex)}>
+  <div class="crow ${done ? 'done' : 'started'} ${editing ? 'editing' : ''} ${e.id === ctx.flash ? 'flash' : ''} ${ctx.pop === e.id ? 'pop' : ''}"${catStyle(ex)}>
     <div class="crow-head">
       <input type="checkbox" class="tick" data-etoggle="${esc(e.id)}" ${done ? 'checked' : ''} aria-label="Done: ${esc(ex?.name || e.ex)}">
       <span class="crow-shot plain">${thumb(e.ex, 34)}</span>
@@ -282,7 +305,7 @@ function goalsGroup(iso, entries, ctx) {
             const started = mine.length > 0;
             const done = started && mine.every((e) => e.logged);
             const editing = started && ctx.editing === 'cat:' + ex.id;
-            return `<div class="crow ${done ? 'done' : started ? 'started' : ''} ${editing ? 'editing' : ''}"${catStyle(ex)}>
+            return `<div class="crow ${done ? 'done' : started ? 'started' : ''} ${editing ? 'editing' : ''} ${ctx.pop === ex.id ? 'pop' : ''}"${catStyle(ex)}>
               <div class="crow-head">
                 <input type="checkbox" class="tick" data-cattoggle="${esc(ex.id)}" ${done ? 'checked' : ''} aria-label="Done: ${esc(ex.name)}">
                 <span class="crow-shot plain">${thumb(ex.id, 34)}</span>
@@ -805,6 +828,8 @@ function openDayMenu(iso, ctx, rerender) {
 // ---------------------------------------------------------------- bind ----
 export function bindToday(root, ctx, rerender) {
   const iso = ctx.date || todayIso();
+  // One-shot animation flags: consumed by this render, gone for the next.
+  ctx.pop = null;
 
   if (ctx.flash) {
     const el = root.querySelector('.crow.flash');
@@ -879,6 +904,7 @@ export function bindToday(root, ctx, rerender) {
     });
     if (cb.checked) testToast(recordAsTests(iso, ensureDay(iso).entries.filter((e) => e.pid === pid)));
     ctx.editing = null;
+    ctx.pop = cb.checked ? pid : null;
     rerender();
   }));
 
@@ -893,6 +919,7 @@ export function bindToday(root, ctx, rerender) {
       testToast(e ? recordAsTests(iso, [e]) : []);
     }
     ctx.editing = null;
+    ctx.pop = cb.checked ? cb.dataset.etoggle : null;
     rerender();
   }));
 
@@ -928,6 +955,7 @@ export function bindToday(root, ctx, rerender) {
     testToast(recordAsTests(iso, marked));
     pbCheck(iso, marked);
     ctx.editing = null;
+    ctx.pop = catEx || key;
     rerender();
   }));
 
@@ -989,6 +1017,7 @@ export function bindToday(root, ctx, rerender) {
     });
     ctx.editing = null;
     ctx.openGoals = true;
+    ctx.pop = cb.checked ? exId : null;
     rerender();
   }));
   root.querySelectorAll('[data-catclick]').forEach((el) => el.addEventListener('click', () => {

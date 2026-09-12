@@ -323,7 +323,8 @@ html, body.mobile { overscroll-behavior-y: contain; }
 body.mobile .daychip { width: 32px; height: 32px; font-size: .8rem; }
 
 /* the checklist circle, and the compact minutes box, sized for a finger */
-body.mobile .tick { width: 28px; height: 28px; min-height: 0; padding: 0; }
+body.mobile input[type=checkbox].tick { width: 28px; height: 28px; min-height: 0; padding: 0; }
+body.mobile .dayring, body.mobile .dayring svg { width: 44px; height: 44px; }
 body.mobile .crow-head { gap: .6rem; }
 body.mobile .crow-shot { width: 56px; height: 32px; }
 body.mobile .crow-shot.plain .thumb { width: 56px !important; height: 32px !important; }

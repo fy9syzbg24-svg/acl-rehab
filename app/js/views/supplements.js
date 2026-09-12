@@ -198,7 +198,7 @@ export function renderSuppGroups(iso, ctx, { edit = false } = {}) {
         </button>
         ${open ? `<div class="supplist ${edit ? 'editing' : ''}" data-dropzone="${key}">
           ${rows.map((s) => `
-            <div class="supprow ${ticks[s.id] ? 'on' : ''}" data-supp="${esc(s.id)}" data-row="${esc(s.id)}">
+            <div class="supprow ${ticks[s.id] ? 'on' : ''} ${ctx.suppPop === s.id ? 'pop' : ''}" data-supp="${esc(s.id)}" data-row="${esc(s.id)}">
               ${edit ? '<span class="supphandle" data-drag aria-label="Drag to reorder">≡</span>' : ''}
               <i class="supptick">${ticks[s.id] ? '✓' : ''}</i>
               <span class="suppname">${esc(s.name)}</span>
@@ -225,12 +225,15 @@ export function bindSuppGroups(root, iso, ctx, rerender) {
   root.querySelectorAll('[data-supp]').forEach((b) => b.addEventListener('click', (ev) => {
     if (ev.target.closest('[data-suppdel]')) return;
     const id = b.dataset.supp;
+    let on = false;
     update(() => {
       const day = ensureDay(iso);
       day.supps = { ...(day.supps || {}) };
-      if (day.supps[id]) delete day.supps[id]; else day.supps[id] = true;
+      if (day.supps[id]) delete day.supps[id]; else { day.supps[id] = true; on = true; }
     });
+    ctx.suppPop = on ? id : null;    // one render's worth of pop
     rerender();
+    ctx.suppPop = null;
   }));
 }
 

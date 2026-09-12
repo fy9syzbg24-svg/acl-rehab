@@ -1062,26 +1062,76 @@ ol.steps li { font-size: .82rem; margin: .18rem 0; }
 .dayhead-sub { font-size: .8rem; color: var(--ink-3); margin-top: .12rem; font-variant-numeric: tabular-nums; }
 .dayhead .icon-btn { flex: none; }
 
+/* The day's ring: fills green as he ticks, shows a check when the day is done,
+   and bursts once at the moment it completes. */
+.dayring { position: relative; flex: none; width: 46px; height: 46px; display: grid; place-items: center; }
+.dayring svg { position: absolute; inset: 0; width: 46px; height: 46px; }
+.dayring circle { fill: none; stroke-width: 4.5; }
+.dayring .bg { stroke: var(--line-2); }
+.dayring .on { stroke: var(--good); stroke-linecap: round; transition: stroke-dasharray .5s cubic-bezier(.2, .8, .2, 1); }
+.dayring b { font-size: .66rem; font-family: var(--mono); font-weight: 700; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.dayring.full b { display: none; }
+.dayring.full::after {
+  content: ''; width: 15px; height: 8px; border-left: 3px solid var(--good); border-bottom: 3px solid var(--good);
+  transform: translateY(-2px) rotate(-45deg);
+}
+.dayhead.complete {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--good) 16%, var(--panel)), var(--panel) 75%);
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+.dayhead.complete h2 { color: var(--good); }
+.dayhead.celebrate .dayring { animation: tickpop .6s cubic-bezier(.2, 1.4, .4, 1); }
+.dayhead.celebrate .dayring::before {
+  content: ''; position: absolute; inset: -6px; border-radius: 50%;
+  border: 3px solid var(--good); animation: ringout .8s ease-out forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .crow.pop input[type=checkbox].tick:checked, .dayhead.celebrate .dayring { animation: none; }
+  .crow.pop input[type=checkbox].tick:checked::before, .dayhead.celebrate .dayring::before { display: none; }
+}
+
+/* Pressed feedback everywhere something is tapped. */
+.btn, .dayfilter button, .daychip, .weekcat.tappable, .supprow, .rowlink, .list-add, .stagestep, .goalhead {
+  transition: transform .12s, background .15s, border-color .15s, color .15s;
+}
+.btn:active, .dayfilter button:active, .daychip:active, .supprow:active, .rowlink:active, .list-add:active, .stagestep:active, .goalhead:active { transform: scale(.97); }
+/* the supplement tick pops the same way as the exercise tick */
+.supprow.pop .supptick { animation: tickpop .35s cubic-bezier(.2, 1.5, .4, 1); }
+
 .checklist { padding: 0 .6rem .25rem; }
 .crow { border-top: 1px solid var(--line-2); padding: .5rem .3rem; }
 .checklist > .crow:first-child { border-top: 0; }
 .crow-head { display: flex; align-items: center; gap: .65rem; min-height: 44px; }
 
-.tick {
+/* input[type=checkbox].tick, not .tick: the generic checkbox rule above sets
+   width:auto at a higher specificity, which squeezed the circle into an oval.
+   Every state rule below carries the same prefix, or the base rule wins and a
+   done circle stays empty (which is exactly what he saw). */
+input[type=checkbox].tick {
   appearance: none; -webkit-appearance: none; flex: none; margin: 0; padding: 0;
   width: 26px; height: 26px; min-height: 0; border-radius: 50%;
   border: 2px solid var(--cat, var(--ink-3)); background: var(--panel);
-  cursor: pointer; display: grid; place-items: center;
-  transition: background .12s, border-color .12s;
+  cursor: pointer; display: grid; place-items: center; position: relative;
+  transition: background .15s, border-color .15s, transform .15s;
 }
-.tick::after {
-  content: ''; width: 11px; height: 6px;
-  border-left: 2.5px solid #fff; border-bottom: 2.5px solid #fff;
+input[type=checkbox].tick::after {
+  content: ''; width: 12px; height: 7px;
+  border-left: 3px solid #fff; border-bottom: 3px solid #fff;
   transform: translateY(-1px) rotate(-45deg); opacity: 0;
 }
-.tick:checked { background: var(--good); border-color: var(--good); }
-.tick:checked::after { opacity: 1; }
-.tick:focus-visible { outline: 2px solid var(--accent-soft); outline-offset: 1px; }
+input[type=checkbox].tick:checked { background: var(--good); border-color: var(--good); }
+input[type=checkbox].tick:checked::after { opacity: 1; }
+input[type=checkbox].tick:focus-visible { outline: 2px solid var(--accent-soft); outline-offset: 1px; }
+input[type=checkbox].tick:active { transform: scale(.9); }
+/* The circle that was just ticked pops. Only that one: the class is set for a
+   single render, so a re-render does not replay it on every done row. */
+.crow.pop input[type=checkbox].tick:checked { animation: tickpop .35s cubic-bezier(.2, 1.5, .4, 1); }
+.crow.pop input[type=checkbox].tick:checked::before {
+  content: ''; position: absolute; inset: -4px; border-radius: 50%;
+  border: 2px solid var(--good); animation: ringout .55s ease-out forwards;
+}
+@keyframes tickpop { 0% { transform: scale(.6); } 60% { transform: scale(1.18); } 100% { transform: scale(1); } }
+@keyframes ringout { from { transform: scale(.7); opacity: .9; } to { transform: scale(1.9); opacity: 0; } }
 
 .crow-shot {
   flex: none; width: 60px; height: 34px; padding: 0; border: 1px solid var(--line);
@@ -1111,8 +1161,20 @@ ol.steps li { font-size: .82rem; margin: .18rem 0; }
 .crow-mins.yours { color: var(--ink-2); }
 .crow-mins.logged { color: var(--good); }
 
-.crow.done .crow-name { color: color-mix(in srgb, var(--good) 65%, var(--ink)); }
+/* Done is the whole row, not just the tick: green wash, green edge, green
+   name and minutes. His words: the text turning green was "way too subtle". */
+.crow.done {
+  background: color-mix(in srgb, var(--good) 12%, var(--panel));
+  box-shadow: inset 3px 0 0 var(--good);
+  border-radius: 10px; border-top-color: transparent; margin: .15rem 0;
+}
+.crow.done + .crow { border-top-color: transparent; }
+.crow.done .crow-name { color: color-mix(in srgb, var(--good) 70%, var(--ink)); }
+.crow.done .crow-mins { color: var(--good); font-weight: 600; }
+.crow.done .crow-shot { border-color: color-mix(in srgb, var(--good) 40%, var(--line)); }
 .crow.started .sumchip { color: var(--ink-2); background: var(--line-2); }
+.crow-head { transition: transform .12s; }
+.crow-head:active { transform: scale(.992); }
 .crow.editing {
   background: var(--panel-2); border-radius: 10px; border-top-color: transparent;
   margin: .25rem 0; padding: .55rem .5rem .6rem;

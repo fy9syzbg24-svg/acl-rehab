@@ -145,7 +145,7 @@ low load and sits on the days between. Aerobic work is most days.
 big strength workout, so on a clinic day the app asks only for the tendon
 loading and the balance work at home. Doubling up is how you end up too sore to
 train the next day. Clinic days live in `program.clinicDays` (ISO date -> true);
-tap the diamond on the day plan line to mark or unmark one by hand.
+the day's menu on Today (the three dots) marks or unmarks one by hand.
 
 `tools/clinic_days.py` fills them in from the calendar:
 
@@ -204,6 +204,10 @@ surface, and analysis belongs on the bigger screens. His reason is screen real
 estate, not a change of mind, so the old rule still binds in one respect: there
 is NO parallel phone implementation. The phone renders the same view modules;
 what changes is what it leads with.
+
+**The phone opens on Today.** It used to open on Supplements, because that was
+the list checked several times a day; the day's supplements are on Today now,
+so every device opens on the same screen.
 
 **The document scrolls: do not "fix" that.** An earlier version pinned the
 body and scrolled an inner container. It looked equivalent and was not: iOS
@@ -338,11 +342,12 @@ early is allowed and recorded; the log is a record of what happened.
 ## Day sets: "what do I do today?"
 
 `program.days[pid]` (synced as `p|days|<pid>`) holds the weekdays each program
-item is planned for. Today shows the day's set first, counts done against THAT
-(`Rehab 2/10`, not `2/17`), and folds everything else into "Not planned today",
-still tickable. A day with nothing planned says so and shows the whole list.
-Edit the days on the Program tab (seven chips per exercise, always all seven
-rendered); the "Your week" card at the top shows how the week lands.
+item is planned for. Today lists the day's set, counts done against THAT
+(`3 of 15 done`, not `3 of 25`), and folds everything else into "Not planned
+today", still tickable. A day with nothing planned says so and shows the whole
+list. Edit the days on the Program tab (seven chips per exercise, always all
+seven rendered); the strip of eight chips at the top of that page (All plus the
+seven days) filters the list to a day, and today's chip carries a dot.
 
 The seed in `DEFAULT_DAYS` is **my default, not the clinician's**: the PhysiApp
 export gives no frequency. It follows the plan's Month 2 weekly targets (3
@@ -353,9 +358,9 @@ refuses if any days exist; same contract as the supplement seed, so his
 arrangement is never overwritten. An item with no entry means every day; an
 empty list means never (the jump-prep exercise, until it is cleared).
 
-**"Same as last time"** (Rehab and Gym segments) ticks whatever was LOGGED on
-the most recent earlier day for that list, with its numbers; rows already on
-today keep today's numbers. Rows with numbers typed but never ticked are not a
+**"Same as last time"** (in the day's menu on Today) ticks whatever was LOGGED
+on the most recent earlier day, with its numbers; rows already on today keep
+today's numbers. Rows with numbers typed but never ticked are not a
 session (the same rule as the week bar), so they do not count as "last time".
 
 Month markers with no measurement yet show "Not tested yet" and no pace badge:
@@ -374,6 +379,66 @@ the tab bar) can change without waiting for the cache generation to roll.
 Settings → **Force update the app** is the manual escape hatch: it unregisters
 the worker, clears the caches and reloads with a cache-busting query, while
 deliberately leaving IndexedDB and localStorage alone.
+
+## Today is a checklist
+
+He opens the app to answer one question: what do I do today. So Today is the
+date, one line saying what the day is for and what it costs ("Everyday rehab ·
+15 to do · about 1h 30m"), then the day's exercises as a grouped list with a
+circle to tick each one, then the day's supplements, the knee check-in as one
+collapsed line, a note, and one line of feedback on the week at the very
+bottom. On his phone the first exercise is on the first screen (197 px down;
+it was 962 px).
+
+Everything that used to sit above the list is on **Progress > Overview**: the
+six month road, this week's cadence, the insight cards and the month board.
+Nothing was deleted; it moved. Tapping a category on that cadence bar opens
+the matching goal group on Today, which is the one place to log towards a plan
+target that no program row covers.
+
+Under the list: "Not planned today" (the rest of the program, still tickable)
+and "This week's targets" (the plan's weekly targets as groups you can log
+into). Both fold, and their open state lives on `ctx` so a tick does not close
+them. The bulk actions (same as last time, tick everything, repeat last
+session, the clinic program, record a test, mark a clinic day, clear the day)
+are behind the three dots so the header stays calm.
+
+Tapping a row's name opens it for numbers, exactly as before: ticking never
+opens, opening never ticks. A gym row that is open also shows its resistance
+boards. "Add something else" is the exercise picker; rows he adds himself sit
+in the same list and are removed from inside the open row.
+
+**The supplements block is the same rows as the Supplements tab**
+(`renderSuppGroups` / `bindSuppGroups` in `supplements.js`), so the two cannot
+drift. Between midnight and 5am it shows yesterday's list, exactly as the tab
+does, and says so. Editing the list (add, remove, reorder, as-needed
+medication) stays on the tab.
+
+## Minutes per exercise
+
+He wants to know what a session costs before he starts. `app/js/timing.js`
+derives a figure from the prescription: 3 seconds a rep, a hold of 10 seconds
+or more stands alone with a rest after each one, sets 30 seconds apart unless
+the item says otherwise ("2 min"), each side doubles the work, cardio is the
+minutes logged last time or 20. Two known slow movements have their own per-rep
+time (the star excursion, the wall squat). It says it is an estimate.
+
+A number he types wins. It lives in `program.mins[pid]` (synced as
+`p|mins|<pid>`, a sub-map, registered in `SUB_MAPS` with its own regression
+test) and can be set from the open row on Today or on the Program page.
+Clearing the box goes back to the estimate. The day's header sums the planned
+rows ("about 1h 22m left" once some are done); the Program page sums each
+list and each filtered day.
+
+## My Program
+
+One page, two sections (Rehab, Gym), one filter. The strip at the top is eight
+chips, All and the seven days, always all eight: tapping a day shows what is
+planned that day across both sections and how long it adds up to; tapping it
+again, or All, shows everything. Each exercise is a compact row (number,
+picture, name, prescription and minutes, the seven day chips that change its
+arrangement) and opens on tap for the written steps, notes, band, progression
+and the minutes override. The gym's resistance boards live in the open row.
 
 ## Design language
 
@@ -394,11 +459,21 @@ adding any surface; each one exists because its violation was called out.
   3-D sticker.
 - **Inputs are sized by class, never inline font-size**: an inline size beats
   the 16px floor and iOS zooms the page on focus (`.in-num`, `.sel-sm`).
-- **Segment labels shorten on a phone, in his words:** Rehab, Gym, Goals,
-  Other, Completed (`.lbl-full` / `.lbl-short`). Full wording everywhere else.
 - **Sub-tab rows scroll on one line** (`.tabrow`; Tests pins its action beside
-  them with `.panelbar`). Today's session segments deliberately WRAP instead , 
-  all five stay visible.
+  them with `.panelbar`).
+- **A list of things to do is a grouped list, not a stack of cards.** One card,
+  hairline rows, the tick circle on the left carrying the category colour and
+  turning green when done, the name, one quiet line under it, the minutes on
+  the right. Nothing else on the row until it is opened (`.crow`, Today;
+  `.prog-row`, Program).
+- **Notices are one line.** A badge or a sentence, with the detail behind a
+  tap. His words: the old paragraphs "end up having lots of sentences and take
+  up a lot of visual real estate."
+- **Bulk actions live behind one menu** (the three dots on Today), so the
+  header stays calm and controls never come and go.
+- **No em dash or en dash anywhere**: UI copy, data labels, comments, commit
+  messages. Ranges read "2 to 3", empty cells a middle dot. Grep for both
+  characters before handing anything over.
 - **Numbers pin, labels wrap.** A count and its input sit in a fixed grid
   column (`.targetrow`), never in a flex row that rewraps per label length.
 - **The header places chip, title and gear by explicit grid column,** not
@@ -463,7 +538,8 @@ is a test asserting no unregistered top-level keys; keep it passing.
 
 ## Tests
 
-Open `/dev-tests.html` against a running server. 71 assertions across the merge
-rules and the sync engine, including both devices editing offline, same-record
+Open `/dev-tests.html` against a running server. 103 assertions: the merge
+rules and the sync engine (`dev-merge.js`, `dev-engine.js`) and the time
+estimator (`dev-timing.js`), including both devices editing offline, same-record
 conflicts, deletions propagating, stale devices failing to resurrect deleted
 records, backend outages and interrupted writes.

@@ -6,6 +6,7 @@ import { addDays, num, round } from './util.js';
 import { EXERCISE_BY_ID } from '../data/exercises.js';
 
 /** Consecutive days with anything logged, ending today or yesterday. */
+export function streakDays(iso) { return streak(iso); }
 function streak(iso) {
   const has = (d) => {
     const day = state.data.days[d];
