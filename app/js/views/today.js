@@ -440,6 +440,7 @@ function programRow(item, iso, entries, ctx) {
         <span class="pname">${esc(item.title || ex?.name || item.ex)}</span>
         <span class="prow-tags">
           ${item.sets ? `<span class="pill">${item.sets} × ${item.reps ?? '?'}${item.hold ? ' · hold ' + esc(item.hold) : ''}</span>` : ''}
+          ${item.rest ? `<span class="pill">${esc(item.rest)} rest</span>` : ''}
           ${item.sides === 'each' ? '<span class="pill">each side</span>' : ''}
           ${item.sides === 'left' ? '<span class="pill left">left only</span>' : ''}
           ${band ? bandChip(band) : ''}
@@ -452,6 +453,7 @@ function programRow(item, iso, entries, ctx) {
         <span class="editcue">edit</span></div>` : ''}
     </div>
     ${item.notYet && !started ? `<div class="tiny prow-note" style="color:var(--warn)">${esc(item.notYetNote)}</div>` : ''}
+    ${item.pre ? `<div class="tiny prow-note">Before this: ${esc(item.pre)}</div>` : ''}
     ${editing ? mine.map((e) => entryFields(e, ex)).join('') + logBar(item.id) : ''}
   </div>`;
 }

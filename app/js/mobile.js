@@ -15,6 +15,7 @@
 
 import {
   state, subscribe, load, runSync, syncState, pendingSyncCount, onRemoteChange,
+  surgeryDate,
 } from './store.js';
 import { todayIso, postOp, applyStoredTheme } from './util.js';
 import { renderToday, bindToday } from './views/today.js';
@@ -105,8 +106,8 @@ function paintChrome() {
   if (document.title !== title) document.title = title;
 
   const today = todayIso();
-  const L = postOp(s.surgeryLeft, today);
-  const R = postOp(s.surgeryRight, today);
+  const L = postOp(surgeryDate('left'), today);
+  const R = postOp(surgeryDate('right'), today);
   const bits = [];
   if (L && !L.future) bits.push(`<b>L</b> ${L.weeks}w`);
   if (R && !R.future) bits.push(`<b>R</b> ${R.weeks}w`);

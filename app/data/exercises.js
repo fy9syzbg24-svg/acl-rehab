@@ -22,6 +22,7 @@ export const EXERCISES = [
   { id: 'leg_press', name: 'Single-leg leg press', cat: 'strength', months: [1, 2, 3, 4, 5, 6], track: 'setsreps', measure: 'leg_press_1rm', gym: true, clinic: true },
   { id: 'multi_lunge', name: 'Multidirectional lunge, weighted', cat: 'strength', months: [2, 3, 4, 5, 6], track: 'setsreps' },
   { id: 'wall_sit_adductor', name: 'Wall squat with a ball squeeze between the knees', cat: 'strength', months: [1, 2, 3], track: 'time', clinic: true, secs: true },
+  { id: 'tendon_load_iso_squat', name: 'Tendon loading mini squat, isometric hold', cat: 'strength', months: [1, 2, 3, 4, 5, 6], track: 'time', clinic: true, secs: true },
 
   // ---- Knee extension (open chain) --------------------------------------
   { id: 'sl_full_quad', name: 'Single-leg knee extension — full range', cat: 'strength', months: [1, 2, 3, 4, 5, 6], track: 'setsreps', chain: 'open', gym: true, clinic: true,

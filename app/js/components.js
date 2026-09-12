@@ -132,8 +132,9 @@ export function openPicture(pid) {
 export function prescriptionPills(p) {
   const bits = [];
   if (p.sets) bits.push(`${p.sets} sets`);
-  if (p.reps) bits.push(`${p.reps} reps`);
+  if (p.reps) bits.push(`${p.reps} rep${p.reps === 1 ? '' : 's'}`);
   if (p.hold) bits.push(`hold ${p.hold}`);
+  if (p.rest) bits.push(`${p.rest} between sets`);
   if (p.sides === 'each') bits.push('each side');
   if (p.sides === 'left') bits.push('left side only');
   if (p.goal) bits.push(`goal: ${p.goal}`);

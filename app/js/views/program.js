@@ -114,6 +114,7 @@ function exerciseCard(p) {
         ${prescriptionPills(p)}
         ${dayChips(p.id)}
         ${p.notYet ? `<div class="callout warn small">${esc(p.notYetNote)}</div>` : ''}
+        ${p.pre ? `<div class="callout small" style="margin-bottom:.5rem"><strong>Before this:</strong> ${esc(p.pre)}</div>` : ''}
         ${p.notes?.length ? `<div class="callout small" style="margin-bottom:.5rem">${p.notes.map(esc).join('<br>')}</div>` : ''}
         ${p.photoNote ? `<div class="tiny muted" style="margin:-.2rem 0 .5rem">${esc(p.photoNote)}</div>` : ''}
 

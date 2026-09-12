@@ -462,6 +462,18 @@ export function deleteMeasurement(id) {
 
 // ------------------------------------------------------ weekly cadence ------
 /** Used only when a date sits outside the six-month plan window. */
+/**
+ * Surgery date for a side. Settings win, but a device whose settings were
+ * seeded before the case file arrived has nulls there, so fall back to the
+ * synced case file rather than render an empty post-op strip.
+ */
+export function surgeryDate(side) {
+  const s = state.data.settings || {};
+  const set = side === 'left' ? s.surgeryLeft : s.surgeryRight;
+  if (set) return set;
+  return state.data.caseFile?.case?.legs?.[side]?.date || null;
+}
+
 export const DEFAULT_WEEKLY_TARGET = 5;
 
 function exerciseFor(exId) {
