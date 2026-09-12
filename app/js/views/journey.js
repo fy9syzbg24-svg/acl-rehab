@@ -5,7 +5,7 @@
 
 import { esc, todayIso, daysBetween } from '../util.js';
 import { PLAN_MONTHS, PLAN_START, PLAN_END } from '../../data/plan.js';
-import { monthCompletion } from './planview.js';
+import { monthCompletion } from '../goals.js';
 
 // `short` is what fits under a ~130px band on an iPhone-width screen; `label`
 // is the full text for anyone with room. Truncating with an ellipsis instead

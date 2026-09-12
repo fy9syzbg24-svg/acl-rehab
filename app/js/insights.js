@@ -5,6 +5,15 @@ import { state, entriesFor, hasCheckin, measurementsFor } from './store.js';
 import { addDays, num, round } from './util.js';
 import { EXERCISE_BY_ID } from '../data/exercises.js';
 
+// Drawn glyphs, never emoji: iOS renders emoji as stickers and they read as
+// "random little things". Stroke SVGs take the card's colour.
+const ICON = {
+  flame: '<svg viewBox="0 0 24 24"><path d="M12 3c1 3 4 4.5 4 9a4 4 0 0 1-8 0c0-2 1-3 1-3s.5 2 2 2c0-3-1-5 1-8z"/></svg>',
+  star: '<svg viewBox="0 0 24 24"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></svg>',
+  up: '<svg viewBox="0 0 24 24"><path d="M4 17l6-6 4 4 6-7"/><path d="M15 8h5v5"/></svg>',
+  warn: '<svg viewBox="0 0 24 24"><path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17.5v.5"/></svg>',
+};
+
 /** Consecutive days with anything logged, ending today or yesterday. */
 export function streakDays(iso) { return streak(iso); }
 function streak(iso) {
@@ -91,23 +100,23 @@ export function computeInsights(iso) {
   const out = [];
 
   const s = streak(iso);
-  if (s >= 2) out.push({ icon: '🔥', title: `${s}-day streak`, sub: 'logged every day. Keep the chain going', kind: 'good' });
+  if (s >= 2) out.push({ icon: ICON.flame, title: `${s}-day streak`, sub: 'logged every day. Keep the chain going', kind: 'good' });
 
   const pb = recentPB(iso);
   if (pb) {
     const name = EXERCISE_BY_ID[pb.ex]?.name || pb.ex;
-    out.push({ icon: '🏆', title: `New best: ${round(pb.now, 1)} ${pb.unit}`, sub: `${name}: up from ${round(pb.was, 1)}`, kind: 'good' });
+    out.push({ icon: ICON.star, title: `New best: ${round(pb.now, 1)} ${pb.unit}`, sub: `${name}: up from ${round(pb.was, 1)}`, kind: 'good' });
   }
 
   const g = testGain(iso);
   if (g) {
-    out.push({ icon: '📈', title: `${MEASURE_NAMES[g.id] || g.id} climbing`, sub: `${g.leg === 'L' ? 'left' : 'right'}: ${round(g.was, 1)} → ${round(g.now, 1)}`, kind: 'good' });
+    out.push({ icon: ICON.up, title: `${MEASURE_NAMES[g.id] || g.id} climbing`, sub: `${g.leg === 'L' ? 'left' : 'right'}: ${round(g.was, 1)} → ${round(g.now, 1)}`, kind: 'good' });
   }
 
   const p = painTrend(iso);
   if (p) {
     if (p.now < p.was) out.push({ icon: '💚', title: 'Pain trending down', sub: `avg ${p.was} → ${p.now} over two weeks`, kind: 'good' });
-    else if (p.now > p.was + 0.5) out.push({ icon: '⚠️', title: 'Pain creeping up', sub: `avg ${p.was} → ${p.now}. Ease off`, kind: 'warn' });
+    else if (p.now > p.was + 0.5) out.push({ icon: ICON.warn, title: 'Pain creeping up', sub: `avg ${p.was} → ${p.now}. Ease off`, kind: 'warn' });
   }
 
   return out.slice(0, 3);

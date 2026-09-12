@@ -14,10 +14,8 @@ function syncCard() {
   if (!isConfigured()) {
     return `
       <div class="callout small" style="margin-bottom:.8rem">
-        This Mac keeps its own complete copy of your log on disk and works with no
-        internet at all. Connecting adds a private GitHub repo as a relay, so your
-        iPhone can pick up changes when either device is online, neither needs the
-        other to be switched on.
+        Your log lives on this Mac and works offline. Connecting adds a private GitHub
+        repo as a relay so the iPhone and iPad stay in step.
       </div>
       <div class="grid3">
         <label class="fld">GitHub user<input id="sy-owner" value="${esc(c.owner || '')}" autocomplete="off" spellcheck="false"></label>
@@ -166,9 +164,7 @@ export function renderSettings() {
           <span class="tiny muted" data-refresh-status></span>
         </div>
         <div class="tiny muted" style="margin-top:.35rem">
-          Re-downloads the app's files and reloads. <strong>Your data is not touched</strong>:
-          it lives in a separate store, and on the server. Use this if a change you expected
-          has not appeared; you never need to re-add the Home Screen icon.
+          Re-downloads the app's files and reloads. Your data is not touched.
         </div>
       </div>
     </section>
@@ -177,9 +173,8 @@ export function renderSettings() {
       <header><h2>PhysiApp sync</h2><span class="sub">pulls what you actually ticked off</span></header>
       <div class="card-body">
         <div class="callout small" style="margin-bottom:.8rem">
-          Signs in to au.physiapp.com the way the website does and reads your real numbers:
-          the reps, sets and hold you entered when you tapped an exercise done. It reads only;
-          it never marks anything complete on their side.
+          Reads what you ticked off in PhysiApp, with the numbers you entered. Read only; it
+          never marks anything on their side.
         </div>
 
         ${connected ? `
@@ -200,11 +195,7 @@ export function renderSettings() {
               <input data-pa="birthYear" type="number" min="1900" max="2100" value="${esc(String(pa.birthYear || ''))}" autocomplete="off" placeholder="e.g. 1993">
             </label>
           </div>
-          <div class="tiny muted">
-            Typed once and kept in <span class="mono">data/rehab-data.json</span> on this Mac, nowhere
-            else. Their session lasts 14 days and it re-signs in on its own, so you should not need
-            to come back here.
-          </div>
+          <div class="tiny muted">Kept on this Mac only. It re-signs in on its own.</div>
         </details>
 
         <label class="row" style="gap:.5rem;align-items:center;margin-bottom:.6rem;cursor:pointer">
@@ -220,16 +211,10 @@ export function renderSettings() {
           <span class="tiny muted" data-pa-status></span>
         </div>` : `
         <div class="callout small">
-          <strong>Runs on your Mac.</strong> Reading PhysiApp needs a server: they send no
-          CORS header, so a browser here is blocked from signing in to them. The results
-          still reach this device, they travel with your normal data sync.
+          Runs on the Mac only. What it finds reaches this device by the normal sync.
         </div>`}
         ${SERVER_MODE ? `
-        <div class="tiny muted" style="margin-top:.4rem">
-          30 days reads every completed exercise on every day one at a time, a few
-          minutes if the month is full. Nothing else stops working while it runs, and you
-          can leave the tab.
-        </div>` : ''}
+        <div class="tiny muted" style="margin-top:.4rem">30 days takes a few minutes; you can leave the tab.</div>` : ''}
 
         <details class="disc" style="margin-top:.7rem">
           <summary>What it will and won't bring across</summary>
@@ -260,9 +245,8 @@ export function renderSettings() {
         <ul class="plain">
           ${CASE.sources.map((s2) => `<li><strong>${esc(s2.label)}</strong>, ${esc(s2.note)}</li>`).join('')}
         </ul>
-        <div class="callout small" style="margin-top:.7rem">
-          This is a tracker, not medical advice. Every threshold in it is copied from your own documents;
-          anything I filled in myself is labelled <span class="pill">my default</span>.
+        <div class="tiny muted" style="margin-top:.7rem">
+          Not medical advice. Thresholds come from your documents; my own defaults are labelled.
         </div>
       </div>
     </section>
@@ -301,7 +285,7 @@ export function bindSettings(root, ctx, rerender) {
     } catch (err) {
       btn.disabled = false;
       if (status) status.textContent = '';
-      toast(`⚠️ <b>Could not clear the cache</b><br><span>${esc(String(err.message || err))}</span>`, 'warn');
+      toast(`<b>Could not clear the cache</b><br><span>${esc(String(err.message || err))}</span>`, 'warn');
     }
   });
 
@@ -349,32 +333,32 @@ export function bindSettings(root, ctx, rerender) {
     const owner = root.querySelector('#sy-owner').value.trim();
     const repo = root.querySelector('#sy-repo').value.trim();
     const token = root.querySelector('#sy-token').value.trim();
-    if (!owner || !repo || !token) return toast('⚠️ <b>Fill in all three</b>', 'warn');
+    if (!owner || !repo || !token) return toast('<b>Fill in all three</b>', 'warn');
     toast('Checking access…');
     const check = await ghCheckAccess({ owner, repo, token });
     if (!check.ok) {
-      return toast(check.reason === 'bad-token' ? '⚠️ <b>Token rejected</b>'
-        : check.reason === 'no-repo' ? '⚠️ <b>Repo not found</b><br><span>check the name, and that the token can see it</span>'
-        : `⚠️ <b>${esc(check.reason)}</b>`, 'warn');
+      return toast(check.reason === 'bad-token' ? '<b>Token rejected</b>'
+        : check.reason === 'no-repo' ? '<b>Repo not found</b><br><span>check the name, and that the token can see it</span>'
+        : `<b>${esc(check.reason)}</b>`, 'warn');
     }
-    if (!check.private) toast('⚠️ <b>That repo is public</b><br><span>your log would be readable. Use a private one</span>', 'warn');
+    if (!check.private) toast('<b>That repo is public</b><br><span>your log would be readable. Use a private one</span>', 'warn');
     setConfig({ owner, repo, token, path: 'state.json' });
     const res = await runSync('connect');
-    toast(res.ok ? '✅ <b>Connected and synced</b>' : `⚠️ <b>Connected, but sync failed</b><br><span>${esc(res.reason || '')}</span>`, res.ok ? '' : 'warn');
+    toast(res.ok ? '<b>Connected and synced</b>' : `<b>Connected, but sync failed</b><br><span>${esc(res.reason || '')}</span>`, res.ok ? '' : 'warn');
     rerender();
   });
 
   root.querySelector('[data-sy-sync]')?.addEventListener('click', async () => {
     const res = await runSync('manual');
     toast(res.ok
-      ? `✅ <b>Synced</b><br><span>${res.pulled || 0} in · ${res.pushed || 0} out</span>`
-      : `⚠️ <b>Sync failed</b><br><span>${esc(res.reason || '')}</span>`, res.ok ? '' : 'warn');
+      ? `<b>Synced</b><br><span>${res.pulled || 0} in · ${res.pushed || 0} out</span>`
+      : `<b>Sync failed</b><br><span>${esc(res.reason || '')}</span>`, res.ok ? '' : 'warn');
     rerender();
   });
 
   root.querySelector('[data-sy-retoken]')?.addEventListener('click', async () => {
     const token = root.querySelector('#sy-newtoken').value.trim();
-    if (!token) return toast('⚠️ <b>Paste the new token first</b>', 'warn');
+    if (!token) return toast('<b>Paste the new token first</b>', 'warn');
     const { owner, repo } = getConfig();
     toast('Checking access…');
     // Verify BEFORE storing: a bad paste must not replace a token that might
@@ -382,15 +366,15 @@ export function bindSettings(root, ctx, rerender) {
     const check = await ghCheckAccess({ owner, repo, token });
     if (!check.ok) {
       return toast(check.reason === 'bad-token'
-        ? '⚠️ <b>That token was rejected too</b><br><span>check it has Contents read and write on this repo, and has not expired</span>'
-        : check.reason === 'no-repo' ? '⚠️ <b>The token cannot see that repo</b>'
-        : `⚠️ <b>${esc(check.reason)}</b>`, 'warn');
+        ? '<b>That token was rejected too</b><br><span>check it has Contents read and write on this repo, and has not expired</span>'
+        : check.reason === 'no-repo' ? '<b>The token cannot see that repo</b>'
+        : `<b>${esc(check.reason)}</b>`, 'warn');
     }
     setConfig({ token });
     const res = await runSync('retoken');
     toast(res.ok
-      ? `✅ <b>Reconnected</b><br><span>${res.pulled || 0} in · ${res.pushed || 0} out</span>`
-      : `⚠️ <b>Still failing</b><br><span>${esc(res.reason || '')}</span>`, res.ok ? '' : 'warn');
+      ? `<b>Reconnected</b><br><span>${res.pulled || 0} in · ${res.pushed || 0} out</span>`
+      : `<b>Still failing</b><br><span>${esc(res.reason || '')}</span>`, res.ok ? '' : 'warn');
     rerender();
   });
 
@@ -415,7 +399,7 @@ export function bindSettings(root, ctx, rerender) {
   root.querySelector('[data-pa-auto]')?.addEventListener('change', (e) => {
     update((d) => { d.settings.physiappAuto = e.target.checked; });
     toast(e.target.checked
-      ? '✅ <b>Automatic sync on</b><br><span>runs each time you open the app</span>'
+      ? '<b>Automatic sync on</b><br><span>runs each time you open the app</span>'
       : '<b>Automatic sync off</b><br><span>use the buttons below instead</span>');
     rerender();
   });
@@ -446,23 +430,23 @@ export function bindSettings(root, ctx, rerender) {
         const out = await res.json();
         if (!out.ok) {
           if (status) status.textContent = '';
-          toast(`⚠️ <b>${esc(out.message || out.error || 'Sync failed')}</b>`, 'warn');
+          toast(`<b>${esc(out.message || out.error || 'Sync failed')}</b>`, 'warn');
           return;
         }
         const bits = [];
         if (out.added) bits.push(`${out.added} added`);
         if (out.updated) bits.push(`${out.updated} updated`);
         if (out.keptYours) bits.push(`${out.keptYours} of yours kept`);
-        toast(`✅ <b>${esc(out.message)}</b>${bits.length ? `<br><span>${esc(bits.join(' · '))}</span>` : ''}`);
+        toast(`<b>${esc(out.message)}</b>${bits.length ? `<br><span>${esc(bits.join(' · '))}</span>` : ''}`);
         if (out.unmapped?.length) {
-          toast(`⚠️ <b>Not recognised</b><br><span>${esc(out.unmapped.join(', '))}</span>`, 'warn');
+          toast(`<b>Not recognised</b><br><span>${esc(out.unmapped.join(', '))}</span>`, 'warn');
         }
         // The server wrote straight to the file, so this tab's copy is stale.
         await load();
         rerender();
       } catch (err) {
         if (status) status.textContent = '';
-        toast(`⚠️ <b>Could not reach the server</b><br><span>${esc(String(err.message || err))}</span>`, 'warn');
+        toast(`<b>Could not reach the server</b><br><span>${esc(String(err.message || err))}</span>`, 'warn');
       } finally {
         clearInterval(ticker);
         if (status) status.textContent = '';

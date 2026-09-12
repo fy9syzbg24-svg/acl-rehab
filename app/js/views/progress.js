@@ -3,7 +3,7 @@ import { state, getDay, loggedDates, hasCheckin } from '../store.js';
 import { PLAN_MONTHS, monthForDate } from '../../data/plan.js';
 import { CASE, CLINIC_TIMELINE } from '../../data/history.js';
 import { heatmap, lineChart } from '../components.js';
-import { monthCompletion } from './planview.js';
+import { monthCompletion } from '../goals.js';
 import { renderWeekPanel, bindWeekPanel } from './week.js';
 import { renderMeasuresPanel, bindMeasuresPanel } from './measures.js';
 import { renderMelbourne, bindMelbourne } from './melbourneview.js';

@@ -132,7 +132,7 @@ async function autoSync() {
       // A rejected code is, otherwise syncing dies quietly and the log goes
       // stale without you ever being told.
       if (out.kind && out.kind !== 'network') {
-        toast(`⚠️ <b>PhysiApp sync stopped</b><br><span>${esc(out.message)}</span>`, 'warn');
+        toast(`<b>PhysiApp sync stopped</b><br><span>${esc(out.message)}</span>`, 'warn');
       }
       return;
     }
@@ -140,7 +140,7 @@ async function autoSync() {
     if (!(out.added || out.updated)) return;
     await load();
     paint();
-    toast(`✅ <b>${esc(out.message)}</b><br><span>from PhysiApp, just now</span>`);
+    toast(`<b>${esc(out.message)}</b><br><span>from PhysiApp, just now</span>`);
   } catch (err) {
     /* offline, or the Mac woke without Wi-Fi, never block the app for it */
   }

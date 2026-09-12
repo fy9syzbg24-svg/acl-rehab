@@ -654,8 +654,8 @@ function logDoseSheet(med, iso, rerender) {
         closeModal();
         const after = prnStatus(med);
         toast(after.clear
-          ? `✅ <b>${esc(med.name)} logged</b>`
-          : `✅ <b>${esc(med.name)} logged</b><br><span>next dose clear at ${esc(hhmm(after.nextAt))}</span>`);
+          ? `<b>${esc(med.name)} logged</b>`
+          : `<b>${esc(med.name)} logged</b><br><span>next dose clear at ${esc(hhmm(after.nextAt))}</span>`);
         rerender();
       });
     },

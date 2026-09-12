@@ -10,10 +10,11 @@ import { esc, todayIso, daysBetween, weekStart, pct, uid } from '../util.js';
 import { state, update, focusCoverage } from '../store.js';
 import { openMeasureEntry } from '../components.js';
 import { PLAN_MONTHS, monthForDate } from '../../data/plan.js';
-import { goalProgress } from './planview.js';
+import { CATEGORIES } from '../../data/measurements.js';
+import { goalProgress } from '../goals.js';
 
 /** Fraction of the month gone, 0 to 1. */
-function monthElapsed(month, iso) {
+export function monthElapsed(month, iso) {
   const total = daysBetween(month.start, month.end) + 1;
   const gone = Math.min(total, Math.max(0, daysBetween(month.start, iso) + 1));
   return { total, gone, left: total - gone, frac: gone / total };
@@ -57,8 +58,8 @@ export function renderMonthBoard(ctx, atIso = null) {
     </button>
 
     ${boardClosed(ctx) ? '' : `<div class="card-body board-body">
-      ${markerBlock(goals, el)}
-      ${focusBlock(month, iso)}
+      ${markerCards(goals, el)}
+      ${focusTiles(month, weekStart(iso), iso, { title: "The month's focus, this week" })}
       ${carriedBlock(month)}
     </div>`}
   </section>`;
@@ -79,11 +80,15 @@ function ring(percent, label) {
 }
 
 // --------------------------------------------------------- month markers ---
-function markerBlock(goals, el) {
+/**
+ * The month's markers as cards: a bar, the best so far, on pace or behind,
+ * and a button to record straight into it. Shared with the Plan tab.
+ */
+export function markerCards(goals, el, { title = 'Markers for this month', days = true } = {}) {
   return `
-  <div class="section-title">Markers for this month
-    <span class="tiny muted" style="text-transform:none;letter-spacing:0;font-weight:450">
-      · ${el.gone} of ${el.total} days gone</span></div>
+  <div class="section-title">${esc(title)}
+    ${days ? `<span class="tiny muted" style="text-transform:none;letter-spacing:0;font-weight:450">
+      · ${el.gone} of ${el.total} days gone</span>` : ''}</div>
   <div class="markers">
     ${goals.map(({ g, p }) => {
       const pace = paceOf(p, el.frac);
@@ -117,18 +122,22 @@ function boardClosed(ctx) {
 // (weekBar in overview.js), not inside it.
 
 // ------------------------------------------------------------ focus work ---
-function focusBlock(month, iso) {
-  const wkStart = weekStart(iso);
+/**
+ * The month's focus bullets as tiles that tick themselves from what is
+ * logged between `from` and `to`. Judgement calls sit behind a disclosure
+ * with a manual tick. Shared with the Plan tab, which passes the whole month.
+ */
+export function focusTiles(month, from, to, { title = "The month's focus" } = {}) {
   const items = month.focus.flatMap((f, fi) => f.items.map((it, ii) => ({ it, key: `${month.id}:${fi}:${ii}` })));
-  const auto = items.map((x) => ({ ...x, cov: focusCoverage(x.it, wkStart, iso) }))
+  const auto = items.map((x) => ({ ...x, cov: focusCoverage(x.it, from, to) }))
     .filter((x) => x.cov.kind === 'auto');
-  const manual = items.filter((x) => focusCoverage(x.it, wkStart, iso).kind === 'manual');
+  const manual = items.filter((x) => focusCoverage(x.it, from, to).kind === 'manual');
   const doneCount = auto.filter((x) => x.cov.hit).length;
 
   return `
-  <div class="section-title" style="margin-top:1rem">The month's focus, this week
+  <div class="section-title" style="margin-top:1rem">${esc(title)}
     <span class="tiny muted" style="text-transform:none;letter-spacing:0;font-weight:450">
-      · ${doneCount} of ${auto.length} touched · ticks itself from what you log</span></div>
+      · ${doneCount} of ${auto.length} touched</span></div>
   <div class="focusgrid">
     ${auto.map((x) => `
       <div class="focusitem ${x.cov.hit ? 'hit' : ''}" title="${esc(x.it.t)}">
@@ -137,7 +146,7 @@ function focusBlock(month, iso) {
         <span class="fcount tiny mono">${x.cov.days ? x.cov.days + 'd' : ''}</span>
       </div>`).join('')}
   </div>
-  ${manual.length ? `<details class="disc" style="margin-top:.5rem"><summary>${manual.length} judgement calls: tick these yourself</summary>
+  ${manual.length ? `<details class="disc" style="margin-top:.5rem"><summary>${manual.length} judgement call${manual.length === 1 ? '' : 's'}: tick these yourself</summary>
     ${manual.map((x) => {
       const on = !!state.data.planFocus[x.key];
       return `<label class="checkline ${on ? 'done' : ''}">
@@ -145,6 +154,26 @@ function focusBlock(month, iso) {
         <span class="t">${esc(x.it.t)}</span></label>`;
     }).join('')}
   </details>` : ''}`;
+}
+
+/** The plan's weekly targets for a month, as tiles: the number, its pips, where it came from. */
+export function targetTiles(month, { title = 'Each week this month' } = {}) {
+  const rows = month.weeklyTargets.filter((t) => !t.cats.includes('*'));
+  if (!rows.length) return '';
+  return `
+  <div class="section-title" style="margin-top:1rem">${esc(title)}</div>
+  <div class="weekcats">
+    ${rows.map((t) => {
+      const goal = state.data.settings.weeklyOverrides?.[t.id] ?? t.target;
+      const colour = CATEGORIES[t.cats[0]]?.color || 'var(--accent)';
+      return `<div class="weekcat" style="--c:${colour}" title="${esc(t.label)}">
+        <span class="wchead"><span class="wclabel tiny">${esc(shortCat(t.label))}</span>
+          <span class="tiny mono">${goal} a week</span></span>
+        <span class="pips">${Array.from({ length: goal }, () => '<i class="on"></i>').join('')}</span>
+        <span class="tiny muted">${t.src === 'plan' ? 'from the plan' : 'my starting number'}</span>
+      </div>`;
+    }).join('')}
+  </div>`;
 }
 
 /** Category labels have to fit on one line beside their count. */
@@ -164,7 +193,7 @@ export function shortCat(label) {
 /** Focus bullets are long; the grid needs a label, not a paragraph. */
 function shortFocus(text) {
   let s = text.replace(/^As tolerated:\s*/i, '').replace(/^Continue\s+/i, '').replace(/^Progress(ing)?\s+/i, '');
-  s = s.split(/\s*[, (]\s*/)[0];
+  s = s.split(/\s*[:(]\s*/)[0];   // the label ends at a gloss or a bracket
   const arrows = s.split('→').map((x) => x.trim()).filter(Boolean);
   if (arrows.length > 1) s = `${arrows[0]} → ${arrows[arrows.length - 1]}`;
   return s.length > 76 ? s.slice(0, 74).trimEnd() + '…' : s;
@@ -199,7 +228,11 @@ export function bindMonthBoard(root, ctx, rerender) {
     ctx.openBoard = boardClosed(ctx);
     rerender();
   });
+  bindMarkers(root, ctx, rerender);
+}
 
+/** The record and toggle buttons on marker cards, and the manual focus ticks. */
+export function bindMarkers(root, ctx, rerender) {
   // Log straight from the marker rather than hunting for it further down.
   root.querySelectorAll('[data-marker]').forEach((b) => b.addEventListener('click', (ev) => {
     ev.stopPropagation();
@@ -224,5 +257,10 @@ export function bindMonthBoard(root, ctx, rerender) {
         rerender();
       },
     });
+  }));
+  // The judgement calls: these were rendered on Overview but never bound there.
+  root.querySelectorAll('[data-focus]').forEach((cb) => cb.addEventListener('change', () => {
+    update((d) => { d.planFocus[cb.dataset.focus] = cb.checked || undefined; });
+    rerender();
   }));
 }
