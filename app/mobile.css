@@ -323,6 +323,15 @@ html, body.mobile { overscroll-behavior-y: contain; }
 }
 .msync.armed .msync-dot { background: var(--accent); }
 
-/* day-set chips need a thumb-sized target; the week grid stays seven-wide */
+/* day-set chips need a thumb-sized target */
 body.mobile .daychip { width: 32px; height: 32px; font-size: .8rem; }
-body.mobile .wd-what { display: none; }
+
+/* the checklist circle, and the compact minutes box, sized for a finger */
+body.mobile .tick { width: 28px; height: 28px; min-height: 0; padding: 0; }
+body.mobile .crow-head { gap: .6rem; }
+body.mobile .crow-shot { width: 56px; height: 32px; }
+body.mobile .crow-shot.plain .thumb { width: 56px !important; height: 32px !important; }
+body.mobile .dayfilter { gap: .2rem; }
+body.mobile .dayfilter button { padding: .35rem 0; min-height: 50px; border-radius: 9px; }
+body.mobile .dayfilter button .fd { font-size: .58rem; letter-spacing: .02em; }
+body.mobile .dayfilter button .fn { font-size: .98rem; }

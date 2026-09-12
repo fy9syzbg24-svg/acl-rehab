@@ -145,6 +145,23 @@ export function prescriptionPills(p) {
   </div>`;
 }
 
+/**
+ * The prescription as one quiet line for a list row: "3 × 6 each side · hold 1s
+ * · green band". `band` is the colour in use (his choice on the Program tab),
+ * which may differ from the prescribed one.
+ */
+export function prescriptionLine(p, band = p.band) {
+  const bits = [];
+  if (p.sets && p.reps) bits.push(`${p.sets} × ${p.reps}${p.sides === 'each' ? ' each side' : p.sides === 'left' ? ', left leg' : p.sides === 'right' ? ', right leg' : ''}`);
+  else if (p.reps) bits.push(`${p.reps} rep${p.reps === 1 ? '' : 's'}`);
+  else if (p.sets) bits.push(`${p.sets} set${p.sets === 1 ? '' : 's'}`);
+  if (p.hold) bits.push(`hold ${p.hold}`);
+  if (p.rest) bits.push(`rest ${p.rest}`);
+  const b = band ? BAND_BY_ID[band] : null;
+  if (b) bits.push(`<i class="swatch" style="background:${b.swatch}"></i>${esc(b.name)} band`);
+  return bits.map((x) => `<span>${x}</span>`).join('<span class="dot">·</span>');
+}
+
 /** Small bar chart of top load per session. */
 export function loadBars(series, height = 30) {
   if (!series.length) return `<div class="bars empty-bars" style="height:${height}px"></div>`;
@@ -464,6 +481,8 @@ export function heatmap(endIso, weeks, levelFor) {
  */
 export function renderDatePill(iso, { done = 0, showDone = true, today = todayIso() } = {}) {
   const isToday = iso === today;
+  // A date ahead of today is marked, so walking forward by accident is visible.
+  const future = iso > todayIso();
   return `<div class="datepill-wrap">
     <div class="datepill">
       <button class="dp-arrow" data-nav="-1" aria-label="Previous day">‹</button>
@@ -471,7 +490,7 @@ export function renderDatePill(iso, { done = 0, showDone = true, today = todayIs
         <span class="dp-cal" aria-hidden="true">
           <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
         </span>
-        <span class="dp-date">${esc(fmtDate(iso))}</span>
+        <span class="dp-date ${future ? 'future' : ''}">${esc(fmtDate(iso))}</span>
         <input type="date" data-jump value="${iso}" aria-label="Jump to a date">
       </span>
       <button class="dp-arrow" data-nav="1" aria-label="Next day">›</button>

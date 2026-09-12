@@ -172,16 +172,19 @@ const hhmm = (d) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinu
 const localIso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
 // --------------------------------------------------------------- render ---
-export function renderSupplements(ctx) {
-  const iso = ctx.suppDate || currentDayIso();
+/**
+ * The checklist rows, grouped morning / anytime / evening. Shared by the
+ * Supplements tab and the block on Today, so the two can never drift: same
+ * rows, same folding, same tick. `edit` adds the drag handles and delete
+ * marks; only the tab offers that.
+ */
+export function renderSuppGroups(iso, ctx, { edit = false } = {}) {
   const list = listFor(iso);
   const ticks = ticksOn(iso);
-  const score = suppScore(iso);
-
   const group = ([key, label]) => {
     const rows = list.filter((s) => (s.when || 'anytime') === key);
     // While editing, keep empty groups on screen so you can drag INTO them.
-    if (!rows.length && !ctx.suppEdit) return '';
+    if (!rows.length && !edit) return '';
     const done = rows.every((s) => ticks[s.id]);
     // A finished group folds itself away so the next one is what you see.
     const open = ctx.suppOpen?.[key] ?? !done;
@@ -193,17 +196,61 @@ export function renderSupplements(ctx) {
           <span class="tiny mono">${rows.filter((s) => ticks[s.id]).length}/${rows.length}</span>
           ${done ? '<span class="pill good tiny">all taken</span>' : ''}
         </button>
-        ${open ? `<div class="supplist ${ctx.suppEdit ? 'editing' : ''}" data-dropzone="${key}">
+        ${open ? `<div class="supplist ${edit ? 'editing' : ''}" data-dropzone="${key}">
           ${rows.map((s) => `
             <div class="supprow ${ticks[s.id] ? 'on' : ''}" data-supp="${esc(s.id)}" data-row="${esc(s.id)}">
-              ${ctx.suppEdit ? '<span class="supphandle" data-drag aria-label="Drag to reorder">≡</span>' : ''}
+              ${edit ? '<span class="supphandle" data-drag aria-label="Drag to reorder">≡</span>' : ''}
               <i class="supptick">${ticks[s.id] ? '✓' : ''}</i>
               <span class="suppname">${esc(s.name)}</span>
-              ${ctx.suppEdit ? `<span class="suppdel" data-suppdel="${esc(s.id)}" role="button" aria-label="Remove">✕</span>` : ''}
+              ${edit ? `<span class="suppdel" data-suppdel="${esc(s.id)}" role="button" aria-label="Remove">✕</span>` : ''}
             </div>`).join('')}
         </div>` : ''}
       </div>`;
   };
+  if (!list.length) return '<div class="tiny muted">Nothing on the list for this day.</div>';
+  return WHENS.map(group).join('');
+}
+
+/** Tick and fold handlers for the shared rows. */
+export function bindSuppGroups(root, iso, ctx, rerender) {
+  root.querySelectorAll('[data-suppgroup]').forEach((b) => b.addEventListener('click', () => {
+    const k = b.dataset.suppgroup;
+    const list = listFor(iso).filter((s) => (s.when || 'anytime') === k);
+    const done = list.every((s) => ticksOn(iso)[s.id]);
+    ctx.suppOpen = { ...(ctx.suppOpen || {}) };
+    ctx.suppOpen[k] = !(ctx.suppOpen[k] ?? !done);
+    rerender();
+  }));
+
+  root.querySelectorAll('[data-supp]').forEach((b) => b.addEventListener('click', (ev) => {
+    if (ev.target.closest('[data-suppdel]')) return;
+    const id = b.dataset.supp;
+    update(() => {
+      const day = ensureDay(iso);
+      day.supps = { ...(day.supps || {}) };
+      if (day.supps[id]) delete day.supps[id]; else day.supps[id] = true;
+    });
+    rerender();
+  }));
+}
+
+/**
+ * One line for Today: each as-needed medication and whether it is clear.
+ * Empty when nothing is on the list.
+ */
+export function prnSummary(iso) {
+  const day = prnDateFor(iso);
+  const meds = (state.data.prnMeds || []).filter((m) => activeOn(m, day)).sort(byOrder);
+  if (!meds.length) return '';
+  return meds.map((m) => {
+    const st = prnStatus(m);
+    return `${m.name} ${!st.last || st.clear ? 'clear' : humanLeft(st.msLeft)}`;
+  }).join(' · ');
+}
+
+export function renderSupplements(ctx) {
+  const iso = ctx.suppDate || currentDayIso();
+  const score = suppScore(iso);
 
   return `
   <div class="stack">
@@ -220,8 +267,7 @@ export function renderSupplements(ctx) {
       <div class="card-body">
         ${score ? `<div class="suppscore"><div class="bar ${score.taken === score.total ? 'good' : ''}">
           <i style="width:${score.total ? (score.taken / score.total) * 100 : 0}%"></i></div></div>` : ''}
-        ${list.length ? WHENS.map(group).join('')
-          : '<div class="tiny muted">Nothing on the list for this day.</div>'}
+        ${renderSuppGroups(iso, ctx, { edit: !!ctx.suppEdit })}
         <button class="btn sm" data-supp-add style="margin-top:.8rem">+ Add a supplement</button>
       </div>
     </section>
@@ -446,25 +492,7 @@ export function bindSupplements(root, ctx, rerender) {
 
   if (ctx.suppEdit) bindDragReorder(root, rerender);
 
-  root.querySelectorAll('[data-suppgroup]').forEach((b) => b.addEventListener('click', () => {
-    const k = b.dataset.suppgroup;
-    const list = listFor(iso).filter((s) => (s.when || 'anytime') === k);
-    const done = list.every((s) => ticksOn(iso)[s.id]);
-    ctx.suppOpen = { ...(ctx.suppOpen || {}) };
-    ctx.suppOpen[k] = !(ctx.suppOpen[k] ?? !done);
-    rerender();
-  }));
-
-  root.querySelectorAll('[data-supp]').forEach((b) => b.addEventListener('click', (ev) => {
-    if (ev.target.closest('[data-suppdel]')) return;
-    const id = b.dataset.supp;
-    update(() => {
-      const day = ensureDay(iso);
-      day.supps = { ...(day.supps || {}) };
-      if (day.supps[id]) delete day.supps[id]; else day.supps[id] = true;
-    });
-    rerender();
-  }));
+  bindSuppGroups(root, iso, ctx, rerender);
 
   root.querySelectorAll('[data-suppdel]').forEach((x) => x.addEventListener('click', (ev) => {
     ev.stopPropagation();

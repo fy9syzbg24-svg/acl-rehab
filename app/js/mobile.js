@@ -47,13 +47,11 @@ document.body.classList.toggle('standalone', STANDALONE);
 
 const viewEl = document.getElementById('view');
 
-// A phone opens on Supplements — it is the thing checked several times a day
-// and the first thing wanted in the morning. An iPad has room to browse and
-// opens on Today, as the Mac does.
-const IS_PHONE = window.matchMedia('(max-width: 700px)').matches;
-
+// Every device opens on Today. It used to be Supplements on a phone, because
+// that was the list checked several times a day; the day's supplements are on
+// Today now, so Today serves both and the app always opens on the same screen.
 const ctx = {
-  view: (location.hash.slice(1) || (IS_PHONE ? 'supplements' : 'today')),
+  view: (location.hash.slice(1) || 'today'),
   date: todayIso(),
   go(v) {
     ctx.view = v;
