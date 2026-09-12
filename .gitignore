@@ -28,3 +28,6 @@ app/dev-engine.js
 
 # Clinician source documents. PERSONAL: this repo is public.
 /intake/
+
+# The time estimate tests, same class as the other dev-only harness files.
+app/dev-timing.js
