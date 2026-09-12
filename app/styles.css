@@ -985,9 +985,25 @@ ol.steps li { font-size: .82rem; margin: .18rem 0; }
    also beat the phone stylesheet, which squeezed six columns into 375px and
    clipped Month 6 off the edge. */
 .monthstrip { display: grid; grid-template-columns: repeat(6, 1fr); gap: .4rem; }
-.monthstrip .kpi { cursor: pointer; }
+.monthstrip .kpi { cursor: pointer; border: 1px solid var(--line-2); font: inherit; transition: transform .12s, border-color .15s, background .15s; }
+.monthstrip .kpi:hover { border-color: var(--accent); }
+.monthstrip .kpi:active { transform: scale(.97); }
+.monthstrip .kpi.on { border-color: var(--accent); background: var(--accent-soft); }
+.monthstrip .kpi.now .k::after { content: ''; display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--accent); margin-left: .25rem; vertical-align: .15em; }
 .monthstrip .kpi .k { white-space: nowrap; }
-@media (max-width: 640px) { .monthstrip { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 640px) { .monthstrip { grid-template-columns: repeat(6, 1fr); gap: .25rem; } .monthstrip .kpi { padding: .5rem .15rem; } .monthstrip .kpi .v { font-size: 1.05rem; } }
+
+/* the month board's head, when it is a heading and not a toggle */
+.monthboard > .panel-head.static { cursor: default; display: flex; align-items: center; justify-content: space-between; gap: .6rem; padding: .9rem 1rem; }
+.monthboard > .panel-head.static:hover { filter: none; }
+.monthboard .weekcat { border: 1px solid var(--line-2); border-radius: 10px; padding: .45rem .55rem; background: var(--panel-2); display: flex; flex-direction: column; gap: .25rem; }
+.monthboard .weekcat .pips > i.on { opacity: .8; }
+
+/* insight icons are drawn, not emoji */
+.insight .iicon { display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: 9px; background: color-mix(in srgb, var(--c, var(--accent)) 14%, transparent); color: var(--c, var(--accent)); }
+.insight .iicon svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.insight.good { --c: var(--good); }
+.insight.warn { --c: var(--warn); }
 
 /* three stats side by side, they are small, so the phone keeps the row too */
 .kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: .7rem; }
@@ -1195,6 +1211,13 @@ input[type=checkbox].tick:active { transform: scale(.9); }
   border: 1.5px dashed color-mix(in srgb, var(--accent) 60%, transparent);
   font-weight: 700; font-size: 1rem; line-height: 1; color: var(--accent);
 }
+
+/* the line between the morning's first job and the rest of the day */
+.list-sep { display: flex; align-items: center; gap: .6rem; padding: .35rem .3rem .2rem; }
+.list-sep::before, .list-sep::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+.list-sep span { font-size: .68rem; font-weight: 650; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); white-space: nowrap; }
+.list-sep + .crow { border-top: 0; }
+.prog-sub .accent { color: var(--accent); }
 
 /* folded groups under the list */
 details.fold { margin: .1rem .9rem .75rem; }

@@ -111,6 +111,7 @@ function progRow(p, ctx) {
   const stage = state.data.program.stage[p.id] || 0;
 
   const flags = [];
+  if (p.first) flags.push(`<span class="accent">first thing, then ${esc(p.gap || '')} before the rest</span>`);
   if (p.notYet) flags.push('<span style="color:var(--warn)">not yet</span>');
   if (p.typed) flags.push('<span title="From your typed list, not the PhysiApp program">typed list</span>');
 

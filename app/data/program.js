@@ -231,7 +231,11 @@ export const REHAB_PROGRAM = [
     n: 18, id: 'tl18', freq: 7, ex: 'tendon_load_iso_squat', title: 'Tendon loading mini squat, 20 degrees', typed: true, sides: 'both',
     img: 'img/program/ex-18.png', thumb: 'img/program/ex-18-thumb.png',
     sets: 4, reps: 1, hold: '30s', rest: '2 min',
+    // First thing in the morning, then nothing else for six hours (his
+    // clinician's instruction). Today lists it first and draws the gap.
+    first: true, gap: '6 hours',
     pre: 'Collagen 15 g plus vitamin C 100 to 200 mg, mixed into water or juice. Then do this within the hour.',
+    preShort: 'After collagen and vitamin C, within the hour',
     steps: [
       'Take the collagen and vitamin C, then start within the hour.',
       'Stand and bend the knees into roughly a 20 degree mini squat.',

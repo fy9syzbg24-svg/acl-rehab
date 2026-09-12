@@ -145,10 +145,18 @@ export const PLAN_MONTHS = [
         text: 'Tolerate progressive brisk walking speed/volume and introductory hopping/landing without increased effusion, significant pain or deterioration in movement quality',
         kind: 'check',
       },
-      { id: 'm3g2', text: 'Progress from planned to more reactive movement', kind: 'check' },
-      { id: 'm3g3', text: 'Maintain progressive loading alongside increased impact exposure', kind: 'check' },
     ],
+    // The PDF's Month 3 column has one marker (above). These two lines sit at
+    // the top of its focus column, before "Strength", so that is where they go.
+    // An earlier transcription listed them as markers; corrected 2026-09-12.
     focus: [
+      {
+        heading: 'Overall',
+        items: [
+          { t: 'Progress from planned to more reactive movement', ex: ['reactive_cod'] },
+          { t: 'Maintain progressive loading alongside increased impact exposure', cat: 'strength' },
+        ],
+      },
       { heading: 'Strength', items: [{ t: 'Continue 2 to 3 strength sessions/week to maintain progressive loading alongside increased impact exposure', cat: 'strength' }] },
       {
         heading: 'Landing',
@@ -233,6 +241,7 @@ export const PLAN_MONTHS = [
         heading: 'Dance-specific exposure',
         items: [
           { t: 'Introduce dance-specific jumping and dynamic movement, initially at min to mod intensity', ex: ['dance_jump'] },
+          { t: "Begin light runs of 'Bye Bye Bye' dance", ex: ['show_section', 'dance_jump', 'marking'] },
         ],
       },
       {

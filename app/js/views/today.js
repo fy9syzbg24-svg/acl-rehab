@@ -25,9 +25,14 @@ const EFFUSION = ['', 'Zero', 'Trace', '1+', '2+', '3+'];
 const ALL_ITEMS = REHAB_PROGRAM.concat(GYM_PROGRAM);
 
 // ------------------------------------------------------------- the day ----
-/** Program items planned for the day, in program order, both lists. */
+/**
+ * Program items planned for the day, both lists, in program order except that
+ * anything marked `first` leads: the tendon loading is the morning's first
+ * job, with six hours before the rest.
+ */
 function plannedItems(iso) {
-  return ALL_ITEMS.filter((p) => plannedOn(state.data, p.id, iso));
+  const all = ALL_ITEMS.filter((p) => plannedOn(state.data, p.id, iso));
+  return all.filter((p) => p.first).concat(all.filter((p) => !p.first));
 }
 function restItems(iso) {
   return ALL_ITEMS.filter((p) => !plannedOn(state.data, p.id, iso));
@@ -63,7 +68,7 @@ export function renderToday(ctx) {
     <section class="card listcard" id="session-card">
       ${dayHead(iso, planned, extras, entries, ctx)}
       <div class="checklist">
-        ${planned.map((p) => checkRow(p, iso, entries, ctx)).join('')}
+        ${planned.map((p, i) => checkRow(p, iso, entries, ctx) + gapAfter(planned, i)).join('')}
         ${extras.map((e) => extraRow(e, iso, ctx)).join('')}
         <button class="list-add" data-act="add-ex"><span class="plus">+</span>Add something else</button>
       </div>
@@ -117,6 +122,14 @@ function dayHead(iso, planned, extras, entries, ctx) {
   </header>`;
 }
 
+/** A thin line between the morning's first job and everything else. */
+function gapAfter(planned, i) {
+  const p = planned[i];
+  const next = planned[i + 1];
+  if (!p?.first || !next || next.first) return '';
+  return `<div class="list-sep"><span>${esc(p.gap || '')} later</span></div>`;
+}
+
 /** Progress ring for the day: done over total, a check when full. */
 function ring(done, total) {
   const r = 18;
@@ -165,7 +178,7 @@ function checkRow(item, iso, entries, ctx) {
         <span class="crow-name">${esc(name)}</span>
         <span class="crow-sub">${started ? entryChips(mine) : prescriptionLine(item, band)}</span>
         ${item.notYet && !started ? `<span class="crow-note warn">${esc(item.notYetNote)}</span>` : ''}
-        ${item.pre && !started ? `<span class="crow-note">${esc(item.pre)}</span>` : ''}
+        ${item.pre && !started ? `<span class="crow-note">${esc(item.preShort || item.pre)}</span>` : ''}
       </div>
       <span class="crow-mins ${m.src}" data-rowclick="${esc(item.id)}"
         title="${m.src === 'yours' ? 'Your number' : m.src === 'logged' ? 'What you logged' : 'Estimated from the prescription. Open the row to change it.'}">${m.mins}<small>min</small></span>
