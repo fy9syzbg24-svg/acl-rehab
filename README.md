@@ -396,6 +396,12 @@ Nothing was deleted; it moved. Tapping a category on that cadence bar opens
 the matching goal group on Today, which is the one place to log towards a plan
 target that no program row covers.
 
+**The tendon loading leads every day.** It is the morning's first job, with
+six hours before anything else (his clinician's instruction), so it sits at
+the top whatever its program number and a "6 hours later" line separates it
+from the rest. The item carries `first: true` and `gap: '6 hours'` in
+`program.js`; anything else marked `first` would join it.
+
 Under the list: "Not planned today" (the rest of the program, still tickable)
 and "This week's targets" (the plan's weekly targets as groups you can log
 into). Both fold, and their open state lives on `ctx` so a tick does not close
@@ -429,6 +435,23 @@ test) and can be set from the open row on Today or on the Program page.
 Clearing the box goes back to the estimate. The day's header sums the planned
 rows ("about 1h 22m left" once some are done); the Program page sums each
 list and each filtered day.
+
+## The Plan tab is the month board
+
+He likes the month board on Overview ("things are big and clear"), so the
+6 Month Plan tab draws any month the same way: a strip of six tiles, then
+the marker cards, the focus tiles (for the whole month) and the weekly
+targets as tiles. The pieces are exported from `monthboard.js`
+(`markerCards`, `focusTiles`, `targetTiles`, `bindMarkers`) and goal
+progress lives in `app/js/goals.js`, which the board, the Plan tab and the
+journey road all read. The judgement-call ticks (focus bullets that cannot
+tick themselves) bind on both screens.
+
+The transcription in `app/data/plan.js` follows the PDF as laid out, read
+from the rendered pages on 2026-09-12: Month 3 has one marker, the brisk
+walking one; its two "progress" lines are focus bullets. If the app and the
+PDF ever disagree again, the PDF wins and the change is reported, not made
+quietly.
 
 ## My Program
 
