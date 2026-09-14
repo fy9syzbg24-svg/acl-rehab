@@ -22,7 +22,7 @@
 //   n|<id>  o|<id>            an as-needed medication / one logged dose
 //   g|<key>  f|<key>          plan goals / plan focus ticks
 //   b|<sub>|<key>             melbourne.phases / .measures
-//   p|<sub>|<key>             program.stage / .band / .weeklyTarget / .days / .clinicDays / .mins / .timer / .schedule
+//   p|<sub>|<key>             program.stage / .band / .weeklyTarget / .days / .clinicDays / .mins / .timer / .schedule / .seen
 
 export const SYNC_VERSION = 1;
 
@@ -45,7 +45,10 @@ const KEY_MAPS = { s: 'settings', g: 'planGoals', f: 'planFocus', k: 'caseFile' 
 // where none is prescribed, the metronome on or off).
 // schedule holds dated versions of the weekly plan, so a later edit can never
 // rewrite what an earlier day asked of him (the plan streak reads it).
-const SUB_MAPS = { b: ['melbourne', ['phases', 'measures']], p: ['program', ['stage', 'band', 'weeklyTarget', 'days', 'clinicDays', 'mins', 'timer', 'schedule']] };
+// seen records which milestone and finish celebrations have already played
+// (2026-09-14), so a moment plays once across devices; the milestones
+// themselves are always derived from records, never stored.
+const SUB_MAPS = { b: ['melbourne', ['phases', 'measures']], p: ['program', ['stage', 'band', 'weeklyTarget', 'days', 'clinicDays', 'mins', 'timer', 'schedule', 'seen']] };
 
 const enc = (s) => String(s).replace(/\|/g, '%7C');
 const dec = (s) => String(s).replace(/%7C/g, '|');

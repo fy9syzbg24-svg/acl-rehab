@@ -14,7 +14,7 @@
 // of the views would inevitably drift from the desktop and be missing things.
 
 import {
-  state, subscribe, load, runSync, syncState, pendingSyncCount, onRemoteChange,
+  state, update, subscribe, load, runSync, syncState, pendingSyncCount, onRemoteChange,
   surgeryDate, saveOutstanding,
 } from './store.js';
 import { guardPaint, whenIdle } from './editguard.js';
@@ -28,6 +28,7 @@ import { renderProgress, bindProgress } from './views/progress.js';
 import { renderSettings, bindSettings } from './views/settings.js';
 import { renderPlayer, bindPlayer, playerLeaving, playerBusy } from './player/player.js';
 import { isConfigured } from './sync/config.js';
+import { needsSeed, markSeen } from './milestones.js';
 
 applyStoredTheme();   // before first paint, so there is no flash
 
@@ -77,6 +78,7 @@ const paint = guardPaint(viewEl, rawPaint, () => ctx.view !== lastView);
 function rawPaint() {
   const y = window.scrollY;      // the document scrolls now, not an inner box
   const [render, bind] = VIEWS[ctx.view] || VIEWS.today;
+  document.body.classList.toggle('in-player', ctx.view === 'player');
   viewEl.innerHTML = render(ctx);
   bind?.(viewEl, ctx, paint);
   // The player belongs to the tab it was opened from.
@@ -258,6 +260,13 @@ window.addEventListener('hashchange', () => {
   if (VIEWS[v] && v !== ctx.view) { if (ctx.view === 'player') playerLeaving(); ctx.view = v; paint(); }
 });
 
+// The first time this build opens, milestones already earned are recorded as
+// celebrated without a moment, so nothing old replays as a burst.
+function seedCelebrations() {
+  if (state.readOnly || !needsSeed(state.data)) return;
+  update((d) => { markSeen(d, todayIso()); });
+}
+
 subscribe(paintChrome);
 onRemoteChange(() => paint());
 
@@ -269,6 +278,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 load().then(() => {
+  seedCelebrations();
   paint();
   if (!('serviceWorker' in navigator)) return;
   if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {

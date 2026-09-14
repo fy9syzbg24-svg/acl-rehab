@@ -20,14 +20,15 @@
 // done sit in the same places for every exercise and phase, with Previous,
 // Skip rest and Next beneath; whatever does not apply is dimmed, not removed.
 
-import { esc, uid, todayIso, num, fmtDate, toKg, fromKg, round } from '../util.js';
+import { esc, uid, todayIso, num, fmtDate, toKg, fromKg, round, addDays } from '../util.js';
 import { state, update, ensureDay, getDay, lastEntry, flushSave } from '../store.js';
 import { REHAB_PROGRAM, GYM_PROGRAM, THERABAND, BAND_BY_ID, plannedOn } from '../../data/program.js';
 import { CATEGORIES } from '../../data/measurements.js';
 import { exerciseById, thumb, openModal, closeModal, toast } from '../components.js';
 import { fmtClock, fmtMins, timerPrefs, minutesFor } from '../timing.js';
 import { itemStatus, saveRun, rowsFingerprint, runsFor } from '../logging.js';
-import { planStreak } from '../planstreak.js';
+import { planStreak, dayComplete } from '../planstreak.js';
+import { unseenMilestones, markSeen, markFinishSeen, finishSeen, milestoneSentence, needsSeed } from '../milestones.js';
 import * as E from './engine.js';
 import * as A from './audio.js';
 import * as S from './songs.js';
@@ -200,7 +201,9 @@ export function startExercise(ctx, pid, iso = ctx.date || todayIso()) {
   }
   // One exercise opened from a row still carries on into the rest of the day
   // afterwards (his ask, 2026-09-14: "entice me to continue working out").
-  const queue = [pid, ...workoutQueue(state.data, iso).filter((x) => x !== pid)];
+  // The first job (the tendon loading) is never rolled into from another
+  // exercise: it opens the day, and the rest waits six hours after it.
+  const queue = [pid, ...workoutQueue(state.data, iso).filter((x) => x !== pid && !ITEM[x]?.first)];
   open(ctx, { run: newRun(pid, iso), session: { queue, pos: 0, iso }, phase: 'run', base: rowsFingerprint(getDay(iso), pid), savedRunIds: [] });
 }
 
@@ -270,6 +273,7 @@ function paintWake() {
 }
 
 function stopEffects() {
+  stopArc();
   clearTimeout(tickTimer);
   tickTimer = null;
   A.cancelAll();
@@ -323,6 +327,7 @@ function syncEffects() {
   lastTick = now;
   clearTimeout(tickTimer);
   tickTimer = setTimeout(loop, 200);
+  startArc();
 }
 
 function loop() {
@@ -435,37 +440,26 @@ const sideTag = (s) => (s === 'L' || s === 'R' ? `<b class="sidetag ${s}">${side
 
 function fmtSecs(s) {
   if (s == null) return '';
-  return s >= 60 && s % 60 === 0 ? `${s / 60} min` : s >= 60 ? fmtClock(s) : `${s} s`;
-}
-
-function setLine(run, st, item) {
-  if (!st) return 'Every step done';
-  const work = st.kind === 'rest' || st.kind === 'switch' || st.kind === 'ready'
-    ? run.steps.slice(run.i).find((x) => E.WORK.has(x.kind)) : st;
-  if (!work) return '';
-  if (run.mode === 'cardio') return 'One bout';
-  if (!run.targetKnown) return `Target not specified${work.side && work.side !== 'B' ? ` · ${sideTag(work.side)}` : ''}`;
-  const unit = run.mode === 'hold' && work.units > 1
-    ? `Hold ${work.unit} of ${work.units}${work.sets > 1 ? ` · set ${work.set} of ${work.sets}` : ''}`
-    : run.mode === 'hold' ? `Hold ${work.set} of ${work.sets}` : `Set ${work.set} of ${work.sets}`;
-  return `${unit}${work.side && work.side !== 'B' ? ` · ${sideTag(work.side)}` : ''}`;
+  return s >= 60 && s % 60 === 0 ? `${s / 60} min` : s >= 60 ? fmtClock(s) : `${s} sec`;
 }
 
 function nextLine(run) {
   const nx = run.steps[run.i + 1];
+  const legOf = (x) => (x.side === 'L' ? ', left leg' : x.side === 'R' ? ', right leg' : '');
   if (!nx) {
     if (run.i >= run.steps.length) return '';
     const s = P.session;
     const item = ITEM[run.pid];
-    if (item?.first) return 'Log it, then the six hour gap';
+    if (item?.first) return 'Next · log it, then the recovery break';
     const upcoming = s ? s.queue.slice(s.pos + 1).map((id) => ITEM[id]).find(Boolean) : null;
-    return upcoming ? `Log it, then ${upcoming.title || upcoming.ex}` : 'Log it and finish';
+    return upcoming ? 'Next · log it and carry on' : 'Next · log it and finish';
   }
-  if (nx.kind === 'rest') return `Rest ${fmtSecs(nx.secs)}`;
-  if (nx.kind === 'switch') return `Switch to the ${sideName(nx.side).toLowerCase()} side`;
-  if (nx.kind === 'hold') return `Hold ${nx.units > 1 ? `${nx.unit} of ${nx.units}` : `${nx.set} of ${nx.sets}`}${nx.side !== 'B' ? `, ${sideName(nx.side).toLowerCase()}` : ''}`;
-  if (nx.kind === 'work') return run.mode === 'cardio' ? 'Work' : `Set ${nx.set} of ${nx.sets}`;
-  return `Set ${nx.set} of ${nx.sets}${nx.side && nx.side !== 'B' ? `, ${sideName(nx.side).toLowerCase()}` : ''}`;
+  if (nx.kind === 'rest') return `Next · ${fmtSecs(nx.secs)} rest`;
+  if (nx.kind === 'switch') return `Next · ${sideName(nx.side)} leg`;
+  if (nx.kind === 'hold') return `Next · hold ${nx.units > 1 ? `${nx.unit} of ${nx.units}` : `${nx.set} of ${nx.sets}`}${legOf(nx)}`;
+  if (nx.kind === 'work') return run.mode === 'cardio' ? 'Next · the work' : `Next · set ${nx.set} of ${nx.sets} · ${fmtSecs(nx.secs)}`;
+  if (nx.kind === 'reps' && nx.reps != null) return `Next · ${nx.reps} reps · your pace${legOf(nx)}`;
+  return `Next · set ${nx.set} of ${nx.sets} · your pace${legOf(nx)}`;
 }
 
 // --------------------------------------------------------------- icons ----
@@ -484,13 +478,28 @@ const I = {
   song: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5.5l10-2V16"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/></svg>',
   zoom: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M10 20H4v-6M20 4l-6.5 6.5M4 20l6.5-6.5"/></svg>',
   close: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  list: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 6.5h10M10 12h10M10 17.5h10"/><path d="M3.5 6.5l1.5 1.5 2.5-2.5M3.5 12l1.5 1.5 2.5-2.5M3.5 17.5l1.5 1.5 2.5-2.5"/></svg>',
+  checkCircle: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12.3l2.8 2.8L16.2 9.6"/></svg>',
 };
 
 // -------------------------------------------------------------- render ----
+// 2026-09-14 ring design (ChatGPT revision 2, settled): the whole photo grid
+// on top, one ring in the same place for every phase, the phase and the leg
+// named outside it, the next step in one line under it, four sound controls,
+// and the transport dock pinned above the tab bar. The ring tells the truth:
+// a timed step drains with the engine clock; a reps step shows confirmed sets
+// and never animates reps or time it cannot know.
+
+const RING = { size: 164, stroke: 7 };
+RING.r = (RING.size - RING.stroke) / 2;
+RING.c = 2 * Math.PI * RING.r;
+
+let lastContentKey = null;   // which exercise the content region last showed
+
 export function renderPlayer(ctx) {
   if (!P) {
     return `<div class="player empty-player">
-      <div class="p-top">${backBtn(ctx)}</div>
+      <div class="p-eyebrow">${backBtn(ctx)}</div>
       <div class="empty">No workout is open. Start one from Today.</div>
     </div>`;
   }
@@ -504,92 +513,116 @@ export function renderPlayer(ctx) {
   const st = E.step(run);
   const now = performance.now();
   const kind = st?.kind || 'ready';
-  const cat = CATEGORIES[ex?.cat]?.color || 'var(--accent)';
-  const upcoming = kind === 'switch' ? st.side : null;
+  const cat = CATEGORIES[ex?.cat]?.color || 'var(--ink-2)';
   const isWork = E.WORK.has(kind);
-  const timedWork = kind === 'hold' || kind === 'work';
   const canSkip = ['rest', 'switch', 'ready'].includes(kind);
   const title = item.title || ex?.name || item.ex;
   const metro = !!run.pace;
   const metroIsOn = metro && metronomeOn(run.pid);
-  const beat = metroIsOn && kind === 'work' && run.state === 'running';
+  // The content crossfades once when a different exercise opens, never on a tick.
+  const key = `${run.runId}`;
+  const enter = lastContentKey !== null && lastContentKey !== key;
+  lastContentKey = key;
+  const count = P.session ? `Workout · ${P.session.pos + 1} of ${P.session.queue.length}` : 'Exercise';
+  const side = sideOfStep(run, st);
 
   return `
   <div class="player" data-player data-kind="${esc(kind)}" data-state="${esc(run.state)}"
-    style="--cat:${cat};${upcoming ? `--phase:var(--${upcoming === 'L' ? 'left' : 'right'});` : ''}${run.pace ? `--beat:${(60 / run.pace).toFixed(3)}s;` : ''}">
-    <div class="p-top">
+    style="--cat:${cat};${run.pace ? `--beat:${(60 / run.pace).toFixed(3)}s;` : ''}">
+    <div class="p-eyebrow">
       ${backBtn(ctx)}
-      <span></span>
-      <span class="p-tools">
-        <span class="p-wake" data-p-wake data-state="${wakeState}" aria-hidden="true">${I.wake}</span>
-        <button class="p-toggle ${metroIsOn ? 'on' : ''}" data-p="metro" ${metro ? '' : 'disabled'}
-          aria-pressed="${metroIsOn}" aria-label="Metronome${metro ? ` at ${run.pace} beats per minute` : ', no pace prescribed'}">
-          ${I.metro}<span class="mono">${metro ? run.pace : 'BPM'}</span></button>
-        ${songToggle(run)}
-        <button class="p-toggle ${cuesOn() ? 'on' : ''}" data-p="cues" aria-pressed="${cuesOn()}" aria-label="Sound cues">${I.cues}</button>
-      </span>
+      <span class="p-count">${esc(count)}${run.iso !== todayIso() ? ` · <span class="warnish">${esc(fmtDate(run.iso, 'dow'))}</span>` : ''}</span>
+      <span class="p-wake" data-p-wake data-state="${wakeState}" aria-hidden="true">${I.wake}</span>
+    </div>
+    ${receiptSlot(run)}
+    <div class="p-content ${enter ? 'p-enter' : ''}">
+      <h2 class="p-title">${esc(title)}</h2>
+      ${item.img
+        ? `<button class="p-img" data-p="zoom" aria-label="Show the step pictures larger">
+            <img src="${esc(item.img)}" alt="Step pictures: ${esc(title)}" decoding="async">
+            <span class="p-expand">${I.zoom}</span></button>
+           ${item.photoNote ? `<div class="p-photonote">${esc(item.photoNote)}</div>` : ''}`
+        : `<div class="p-img plain">${thumb(item.ex, 90)}</div>`}
+      <div class="p-phaserow">
+        <span class="p-label">${esc(phaseLabel(kind))}${kind === 'rest' && st.restSrc === 'default' ? '<span class="p-default">default</span>' : ''}</span>
+        <span class="p-side ${side}">${side === 'L' ? 'Left leg' : side === 'R' ? 'Right leg' : 'Both legs'}</span>
+      </div>
+      <div class="p-ringrow">
+        ${repsAdjust(run, st, 'minus')}
+        <div class="p-ring" role="group" aria-label="Current step">
+          ${ringSvg(run, st, now)}
+          <div class="p-center">${ringCenter(run, st, now)}</div>
+          ${metro ? `<i class="p-beat ${metroIsOn && kind === 'work' && run.state === 'running' ? 'on' : ''}" aria-hidden="true"></i>` : ''}
+        </div>
+        ${repsAdjust(run, st, 'plus')}
+      </div>
+      <div class="p-next">${esc(nextLine(run))}</div>
     </div>
 
-    <header class="p-hero">
-      <h2 class="p-title">${esc(title)}</h2>
-      <div class="p-setline">${setLine(run, st, item)}${P.session ? ` · <span class="p-count">exercise ${P.session.pos + 1} of ${P.session.queue.length}</span>` : ''}${run.iso !== todayIso() ? ` · <span class="warnish">${esc(fmtDate(run.iso, 'dow'))}</span>` : ''}</div>
-    </header>
-
-    ${item.img
-      ? `<button class="p-img" data-p="zoom" aria-label="Show the step pictures larger">
-          <img src="${esc(item.img)}" alt="Step pictures: ${esc(title)}" decoding="async">
-          <span class="p-expand">${I.zoom}</span></button>
-         ${item.photoNote ? `<div class="p-photonote">${esc(item.photoNote)}</div>` : ''}`
-      : `<div class="p-img plain">${thumb(item.ex, 90)}</div>`}
-
-    <section class="p-phase" aria-label="Current step">
-      <div class="p-label">${esc(phaseLabel(kind))}${kind === 'rest' && st.restSrc === 'default' ? '<span class="p-default">default</span>' : ''}</div>
-      ${bigNumber(run, st, now)}
-      <div class="p-sub" data-p-sub>${subLine(run, st, item)}</div>
-      ${pips(run)}
-      ${metro ? `<i class="p-beat ${beat ? 'on' : ''}" aria-hidden="true"></i>` : ''}
-    </section>
-
-    <div class="p-next"><span>Next</span><b>${esc(nextLine(run))}</b></div>
+    <div class="p-sound" role="group" aria-label="Sound">
+      <button class="p-tool ${metroIsOn ? 'on' : ''}" data-p="metro" ${metro ? '' : 'disabled'} aria-pressed="${metroIsOn}"
+        aria-label="Metronome${metro ? ` at ${run.pace} beats per minute` : ', no pace prescribed'}">${I.metro}<span>Metronome</span></button>
+      ${songTools(run)}
+      <button class="p-tool ${cuesOn() ? 'on' : ''}" data-p="cues" aria-pressed="${cuesOn()}" aria-label="Countdown cues">${I.cues}<span>Cues</span></button>
+    </div>
 
     <div class="p-actions">
       <div class="p-row1">
-        <button class="btn p-big-btn" data-p="pause">${run.state === 'running' ? `${I.pause}Pause` : `${I.play}${run.state === 'ready' ? 'Start' : 'Resume'}`}</button>
-        <button class="btn p-big-btn primary" data-p="done" ${isWork ? '' : 'disabled'}>${I.check}Set done</button>
+        <button class="btn big p-pause" data-p="pause">${run.state === 'running' ? `${I.pause}Pause` : `${I.play}${run.state === 'ready' ? 'Start' : 'Resume'}`}</button>
+        <button class="btn big primary" data-p="done" ${isWork ? '' : 'disabled'}>${I.check}Set done</button>
       </div>
       <div class="p-row2">
-        <button class="btn" data-p="prev" ${run.i > 0 ? '' : 'disabled'}>${I.prev}Previous</button>
-        <button class="btn" data-p="skip" ${canSkip ? '' : 'disabled'}>${I.skip}Skip rest</button>
-        <button class="btn" data-p="next">${I.next}Next</button>
+        <button class="btn p-link" data-p="prev" ${run.i > 0 ? '' : 'disabled'}>${I.prev}Previous</button>
+        <button class="btn p-link" data-p="skip" ${canSkip ? '' : 'disabled'}>${I.skip}Skip rest</button>
+        <button class="btn p-link" data-p="next">${I.next}Next</button>
       </div>
-      ${run.state === 'interrupted' ? `<div class="p-interrupted">Paused while you were away. Nothing was counted.</div>` : ''}
-      ${(kind === 'reps' || kind === 'manual') && st.reps != null ? `
-        <div class="p-reps-adjust" role="group" aria-label="Reps this set">
-          <button class="btn sm" data-p="reps-" aria-label="One fewer rep">&minus;</button>
-          <span class="mono" data-p-reps>${esc(String(currentReps(run)))}</span><span class="tiny muted">reps this set</span>
-          <button class="btn sm" data-p="reps+" aria-label="One more rep">+</button>
-        </div>` : ''}
     </div>
     <div class="sr-only" aria-live="polite" data-p-live></div>
   </div>`;
 }
 
-function songToggle(run) {
+/** The side a step belongs to: a switch names the side it switches TO. */
+function sideOfStep(run, st) {
+  if (!st) return 'B';
+  const s = st.kind === 'rest' || st.kind === 'ready'
+    ? (run.steps.slice(run.i).find((x) => E.WORK.has(x.kind))?.side || 'B')
+    : (st.side || 'B');
+  return s === 'L' || s === 'R' ? s : 'B';
+}
+
+/**
+ * The reserved receipt slot. After a durable save, "Logged · full title" shows
+ * here for about a second and a half while the next exercise is already
+ * counting down. It never holds a button, so nothing below it moves under a
+ * finger. An interruption notice uses the same slot.
+ */
+function receiptSlot(run) {
+  const r = P.receipt;
+  if (r && Date.now() < r.until) {
+    const fresh = !r.shown;
+    r.shown = true;
+    return `<div class="p-receipt on ${fresh ? 'fresh' : ''}" aria-hidden="true">${I.checkCircle}<span>Logged · ${esc(r.title)}</span></div>`;
+  }
+  if (run.state === 'interrupted') {
+    return '<div class="p-receipt note" aria-hidden="true"><span>Paused while you were away. Nothing was counted.</span></div>';
+  }
+  return '<div class="p-receipt" aria-hidden="true"></div>';
+}
+
+function songTools(run) {
   const pool = songsAtPace(run.pid);
   const usable = pool.length > 0;
   const on = usable && songOn(run.pid);
   const now = on ? songFor(run.pid) : null;
-  const label = !run.pace ? 'No pace prescribed, so no song'
-    : !usable ? 'No song at this pace on this device'
-    : on ? `Songs on: ${now?.name || ''}` : `Play one of your ${pool.length} song${pool.length === 1 ? '' : 's'} during the work`;
+  const label = !run.pace ? 'Music: no pace prescribed, so no song'
+    : !usable ? 'Music: no song at this pace on this device'
+    : on ? `Music on: ${now?.name || ''}` : `Music: play one of your ${pool.length} song${pool.length === 1 ? '' : 's'} during the work`;
   const through = on && songThroughOn(run.pid);
-  const tLabel = on ? (through ? 'Keep playing through rest: on' : 'Keep playing through rest') : 'Keep playing through rest (turn songs on first)';
-  return `<span class="p-songgroup">
-    <button class="p-toggle ${on ? 'on' : ''}" data-p="song" ${usable ? '' : 'disabled'} aria-pressed="${on}"
-      aria-label="${esc(label)}" title="${esc(label)}">${I.song}</button>
-    <button class="p-toggle ${through ? 'on' : ''}" data-p="songthrough" ${on ? '' : 'disabled'} aria-pressed="${through}"
-      aria-label="${esc(tLabel)}" title="${esc(tLabel)}">${I.loop}</button>
-  </span>`;
+  const tLabel = on ? (through ? 'Keep playing through rest: on' : 'Keep playing through rest: off') : 'Keep playing through rest (turn music on first)';
+  return `<button class="p-tool ${on ? 'on' : ''}" data-p="song" ${usable ? '' : 'disabled'} aria-pressed="${on}"
+      aria-label="${esc(label)}" title="${esc(label)}">${I.song}<span>Music</span></button>
+    <button class="p-tool ${through ? 'on' : ''}" data-p="songthrough" ${on ? '' : 'disabled'} aria-pressed="${through}"
+      aria-label="${esc(tLabel)}" title="${esc(tLabel)}">${I.loop}<span>Keep playing</span></button>`;
 }
 
 function backBtn(ctx) {
@@ -603,56 +636,168 @@ function currentReps(run) {
   return st?.reps ?? '';
 }
 
-function bigNumber(run, st, now) {
+function repsAdjust(run, st, which) {
+  const show = st && (st.kind === 'reps' || st.kind === 'manual') && st.reps != null;
+  if (!show) return '<span class="p-adj-spacer" aria-hidden="true"></span>';
+  return which === 'minus'
+    ? '<button class="p-adj" data-p="reps-" aria-label="One fewer rep this set">&minus;</button>'
+    : '<button class="p-adj" data-p="reps+" aria-label="One more rep this set">+</button>';
+}
+
+/** Arc length for a timed step: the remaining fraction, drawn from 12 o'clock. */
+function arcDash(run, st, now) {
+  const rem = E.remainingSec(run, now);
+  if (rem == null || !st?.secs) return null;
+  const frac = Math.max(0, Math.min(1, rem / st.secs));
+  return frac;
+}
+
+function ringSvg(run, st, now) {
+  const { size, stroke, r, c } = RING;
+  const mid = size / 2;
+  const repsLike = st && (st.kind === 'reps' || st.kind === 'manual');
+  // Several sets draw their own pieces (with gaps); one set or a timer sits on the full track.
+  const pieces = repsLike && E.progress(run).filter((p) => (p.side || 'B') === (st.side || 'B')).length > 1;
+  const base = pieces ? '' : `<circle class="p-track" cx="${mid}" cy="${mid}" r="${r}" stroke-width="${stroke}"/>`;
+  let marks = '';
+  if (repsLike) {
+    marks = setSegments(run, st);
+  } else {
+    const frac = arcDash(run, st, now);
+    if (frac != null) {
+      const on = frac * c;
+      marks = `<circle class="p-arc" data-p-arc cx="${mid}" cy="${mid}" r="${r}" stroke-width="${stroke}"
+        stroke-dasharray="${on.toFixed(2)} ${c.toFixed(2)}" transform="rotate(-90 ${mid} ${mid})" ${frac <= 0 ? 'style="opacity:0"' : ''}/>`;
+    }
+  }
+  return `<svg class="p-ringsvg" viewBox="0 0 ${size} ${size}" aria-hidden="true">${base}${marks}</svg>`;
+}
+
+/**
+ * Confirmed sets for the side in progress, one segment each. Neutral until a
+ * set is confirmed, green once it is, a small category mark on the one he is
+ * doing. Left and right never share segments: finishing the left set does not
+ * paint the right one.
+ */
+function setSegments(run, st) {
+  const { size, stroke, r, c } = RING;
+  const mid = size / 2;
+  const side = st.side || 'B';
+  const units = E.progress(run).filter((p) => (p.side || 'B') === side);
+  const n = units.length;
+  if (!n) return '';
+  const gap = n > 1 ? 10 : 0;
+  const seg = c / n;
+  const just = P.justDone && P.justDone.runId === run.runId ? P.justDone.i : null;
+  P.justDone = null;   // one render only: a later repaint never replays it
+  let out = '';
+  units.forEach((u, k) => {
+    const len = Math.max(1, seg - gap);
+    const start = k * seg + gap / 2;
+    const res = u.result;
+    const cls = res ? (res.full === false || res.short ? 'part' : 'done') : '';
+    if (cls) {
+      out += `<circle class="p-seg ${cls} ${u.i === just ? 'just' : ''}" cx="${mid}" cy="${mid}" r="${r}" stroke-width="${stroke}"
+        stroke-dasharray="${len.toFixed(2)} ${(c - len).toFixed(2)}" stroke-dashoffset="${(-start).toFixed(2)}" transform="rotate(-90 ${mid} ${mid})"/>`;
+    } else if (n > 1) {
+      // an unconfirmed set: its own neutral piece, so the gaps read as sets
+      out += `<circle class="p-seg todo" cx="${mid}" cy="${mid}" r="${r}" stroke-width="${stroke}"
+        stroke-dasharray="${len.toFixed(2)} ${(c - len).toFixed(2)}" stroke-dashoffset="${(-start).toFixed(2)}" transform="rotate(-90 ${mid} ${mid})"/>`;
+    }
+    if (u.current) {
+      const ang = ((start) / c) * 2 * Math.PI - Math.PI / 2;
+      out += `<circle class="p-mark" cx="${(mid + r * Math.cos(ang)).toFixed(2)}" cy="${(mid + r * Math.sin(ang)).toFixed(2)}" r="${stroke}"/>`;
+    }
+  });
+  return out;
+}
+
+function unitLine(run, st) {
+  if (!st) return 'Every step done';
+  const work = st.kind === 'rest' || st.kind === 'switch' || st.kind === 'ready'
+    ? run.steps.slice(run.i).find((x) => E.WORK.has(x.kind)) : st;
+  if (!work) return '';
+  if (run.mode === 'cardio') return 'One bout';
+  if (!run.targetKnown) return 'Target not specified';
+  if (run.mode === 'hold' && work.units > 1) return `Hold ${work.unit} of ${work.units}${work.sets > 1 ? ` · set ${work.set} of ${work.sets}` : ''}`;
+  if (run.mode === 'hold') return `Hold ${work.set} of ${work.sets}`;
+  return `Set ${work.set} of ${work.sets}`;
+}
+
+function secsWords(s) {
+  if (s == null) return '';
+  if (s >= 60 && s % 60 === 0) return `${s / 60} minute${s === 60 ? '' : 's'}`;
+  if (s >= 60) return fmtClock(s);
+  return `${s} seconds`;
+}
+
+function ringCenter(run, st, now) {
   if (!st) return '';
+  const unit = `<div class="p-unit">${esc(unitLine(run, st))}</div>`;
   if (st.kind === 'reps' || (st.kind === 'manual' && st.reps != null)) {
-    return `<div class="p-bignum"><span class="mono">${esc(String(currentReps(run)))}</span><small>reps</small></div>`;
+    return `<div class="p-num reps"><span data-p-reps>${esc(String(currentReps(run)))}</span><small>reps</small></div>
+      <div class="p-cap">Your pace${st.hold ? ` · hold ${esc(fmtSecs(st.hold))}` : ''}</div>${unit}`;
   }
   if (st.kind === 'manual') {
-    return `<div class="p-bignum small"><span>At your pace</span></div>
-      <div class="p-elapsed mono" data-p-elapsed>${fmtClock(E.elapsedMs(run, now) / 1000)}</div>`;
+    return `<div class="p-num words">Your pace</div>
+      <div class="p-cap"><span class="mono" data-p-elapsed>${fmtClock(E.elapsedMs(run, now) / 1000)}</span> so far</div>${unit}`;
   }
   const rem = E.remainingSec(run, now);
-  return `<div class="p-bignum"><span class="mono" data-p-clock>${fmtClock(rem)}</span></div>`;
+  let cap = `of ${esc(secsWords(st.secs))}`;
+  if (st.kind === 'ready') cap = P.session && run.state === 'running' ? 'Starts automatically' : 'Get ready';
+  if (st.kind === 'switch') cap = `Switch to the ${st.side === 'L' ? 'left' : 'right'} leg`;
+  if (st.kind === 'work' && run.mode === 'cardio') cap = `of ${esc(fmtMins(Math.round(st.secs / 60)))}${st.target === 'last' ? ', same as last time' : ''}`;
+  return `<div class="p-num" data-p-clock>${fmtClock(ceilSec(rem))}</div><div class="p-cap">${cap}</div>${unit}`;
 }
 
-function subLine(run, st, item) {
-  if (!st) return '';
-  if (st.kind === 'ready') return 'Starting soon';
-  if (st.kind === 'rest') return `${esc(fmtSecs(st.secs))} rest, ${st.restSrc === 'prescribed' ? 'prescribed' : st.restSrc === 'yours' ? 'your setting' : 'default, adjustable'}`;
-  if (st.kind === 'switch') return `Next: ${esc(sideName(st.side).toLowerCase())} side`;
-  if (st.kind === 'hold') return `of ${esc(fmtSecs(st.secs))}`;
-  if (st.kind === 'work') {
-    if (run.mode === 'cardio') return `of ${esc(fmtMins(Math.round(st.secs / 60)))}, ${st.target === 'last' ? 'same as last time' : 'default, adjustable'}`;
-    return `of ${esc(fmtSecs(st.secs))}${run.pace ? ` · ${run.pace} BPM` : ''}`;
-  }
-  if (st.kind === 'reps') return `at your pace${st.hold ? ` · ${esc(fmtSecs(st.hold))} hold each rep` : ''}`;
-  if (st.kind === 'manual') return st.reps != null ? 'Check the notes on this one' : 'Tap Set done when you finish';
-  return '';
-}
-
-function pips(run) {
-  const list = E.progress(run);
-  if (list.length < 2) return '';
-  return `<div class="p-pips" aria-hidden="true">${list.map((p) => {
-    const cls = p.result ? (p.result.full ? 'done' : 'part') : p.current ? 'now' : '';
-    return `<i class="${cls} ${p.side === 'R' ? 'r' : p.side === 'L' ? 'l' : ''}"></i>`;
-  }).join('')}</div>`;
+/** Whole seconds, counted the way a countdown reads: 0:30 until a full second has gone. */
+function ceilSec(rem) {
+  return rem == null ? rem : Math.ceil(rem - 1e-6);
 }
 
 function paintClock(now) {
   const run = P?.run;
   if (!run) return;
   const rem = E.remainingSec(run, now);
+  const txt = fmtClock(ceilSec(rem));
   for (const el of document.querySelectorAll('[data-p-clock]')) {
-    const txt = fmtClock(rem);
     if (el.textContent !== txt) el.textContent = txt;
   }
   const el = document.querySelector('[data-p-elapsed]');
   if (el) {
-    const txt = fmtClock(E.elapsedMs(run, now) / 1000);
-    if (el.textContent !== txt) el.textContent = txt;
+    const t = fmtClock(E.elapsedMs(run, now) / 1000);
+    if (el.textContent !== t) el.textContent = t;
   }
+}
+
+/**
+ * The arc, painted at most once a frame from the engine's clock while the run
+ * is moving. Attributes are patched in place; nothing is re-rendered, so a
+ * field or a button under his finger is never replaced.
+ */
+let arcFrame = 0;
+function paintArc() {
+  arcFrame = 0;
+  const run = P?.run;
+  if (!run || run.state !== 'running' || document.visibilityState !== 'visible') return;
+  const el = document.querySelector('[data-p-arc]');
+  const st = E.step(run);
+  if (el && st) {
+    const frac = arcDash(run, st, performance.now());
+    if (frac != null) {
+      el.setAttribute('stroke-dasharray', `${(frac * RING.c).toFixed(2)} ${RING.c.toFixed(2)}`);
+      el.style.opacity = frac <= 0 ? '0' : '';
+    }
+  }
+  paintClock(performance.now());
+  arcFrame = requestAnimationFrame(paintArc);
+}
+function startArc() {
+  if (!arcFrame) arcFrame = requestAnimationFrame(paintArc);
+}
+function stopArc() {
+  if (arcFrame) cancelAnimationFrame(arcFrame);
+  arcFrame = 0;
 }
 
 // ------------------------------------------------------- between / done ----
@@ -667,9 +812,8 @@ function renderBetween(ctx) {
   const title = item.title || ex?.name || item.ex;
   return `
   <div class="player between" data-player style="--cat:${CATEGORIES[ex?.cat]?.color || 'var(--accent)'}">
-    <div class="p-top">${backBtn(ctx)}<span class="p-count">${s.pos + 1} of ${s.queue.length}</span><span></span></div>
+    <div class="p-eyebrow">${backBtn(ctx)}<span class="p-count">Up next · ${s.pos + 1} of ${s.queue.length}</span></div>
     <header class="p-hero">
-      <div class="p-label">UP NEXT</div>
       <h2 class="p-title">${esc(title)}</h2>
       <div class="p-setline">${m.mins == null ? 'Target not specified' : `${m.mins} min${m.src === 'learned' ? ', usually' : m.src === 'estimate' ? ', estimated' : ''}`}</div>
     </header>
@@ -677,34 +821,98 @@ function renderBetween(ctx) {
     ${early ? `<div class="notice info p-readynote">Do the rest of your workout after ${esc(fmtTime12(ready))}.</div>` : ''}
     <div class="p-actions static">
       <div class="p-row1">
-        <button class="btn p-big-btn" data-p="skip-ex">${I.skip}Skip this one</button>
-        <button class="btn p-big-btn primary" data-p="start-next">${I.play}Start</button>
+        <button class="btn big p-pause" data-p="skip-ex">${I.skip}Skip this one</button>
+        <button class="btn big primary" data-p="start-next">${I.play}Start</button>
       </div>
       <div class="p-row2 one"><button class="btn" data-p="end">End workout</button></div>
     </div>
   </div>`;
 }
 
+/**
+ * The finish, 2026-09-14 ring design. Shown once, inside the player:
+ *   - the whole plan done: one check draws with one outline dissipating, the
+ *     count, the workout time, the week, and one sentence (a new milestone's
+ *     sentence when one was earned, combined, never a second moment)
+ *   - the tendon loading: a calm acknowledgment and when the rest may start
+ *   - ended early: the facts, no celebration
+ * A revisit, a reload or a sync shows the same facts without replaying it.
+ */
 function renderDone(ctx) {
   const iso = P.session?.iso || P.run?.iso || todayIso();
   const planned = plannedItems(state.data, iso).filter((p) => !p.notYet);
   const entries = getDay(iso)?.entries || [];
-  const done = planned.filter((p) => itemStatus(p, entries).state === 'done').length;
-  const all = planned.length && done >= planned.length;
+  const doneItems = planned.filter((p) => itemStatus(p, entries).state === 'done');
+  const done = doneItems.length;
+  const all = planned.length > 0 && done >= planned.length;
+  const back = ctx.playerFrom === 'program' ? 'My Program' : 'Today';
+
+  if (P.stopForGap) {
+    const r = readyAfter(state.data, iso);
+    return `
+    <div class="player done-screen gap" data-player>
+      <div class="p-eyebrow">${backBtn(ctx)}<span class="p-count">Today · first job done</span></div>
+      <div class="fin">
+        <div class="fin-ring calm">${I.check}</div>
+        <h2 class="fin-title">${esc(ITEM[P.stopForGap]?.title || 'Logged')}</h2>
+        <p class="fin-line">${r ? `Rest of your workout after ${esc(fmtTime12(r))}.` : 'The rest of your workout waits six hours.'}</p>
+        <button class="btn big fin-act" data-p="close">Back to ${esc(back)}</button>
+      </div>
+    </div>`;
+  }
+
+  const fresh = all && !finishSeen(state.data, iso) && iso === todayIso();
+  const newOnes = all && iso === todayIso() ? unseenMilestones(state.data, iso) : [];
+  const moment = fresh ? milestoneSentence(newOnes) : null;
+  P.celebrate = fresh ? { iso, milestones: newOnes.map((m) => m.key) } : null;
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const mins = workoutMinutes(entries);
+
   return `
   <div class="player done-screen ${all ? 'all' : ''}" data-player>
-    <div class="p-top">${backBtn(ctx)}<span></span><span></span></div>
-    <div class="p-finish">
-      <div class="p-finish-ring">${I.check}</div>
-      ${P.stopForGap
-        ? `<h2>${esc(ITEM[P.stopForGap]?.title || 'Logged')}: done</h2>
-           <div class="p-setline">${(() => { const r = readyAfter(state.data, iso); return r ? `Do the rest of your workout after ${esc(fmtTime12(r))}.` : 'The rest of your workout waits six hours.'; })()}</div>`
-        : `<h2>${all ? 'Done for today' : 'Workout finished'}</h2>
-           <div class="p-setline">${done} of ${planned.length} planned exercises done</div>`}
-      ${(() => { const n = iso === todayIso() ? planStreak(state.data, iso) : 0; return n >= 2 ? `<div class="p-streak">Plan streak: ${n} days</div>` : ''; })()}
-      <button class="btn primary p-big-btn" data-p="close">Back to ${ctx.playerFrom === 'program' ? 'My Program' : 'Today'}</button>
+    <div class="p-eyebrow">${backBtn(ctx)}<span class="p-count">${all ? 'Today · plan complete' : 'Today'}</span></div>
+    <div class="fin">
+      <div class="fin-ring ${all ? 'good' : ''} ${fresh && !reduce ? 'play' : ''}" aria-hidden="true">${I.check}</div>
+      <h2 class="fin-title">${all ? 'Plan complete.' : 'Workout finished'}</h2>
+      ${all ? `<p class="fin-line">${esc(moment ? moment.sentence : 'You did what you came to do.')}</p>` : ''}
+      <section class="fin-card">
+        <div class="fin-count"><b>${done} of ${planned.length}</b><span>planned exercises</span></div>
+        <div class="segbar" aria-hidden="true">${planned.map((p) => `<i class="${itemStatus(p, entries).state === 'done' ? 'on' : ''}"></i>`).join('')}</div>
+        ${mins != null ? `<div class="fin-row"><span>Workout time</span><b>${esc(fmtMins(mins))}</b></div>` : ''}
+      </section>
+      ${moment ? `<div class="fin-ms ${reduce ? '' : 'play'}"><span class="ms-badge earned">${BADGE_ICON}</span>
+        <span class="ms-text"><b>${esc(moment.label)}</b><span>${esc(moment.detail)}</span></span></div>` : ''}
+      ${all ? weekDots(iso) : ''}
+      <button class="btn big fin-act" data-p="viewlog">${I.list}View today's log</button>
     </div>
   </div>`;
+}
+
+const BADGE_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="9" r="5.5"/><path d="M9 13.8L7.5 21l4.5-2.4 4.5 2.4-1.5-7.2"/></svg>';
+
+/** Active plus recovery minutes the player recorded today, one per run. */
+function workoutMinutes(entries) {
+  const runs = new Map();
+  for (const e of entries) if (e.logged && e.timing?.runId) runs.set(e.timing.runId, e.timing);
+  if (!runs.size) return null;
+  let secs = 0;
+  for (const t of runs.values()) secs += (t.activeSec || 0) + (t.restSec || 0);
+  return Math.max(1, Math.round(secs / 60));
+}
+
+/** The last seven days: a check for a plan done, a line for planned rest. */
+export function weekDots(iso) {
+  const cells = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = addDays(iso, -i);
+    const r = dayComplete(state.data, d);
+    const letter = new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'narrow' });
+    const kind = !r ? 'unknown' : !r.planned ? 'rest' : r.complete ? 'done' : 'open';
+    const word = { unknown: 'no plan recorded', rest: 'planned rest', done: 'plan complete', open: 'not complete' }[kind];
+    cells.push(`<span class="wd ${kind}" aria-label="${esc(fmtDate(d, 'dow'))}: ${word}"><small>${esc(letter)}</small><i>${kind === 'done' ? I.check : kind === 'rest' ? '<b></b>' : ''}</i></span>`);
+  }
+  return `<div class="weekdots" role="group" aria-label="The last seven days">${cells.join('')}</div>
+    <div class="weekdots-key">Check: plan complete · line: planned rest</div>`;
 }
 
 // ------------------------------------------------------------- review ----
@@ -768,7 +976,7 @@ function renderReview(ctx, run, item, ex) {
 
   return `
   <div class="player review" data-player>
-    <div class="p-top">${backBtn(ctx)}${P.session ? `<span class="p-count">${P.session.pos + 1} of ${P.session.queue.length}</span>` : '<span></span>'}<span></span></div>
+    <div class="p-eyebrow">${backBtn(ctx)}<span class="p-count">${P.session ? `Workout · ${P.session.pos + 1} of ${P.session.queue.length}` : 'Exercise'}</span></div>
     <header class="p-hero">
       <div class="p-label">${sum.complete ? 'CONFIRM' : 'SAVE WHAT YOU DID'}</div>
       <h2 class="p-title">${esc(title)}</h2>
@@ -786,8 +994,8 @@ function renderReview(ctx, run, item, ex) {
     </section>
     <div class="p-actions static">
       <div class="p-row1">
-        <button class="btn p-big-btn" data-p="prev">${I.prev}Back to the sets</button>
-        <button class="btn p-big-btn primary" data-p="save" ${sum.anyDone ? '' : 'disabled'}>${I.check}Save and continue</button>
+        <button class="btn big p-pause" data-p="prev">${I.prev}Back to the sets</button>
+        <button class="btn big primary" data-p="save" ${sum.anyDone ? '' : 'disabled'}>${I.check}Save and continue</button>
       </div>
     </div>
   </div>`;
@@ -922,7 +1130,10 @@ async function finishRun(ctx, { leave = false } = {}) {
       currentRerender?.();
       return;
     }
-    toast(`<b>Logged</b><br><span>${esc(item.title || item.ex)}</span>`);
+    // Carrying on: the receipt shows in the player while the next exercise is
+    // already counting down. Leaving: the toast says it on the way out.
+    if (leave || !P.session || item.first) toast(`<b>Logged</b><br><span>${esc(item.title || item.ex)}</span>`);
+    else showReceipt(item.title || item.ex);
   }
   P.finishing = false;
   if (leave || !P.session) {
@@ -942,6 +1153,21 @@ async function finishRun(ctx, { leave = false } = {}) {
   if (P.phase === 'between') startNextNow();
   writeDraft();
   currentRerender?.();
+}
+
+const RECEIPT_MS = 240 + 1500;   // enter, then readable for about a second and a half
+let receiptTimer = null;
+/** "Logged · title" in the reserved slot, cleared in place so nothing re-renders. */
+function showReceipt(title) {
+  P.receipt = { title, until: Date.now() + RECEIPT_MS, shown: false };
+  const el = document.querySelector('[data-p-live]');
+  if (el) el.textContent = `Logged ${title}`;
+  clearTimeout(receiptTimer);
+  receiptTimer = setTimeout(() => {
+    if (P) P.receipt = null;
+    const slot = document.querySelector('.p-receipt.on');
+    if (slot) { slot.className = 'p-receipt'; slot.innerHTML = ''; }
+  }, RECEIPT_MS);
 }
 
 /** Open the session's next exercise and start its get ready. */
@@ -1017,9 +1243,8 @@ export function bindPlayer(root, ctx, rerender) {
     if (k === 'done') {
       const st = E.step(run);
       const adj = P.repsAdjust && P.repsAdjust.i === run.i ? P.repsAdjust.n : undefined;
-      const wasReps = st?.kind === 'reps' || st?.kind === 'manual';
+      if (st && E.WORK.has(st.kind)) P.justDone = { runId: run.runId, i: run.i };
       act((r, now, wall) => E.setDone(r, now, wall, adj));
-      if (wasReps) popPip(root);
       return;
     }
     if (k === 'skip') return act((r, now, wall) => E.skipRest(r, now, wall));
@@ -1029,7 +1254,7 @@ export function bindPlayer(root, ctx, rerender) {
       const st = E.step(run);
       const cur = P.repsAdjust && P.repsAdjust.i === run.i ? P.repsAdjust.n : (st.reps ?? 0);
       P.repsAdjust = { i: run.i, n: Math.max(0, cur + (k === 'reps+' ? 1 : -1)) };
-      root.querySelectorAll('[data-p-reps], .p-bignum .mono').forEach((el) => { el.textContent = String(P.repsAdjust.n); });
+      root.querySelectorAll('[data-p-reps]').forEach((el) => { el.textContent = String(P.repsAdjust.n); });
       writeDraft();
       return;
     }
@@ -1109,6 +1334,15 @@ export function bindPlayer(root, ctx, rerender) {
     }
     if (k === 'skip-ex') { moveOn(P.session); rerender(); return; }
     if (k === 'end') { P.phase = 'done'; writeDraft(); rerender(); }
+    if (k === 'viewlog') {
+      const iso = P.session?.iso || P.run?.iso || todayIso();
+      clearDraft();
+      stopEffects();
+      notifyIdle();
+      ctx.date = iso;
+      ctx.editing = null;
+      ctx.go('today');
+    }
   }));
 
   // Review sheet inputs: kept on the draft as he types, saved only on Save.
@@ -1136,16 +1370,19 @@ export function bindPlayer(root, ctx, rerender) {
     rerender();
   }));
 
+  // The finish moment is recorded as played the first time it is drawn, and
+  // any milestones it carried with it; so do first-ever milestone records.
+  if (P?.phase === 'done' && (P.celebrate || needsSeed(state.data))) {
+    const c = P.celebrate;
+    const iso = P.session?.iso || P.run?.iso || todayIso();
+    update((d) => {
+      if (c) markFinishSeen(d, c.iso);
+      markSeen(d, iso, c ? unseenMilestones(d, iso).filter((m) => c.milestones.includes(m.key)) : []);
+    });
+    P.celebrate = null;
+  }
   syncEffects();
   paintWake();
-}
-
-function popPip(root) {
-  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  requestAnimationFrame(() => {
-    const done = document.querySelectorAll('.p-pips i.done');
-    done[done.length - 1]?.classList.add('pop');
-  });
 }
 
 // -------------------------------------------------------------- close ----

@@ -59,9 +59,9 @@ body.mobile {
 .mtop {
   position: sticky; top: 0; z-index: 40;
   padding-top: var(--safe-t);
-  background: color-mix(in srgb, var(--panel) 92%, transparent);
+  background: color-mix(in srgb, var(--bg) 90%, transparent);
   backdrop-filter: saturate(180%) blur(14px);
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--line-2);
 }
 /* The name sits big and dead centre, the same way the desktop shows it, the
    sync chip and the gear flank it in equal side columns, so it is centred on
@@ -74,22 +74,21 @@ body.mobile {
    Explicit columns render the same header whichever HTML the cache holds. */
 .mtop-in {
   min-height: var(--mtop-h);
-  display: grid; grid-template-columns: 1fr auto 1fr;
-  align-items: center; gap: .4rem; padding: .3rem .6rem;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center; gap: .5rem; padding: .3rem var(--gutter);
 }
-.mtop-in > .msync { grid-row: 1; grid-column: 1; justify-self: start; }
-.mtitle-wrap { grid-row: 1; grid-column: 2; }
+/* 2026-09-14 ring design: the name on the left, the save chip and Settings on
+   the right, the way the mockups place the chip. Still placed by class. */
+.mtop-in > .msync { grid-row: 1; grid-column: 2; justify-self: end; }
+.mtitle-wrap { grid-row: 1; grid-column: 1; }
 .mtop-in > .micon { grid-row: 1; grid-column: 3; justify-self: end; }
 .mtitle-wrap {
-  min-width: 0; max-width: calc(100vw - 172px);
-  display: flex; flex-direction: column; justify-content: center; text-align: center;
+  min-width: 0;
+  display: flex; flex-direction: column; justify-content: center; text-align: left;
 }
 .mtitle {
-  font-size: clamp(1rem, 4.9vw, 1.22rem); font-weight: 800; letter-spacing: -.02em; line-height: 1.15;
+  font-size: 1.05rem; font-weight: 720; letter-spacing: -.01em; line-height: 1.2; color: var(--ink);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  background: linear-gradient(100deg, var(--accent), #8a5cd6 65%, var(--right));
-  -webkit-background-clip: text; background-clip: text;
-  -webkit-text-fill-color: transparent; color: transparent;
 }
 .mpostop { font-size: .66rem; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mpostop b { color: var(--ink-2); font-weight: 600; }
@@ -97,24 +96,24 @@ body.mobile {
 /* .msync / .msync-dot live in styles.css now, the desktop shows the same
    chip. Only the touch sizing is mobile's, kept slim so the title's centre
    column gets the width the name needs. */
-body.mobile .msync { min-height: 36px; padding: 0 .5rem; font-size: .7rem; }
+body.mobile .msync { min-height: 40px; padding: 0 .8rem; font-size: .82rem; }
 
 .micon {
-  flex: none; width: 38px; height: 38px; border-radius: 10px;
+  flex: none; width: 44px; height: 44px; border-radius: 22px;
   display: inline-grid; place-items: center;
-  border: 1px solid var(--line); background: var(--panel); color: var(--ink-2);
+  border: 1px solid var(--line); background: var(--panel); color: var(--ink);
 }
 .micon svg {
   width: 19px; height: 19px; fill: none;
   stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
 }
-.micon.on { color: var(--accent); border-color: var(--accent); }
+.micon.on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
 
 /* ------------------------------------------------------------- content --- */
 /* In normal flow now. The sticky header sits above it; the fixed tab bar
    overlays the bottom, so reserve its height as padding. */
 .mview {
-  padding: .7rem .7rem calc(var(--mtab-h) + var(--safe-b) + 1.2rem);
+  padding: .7rem var(--gutter) calc(var(--mtab-h) + var(--safe-b) + 1.2rem);
   max-width: none;                   /* override .view's desktop centring */
   margin: 0;
 }
@@ -128,20 +127,21 @@ body.mobile .msync { min-height: 36px; padding: 0 .5rem; font-size: .7rem; }
      the buttons looked like empty background rather than part of the bar. */
   background: color-mix(in srgb, var(--panel) 99%, transparent);
   backdrop-filter: saturate(180%) blur(18px);
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--line-2);
 }
 .mtabs button {
   height: var(--mtab-h);
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
-  border: 0; background: none; color: var(--ink-3);
-  font: inherit; font-size: .58rem; font-weight: 600;
+  border: 0; background: none; color: var(--ink-2);
+  font: inherit; font-size: 11px; font-weight: 560;
   padding: 0 2px;
 }
 .mtabs button svg {
   width: 21px; height: 21px; fill: none;
   stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
 }
-.mtabs button.on { color: var(--accent); }
+.mtabs button.on { color: var(--ink); font-weight: 700; }
+.mtabs button.on svg { stroke-width: 2.4; }
 .mtabs button:active { background: var(--line-2); }
 
 /* ------------------------------------------- touch adaptations for content --- */
@@ -340,3 +340,30 @@ body.mobile .dayfilter button .fn { font-size: .98rem; }
 /* The player's action area sits above the fixed tab bar. */
 body.mobile .p-actions { bottom: calc(var(--mtab-h) + var(--safe-b) + .4rem); }
 body.mobile .p-img { height: clamp(120px, 23svh, 200px); }
+
+/* 2026-09-14 ring design: the rail on an iPad in landscape (styles.css draws
+   it), so the shell here only has to move the header and content across. */
+@media (min-width: 900px) {
+  body.mobile { --mtab-h: 0px; }
+  body.mobile .mtop, body.mobile .mview { margin-left: var(--rail-w); }
+  body.mobile #nav-settings { display: none; }
+  body.mobile .mview { padding-bottom: 2rem; }
+  body.mobile #toast-root { left: calc(var(--rail-w) + 1rem); }
+}
+
+/* 2026-09-14 ring design: in the player on a phone, the player's own line
+   (back, workout 2 of 6) takes the header's left side, beside the save chip,
+   so the photo grid, ring, sound and transport all fit a 393 x 852 screen. */
+@media (max-width: 899px) {
+  body.mobile.in-player .mtitle-wrap { visibility: hidden; }
+  body.mobile.in-player #nav-settings { display: none; }
+  body.mobile.in-player .player .p-eyebrow {
+    position: fixed; z-index: 41; top: var(--safe-t); left: var(--gutter); right: 128px;
+    height: var(--mtop-h); min-height: 0;
+  }
+  body.mobile.in-player .player .p-eyebrow .p-count { margin-left: auto; font-size: .74rem; }
+  body.mobile.in-player .mview { padding-top: .35rem; }
+}
+@media (max-width: 899px) and (max-height: 900px) {
+  body.mobile .player .p-img { height: clamp(136px, 21svh, 178px); }
+}

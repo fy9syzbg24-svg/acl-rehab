@@ -1,8 +1,9 @@
-import { load, state, subscribe, runSync, syncState, pendingSyncCount, onRemoteChange, surgeryDate, flushSave, saveOutstanding } from './store.js';
+import { load, state, update, subscribe, runSync, syncState, pendingSyncCount, onRemoteChange, surgeryDate, flushSave, saveOutstanding } from './store.js';
 import { guardPaint, whenIdle } from './editguard.js';
 import { chipState } from './status.js';
 import { esc, todayIso, postOp, applyStoredTheme } from './util.js';
 import { isConfigured } from './sync/config.js';
+import { needsSeed, markSeen } from './milestones.js';
 import { renderToday, bindToday } from './views/today.js';
 import { renderProgram, bindProgram } from './views/program.js';
 import { renderPlan, bindPlan } from './views/planview.js';
@@ -44,6 +45,7 @@ const paint = guardPaint(viewEl, rawPaint, () => ctx.view !== lastView);
 function rawPaint() {
   const y = window.scrollY;
   const [render, bind] = VIEWS[ctx.view] || VIEWS.today;
+  document.body.classList.toggle('in-player', ctx.view === 'player');
   viewEl.innerHTML = render(ctx);
   bind?.(viewEl, ctx, paint);
   // The player belongs to the tab it was opened from.
@@ -122,6 +124,13 @@ window.addEventListener('hashchange', () => {
   if (VIEWS[v] && v !== ctx.view) { if (ctx.view === 'player') playerLeaving(); ctx.view = v; paint(); }
 });
 
+// The first time this build opens, milestones already earned are recorded as
+// celebrated without a moment, so nothing old replays as a burst.
+function seedCelebrations() {
+  if (state.readOnly || !needsSeed(state.data)) return;
+  update((d) => { markSeen(d, todayIso()); });
+}
+
 subscribe(paintChrome);
 // A pull that changed the document must repaint the visible view, the phone
 // has always done this; the Mac was quietly showing stale data until a click.
@@ -165,4 +174,4 @@ async function autoSync() {
   }
 }
 
-load().then(() => { paint(); autoSync(); });
+load().then(() => { seedCelebrations(); paint(); autoSync(); });

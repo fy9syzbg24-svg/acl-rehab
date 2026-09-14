@@ -5,17 +5,19 @@
 // lower: true  -> a smaller number is a better result (sway, asymmetry)
 
 export const CATEGORIES = {
-  strength: { label: 'Strength', color: '#e0603a' },
-  balance: { label: 'Balance / proprioception', color: '#2f9e8f' },
-  aerobic: { label: 'Aerobic', color: '#3d7fd1' },
-  impact: { label: 'Impact / plyometrics', color: '#b4529e' },
-  running: { label: 'Running', color: '#4c9a3f' },
-  agility: { label: 'Agility / cutting', color: '#d4a017' },
-  dance: { label: 'Dance-specific', color: '#8a5cd6' },
-  show: { label: 'Show run-through', color: '#c0392b' },
-  kneeling: { label: 'Kneeling', color: '#7a6a55' },
-  mobility: { label: 'Mobility / range of motion', color: '#5d8aa8' },
-  recovery: { label: 'Recovery', color: '#6b7280' },
+  // Colours are theme tokens (styles.css), one per category, each with a dark
+  // variant. Every use sits in CSS (style attributes, color-mix), so var() works.
+  strength: { label: 'Strength', color: 'var(--cat-strength)' },
+  balance: { label: 'Balance / proprioception', color: 'var(--cat-balance)' },
+  aerobic: { label: 'Aerobic', color: 'var(--cat-aerobic)' },
+  impact: { label: 'Impact / plyometrics', color: 'var(--cat-impact)' },
+  running: { label: 'Running', color: 'var(--cat-running)' },
+  agility: { label: 'Agility / cutting', color: 'var(--cat-agility)' },
+  dance: { label: 'Dance-specific', color: 'var(--cat-dance)' },
+  show: { label: 'Show run-through', color: 'var(--cat-show)' },
+  kneeling: { label: 'Kneeling', color: 'var(--cat-kneeling)' },
+  mobility: { label: 'Mobility / range of motion', color: 'var(--cat-mobility)' },
+  recovery: { label: 'Recovery', color: 'var(--cat-recovery)' },
 };
 
 export const MEASURE_GROUPS = [

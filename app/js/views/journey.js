@@ -11,9 +11,9 @@ import { monthCompletion } from '../goals.js';
 // is the full text for anyone with room. Truncating with an ellipsis instead
 // left every phase reading "PHASE 2 · STRENG…" on a real phone.
 const PHASES = [
-  { label: 'Phase 2 · Strength', short: 'Phase 2', months: [1, 2], color: '#e0603a' },
-  { label: 'Phase 3 · Run & land', short: 'Phase 3', months: [3, 4], color: '#d4a017' },
-  { label: 'Phase 4 · Performance', short: 'Phase 4', months: [5, 6], color: '#8a5cd6' },
+  { label: 'Phase 2 · Strength', short: 'Phase 2', months: [1, 2], color: 'var(--cat-strength)' },
+  { label: 'Phase 3 · Run & land', short: 'Phase 3', months: [3, 4], color: 'var(--cat-running)' },
+  { label: 'Phase 4 · Performance', short: 'Phase 4', months: [5, 6], color: 'var(--cat-show)' },
 ];
 
 export function renderJourney(ctx, atIso = null) {
