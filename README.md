@@ -570,7 +570,7 @@ is a test asserting no unregistered top-level keys; keep it passing.
 
 ## Tests
 
-Open `/dev-tests.html` against a running server. 259 assertions: the merge
+Open `/dev-tests.html` against a running server. 262 assertions: the merge
 rules and the sync engine (`dev-merge.js`, `dev-engine.js`), the timing model
 (`dev-timing.js`), completion and run saving (`dev-logging.js`), the player's
 state machine with fake clocks (`dev-player.js`) and the plan streak
