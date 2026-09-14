@@ -6,15 +6,18 @@ import { runSync, syncState, pendingSyncCount, DEVICE_ID } from '../store.js';
 import { getConfig, setConfig, clearConfig, isConfigured } from '../sync/config.js';
 import { ghCheckAccess } from '../sync/github.js';
 import { SERVER_MODE } from '../sync/local-store.js';
+import { fmtDateNum } from '../util.js';
+
+const THIS = SERVER_MODE ? 'this Mac' : 'this device';
 
 function syncCard() {
   const c = getConfig();
   const pending = isConfigured() ? pendingSyncCount() : 0;
-  const last = c.lastSyncedAt ? new Date(c.lastSyncedAt).toLocaleString('en-AU', { dateStyle: 'medium', timeStyle: 'short' }) : 'never';
+  const last = c.lastSyncedAt ? when12(c.lastSyncedAt) : 'never';
   if (!isConfigured()) {
     return `
       <div class="callout small" style="margin-bottom:.8rem">
-        Your log lives on this Mac and works offline. Connecting adds a private GitHub
+        Your log lives on ${THIS} and works offline. Connecting adds a private GitHub
         repo as a relay so the iPhone and iPad stay in step.
       </div>
       <div class="grid3">
@@ -22,9 +25,9 @@ function syncCard() {
         <label class="fld">Repository<input id="sy-repo" value="${esc(c.repo || 'acl-rehab-data')}" autocomplete="off" spellcheck="false"></label>
         <label class="fld">Access token<input id="sy-token" type="password" placeholder="github_pat_…" autocomplete="off" spellcheck="false"></label>
       </div>
-      <div class="row" style="margin-top:.7rem"><button class="btn primary" data-sy-connect>Connect this Mac</button></div>
+      <div class="row" style="margin-top:.7rem"><button class="btn primary" data-sy-connect>Connect ${THIS}</button></div>
       <div class="tiny muted" style="margin-top:.5rem">
-        The token is stored on this Mac only, outside your synced data, and is sent
+        The token is stored on ${THIS} only, outside your synced data, and is sent
         nowhere except GitHub.
       </div>`;
   }
@@ -35,7 +38,7 @@ function syncCard() {
     </div>
     <div class="row">
       <button class="btn primary" data-sy-sync>${syncState.running ? 'Syncing…' : 'Sync now'}</button>
-      <button class="btn" data-sy-disconnect>Disconnect this Mac</button>
+      <button class="btn" data-sy-disconnect>Disconnect ${THIS}</button>
       <span class="tiny muted">device <span class="mono">${esc(DEVICE_ID)}</span> · build <span class="mono" id="build-id">…</span></span>
     </div>
     <details class="disc" style="margin-top:.7rem">
@@ -60,7 +63,7 @@ function syncCard() {
       Last sync failed (${esc(syncState.lastError.reason || 'error')}). Your data is safe here and
       will upload on the next attempt.</div>` : ''}
     <div class="tiny muted" style="margin-top:.5rem">
-      Disconnecting only forgets the token. Nothing is deleted from this Mac.
+      Disconnecting only forgets the token. Nothing is deleted from ${THIS}.
     </div>`;
 }
 
@@ -71,15 +74,33 @@ function when12(isoish) {
   return d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 }
 
-export function renderSettings() {
+export function renderSettings(ctx = {}) {
   const s = state.data.settings;
   const pa = s.physiapp || {};
   const connected = !!(pa.code && pa.birthYear);
   const auto = s.physiappAuto !== false;
+  const open = (k) => ((ctx.setOpen || {})[k] ? 'open' : '');
+  const c = getConfig();
+  const pending = isConfigured() ? pendingSyncCount() : 0;
+  // One line per group, so the whole page reads at a glance and the detail
+  // is one tap away. Each says which device it is about where that matters.
+  const sum = {
+    surgeries: [s.surgeryLeft && `L ${fmtDateNum(s.surgeryLeft)}`, s.surgeryRight && `R ${fmtDateNum(s.surgeryRight)}`].filter(Boolean).join(' · ') || 'not set',
+    appearance: { auto: 'Automatic', light: 'Light', dark: 'Dark' }[s.theme || 'light'],
+    units: `${s.weightUnit} · ${s.lengthUnit} · ${s.bodyweight ? `bodyweight ${s.bodyweight} ${s.weightUnit}` : 'bodyweight not set'}`,
+    data: SERVER_MODE ? 'on this Mac, with rolling backups' : 'on this device',
+    sync: !isConfigured() ? `Not connected on ${THIS}`
+      : syncState.lastError ? `Last sync failed (${syncState.lastError.reason || 'error'})`
+      : pending ? `${pending} change${pending === 1 ? '' : 's'} waiting` : `Synced${c.lastSyncedAt ? ` ${when12(c.lastSyncedAt)}` : ''}`,
+    physiapp: connected ? `Connected${s.physiappLastSync ? `, checked ${when12(s.physiappLastSync)}` : ''} · runs on the Mac` : 'Not set up · runs on the Mac',
+    sources: `${CASE.sources.length} source${CASE.sources.length === 1 ? '' : 's'}`,
+  };
+  const warnSync = isConfigured() && syncState.lastError;
+  const group = (key, title) => `<details class="card setgroup" data-setg="${key}" ${open(key)}>
+      <summary class="setsum"><span class="setsum-t">${title}</span><span class="setsum-s ${key === 'sync' && warnSync ? 'warn' : ''}">${esc(sum[key])}</span></summary>`;
   return `
   <div class="stack">
-    <section class="card">
-      <header><h2>Your surgeries</h2></header>
+    ${group('surgeries', 'Your surgeries')}
       <div class="card-body">
         <div class="grid3">
           <label class="fld">Injury date<input type="date" data-set="injuryDate" value="${esc(s.injuryDate || '')}"></label>
@@ -95,10 +116,9 @@ export function renderSettings() {
           Dates come from your clinical notes. Change them above if anything is wrong.
         </div>
       </div>
-    </section>
+    </details>
 
-    <section class="card">
-      <header><h2>Appearance</h2></header>
+    ${group('appearance', 'Appearance')}
       <div class="card-body">
         <div class="themepick">
           ${[['auto', 'Automatic', 'follows your device'],
@@ -111,10 +131,9 @@ export function renderSettings() {
             </button>`).join('')}
         </div>
       </div>
-    </section>
+    </details>
 
-    <section class="card">
-      <header><h2>Units &amp; body</h2></header>
+    ${group('units', 'Units &amp; body')}
       <div class="card-body">
         <div class="grid3">
           <label class="fld">Weight unit
@@ -141,10 +160,9 @@ export function renderSettings() {
           Recording a "Bodyweight" measurement on the Measures tab takes priority over this field.
         </div>
       </div>
-    </section>
+    </details>
 
-    <section class="card">
-      <header><h2>Your data</h2><span class="sub">stored in acl-rehab/data/rehab-data.json</span></header>
+    ${group('data', 'Your data')}
       <div class="card-body">
         <div class="row">
           <button class="btn" data-export>Download a backup (JSON)</button>
@@ -160,10 +178,9 @@ export function renderSettings() {
         </div>
         <div class="tiny muted" style="margin-top:.3rem">Use this if you deleted the seeded clinic entries and want them back.</div>
       </div>
-    </section>
+    </details>
 
-    <section class="card">
-      <header><h2>Device sync</h2><span class="sub">share this log with your iPhone</span></header>
+    ${group('sync', 'Device sync')}
       <div class="card-body">
         ${syncCard()}
         <div class="row" style="margin-top:.9rem;gap:.5rem;flex-wrap:wrap;border-top:1px solid var(--line-2);padding-top:.8rem">
@@ -174,10 +191,9 @@ export function renderSettings() {
           Re-downloads the app's files and reloads. Your data is not touched.
         </div>
       </div>
-    </section>
+    </details>
 
-    <section class="card">
-      <header><h2>PhysiApp sync</h2><span class="sub">pulls what you actually ticked off</span></header>
+    ${group('physiapp', 'PhysiApp import')}
       <div class="card-body">
         <div class="callout small" style="margin-bottom:.8rem">
           Reads what you ticked off in PhysiApp, with the numbers you entered. Read only; it
@@ -245,10 +261,9 @@ export function renderSettings() {
           </div>
         </details>
       </div>
-    </section>
+    </details>
 
-    <section class="card">
-      <header><h2>Where this came from</h2></header>
+    ${group('sources', 'Where this came from')}
       <div class="card-body">
         <ul class="plain">
           ${CASE.sources.map((s2) => `<li><strong>${esc(s2.label)}</strong>, ${esc(s2.note)}</li>`).join('')}
@@ -257,11 +272,15 @@ export function renderSettings() {
           Not medical advice. Thresholds come from your documents; my own defaults are labelled.
         </div>
       </div>
-    </section>
+    </details>
   </div>`;
 }
 
 export function bindSettings(root, ctx, rerender) {
+  // Which groups are open survives a re-render (a save repaints the page).
+  root.querySelectorAll('details[data-setg]').forEach((d) => d.addEventListener('toggle', () => {
+    ctx.setOpen = { ...(ctx.setOpen || {}), [d.dataset.setg]: d.open };
+  }));
   // Which build is this device actually running? The installed app caches its
   // shell, so "did my change land?" is otherwise guesswork.
   // Report the real viewport geometry. If the installed app is letterboxed by
@@ -388,7 +407,7 @@ export function bindSettings(root, ctx, rerender) {
 
   root.querySelector('[data-sy-disconnect]')?.addEventListener('click', () => {
     clearConfig();
-    toast('Disconnected: your data is still on this Mac');
+    toast(`Disconnected: your data is still on ${THIS}`);
     rerender();
   });
 

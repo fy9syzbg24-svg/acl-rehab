@@ -29,7 +29,10 @@ function loadRecords() {
       if (e.load == null || e.load === '') continue;
       const load = num(e.load);
       if (!load) continue;
-      const sides = e.side === 'B' ? ['L', 'R'] : [e.side || 'B'];
+      // A both-legs figure stays a both-legs figure: copying it into a left
+      // and a right column would claim two measurements that never happened.
+      if (!e.logged) continue;
+      const sides = [e.side || 'B'];
       for (const s of sides) {
         const key = `${e.ex}|${s}`;
         const cur = rec[key];
@@ -51,15 +54,16 @@ function baselines() {
 
   const table = (list) => !list.length ? '<div class="empty">Nothing logged with a load yet.</div>' : `
     <div class="scroll-x"><table class="tbl" style="min-width:560px">
-      <thead><tr><th>Exercise</th><th class="num">Left</th><th class="num">Right</th><th class="num">Δ</th><th>Best set</th><th>When</th></tr></thead>
+      <thead><tr><th>Exercise</th><th class="num">Left</th><th class="num">Right</th><th class="num">Both legs</th><th class="num">Difference</th><th>Best set</th><th>When</th></tr></thead>
       <tbody>${list.map((id) => {
-        const L = byEx[id].L; const R = byEx[id].R;
+        const L = byEx[id].L; const R = byEx[id].R; const B = byEx[id].B;
         const delta = L && R && L.load !== R.load ? `${round(Math.abs(L.load - R.load), 1)} ${L.unit} ${L.load > R.load ? 'L' : 'R'}` : '';
-        const top = (L && R ? (L.load >= R.load ? L : R) : L || R);
+        const top = [L, R, B].filter(Boolean).sort((a, b) => b.load - a.load)[0];
         return `<tr>
           <td>${esc(exerciseById(id)?.name || id)} ${top.seeded ? '<span class="seeded-dot" title="from clinical notes">●</span>' : ''}</td>
           <td class="num mono">${L ? `${round(L.load, 2)} ${esc(L.unit)}` : '·'}</td>
           <td class="num mono">${R ? `${round(R.load, 2)} ${esc(R.unit)}` : '·'}</td>
+          <td class="num mono">${B ? `${round(B.load, 2)} ${esc(B.unit)}` : '·'}</td>
           <td class="num mono tiny ${delta ? '' : 'muted'}">${esc(delta || '·')}</td>
           <td class="tiny muted mono">${top.sets ? `${top.sets} x ${top.reps ?? '?'}` : ''}</td>
           <td class="tiny muted">${esc(fmtDateNum(top.date))}</td>
@@ -101,7 +105,7 @@ function volumeTable() {
   const rec = {};
   for (const [date, day] of Object.entries(state.data.days)) {
     for (const e of day.entries || []) {
-      if (num(e.load)) continue;
+      if (num(e.load) || !e.logged) continue;
       const sets = num(e.sets) || 1;
       const reps = num(e.reps);
       const time = num(e.time);
@@ -131,7 +135,8 @@ function prTable() {
     return { m, cells };
   }).filter(Boolean);
   if (!rows.length) return '<div class="empty">No measurements recorded yet.</div>';
-  return `<div class="scroll-x"><table class="tbl" style="min-width:560px">
+  return `<div class="only-narrow mrows">${rows.map(({ m }) => metricRow(m)).join('')}</div>
+  <div class="only-wide scroll-x"><table class="tbl" style="min-width:560px">
     <thead><tr><th>Test</th><th class="num">Left</th><th class="num">Right</th><th class="num">Latest</th><th>When</th></tr></thead>
     <tbody>${rows.map(({ m, cells }) => {
       const u = m.unit === 'weight' ? state.data.settings.weightUnit : UNIT_LABEL[m.unit] || '';
@@ -155,18 +160,19 @@ function valdView() {
   <section class="card">
     <header><h2>VALD</h2><span class="sub">Dynamo isometric strength + force plate assessments</span></header>
     <div class="card-body">
-      <div class="callout small" style="margin-bottom:.9rem">
-        Seeded from your Dynamo test and force plate session (report dated 3 Aug). Percentiles are recorded alongside the raw numbers so you can see both the value and where it sits.
-      </div>
+      <details class="disc" style="margin-bottom:.6rem"><summary>Where these numbers come from</summary>
+        <div class="tiny">Seeded from your Dynamo test and force plate session (report dated 3 Aug). Percentiles are recorded alongside the raw numbers so you can see both the value and where it sits. An asymmetry printed on a report is shown as printed; one worked out here is shown in grey.</div>
+      </details>
       ${groups.map((g) => {
         const ms = MEASURES.filter((m) => m.group === g);
         const tested = ms.filter((m) => measurementsFor(m.id).length);
         const untested = ms.filter((m) => !measurementsFor(m.id).length);
         return `
         <div class="section-title" style="margin-top:.9rem">${esc(g)}</div>
-        ${tested.length ? `<div class="scroll-x"><table class="tbl" style="min-width:600px">
+        ${tested.length ? `<div class="only-wide scroll-x"><table class="tbl" style="min-width:600px">
           <thead><tr><th>Metric</th><th class="num">Left</th><th class="num">Right</th><th class="num">Asym</th><th>Date</th><th></th></tr></thead>
-          <tbody>${tested.map((m) => valdRow(m)).join('')}</tbody></table></div>` : ''}
+          <tbody>${tested.map((m) => valdRow(m)).join('')}</tbody></table></div>
+          <div class="only-narrow mrows">${tested.map((m) => metricRow(m)).join('')}</div>` : ''}
         ${untested.length ? `<div class="tiny muted" style="margin-top:.4rem">Not tested yet: ${untested.map((m) => esc(m.label)).join(', ')}.
           <button class="btn sm ghost" data-record="${esc(untested[0].id)}">record one</button></div>` : ''}`;
       }).join('')}
@@ -232,7 +238,8 @@ function allTests() {
     return `<section class="card">
       <header><h2>${esc(g)}</h2></header>
       <div class="card-body tight">
-        <div class="scroll-x"><table class="tbl" style="min-width:520px">
+        <div class="only-narrow mrows">${ms.map((m) => metricRow(m)).join('')}</div>
+        <div class="only-wide scroll-x"><table class="tbl" style="min-width:520px">
           <thead><tr><th>Test</th><th class="num">Latest L</th><th class="num">Latest R</th><th>Date</th><th></th></tr></thead>
           <tbody>${ms.map((m) => {
             const u = m.unit === 'weight' ? state.data.settings.weightUnit : UNIT_LABEL[m.unit] || '';
@@ -265,7 +272,8 @@ function historyView(ctx) {
   <section class="card">
     <header><h2>Every recorded result</h2><span class="sub">${rows.length} entries</span></header>
     <div class="card-body tight">
-      ${rows.length ? `<div class="scroll-x"><table class="tbl" style="min-width:640px">
+      ${rows.length ? `<div class="only-narrow">${historyTimeline(rows)}</div>
+      <div class="only-wide scroll-x"><table class="tbl" style="min-width:640px">
         <thead><tr><th>Date</th><th>Test</th><th>Side</th><th class="num">Value</th><th class="num">Pct</th><th>Source / note</th><th></th></tr></thead>
         <tbody>${rows.map((r) => {
           const m = MEASURE_BY_ID[r.measure];
@@ -277,7 +285,7 @@ function historyView(ctx) {
             <td class="num mono">${esc(String(r.value))} ${esc(m?.unit === 'grade' ? '' : u)}</td>
             <td class="num mono tiny">${r.pctile != null ? esc(r.pctile) : ''}</td>
             <td class="tiny muted">${esc([r.src, r.note].filter(Boolean).join(' · '))}</td>
-            <td class="num"><button class="btn sm ghost danger" data-delm="${esc(r.id)}">✕</button></td>
+            <td class="num"><button class="btn sm ghost danger" data-delm="${esc(r.id)}" aria-label="Delete this result">Delete</button></td>
           </tr>`;
         }).join('')}</tbody></table></div>` : '<div class="empty">Nothing recorded yet.</div>'}
     </div>
@@ -308,6 +316,75 @@ function chartCard(m) {
         : ''}${m.lower ? '<span class="muted">lower is better</span>' : ''}</span></div>
     ${has ? lineChart(series.filter((s) => s.points.length), { lowerBetter: !!m.lower }) : '<div class="empty">No data.</div>'}
   </div>`;
+}
+
+// ------------------------------------------------------------ metric rows --
+// On a phone a wide table is a sideways scroll for every ordinary look, so
+// each metric is one row: its name, the latest values pinned on the right,
+// the date under the name, and the detail (best, percentile, asymmetry, how
+// to test, record, chart) behind a tap. Wider screens keep the tables.
+
+function unitOf(m, r) {
+  if (m.unit === 'grade') return '';
+  if (m.unit === 'weight') return r?.unit || state.data.settings.weightUnit;
+  return UNIT_LABEL[m.unit] || '';
+}
+function val(m, r) {
+  if (!r) return '<span class="muted">·</span>';
+  const u = unitOf(m, r);
+  return `${esc(String(round(r.value, 2)))}${u ? `<small>${esc(u.length > 2 ? ` ${u}` : u)}</small>` : ''}`;
+}
+
+function metricRow(m) {
+  const L = m.perLeg ? latest(m.id, 'L') : null;
+  const R = m.perLeg ? latest(m.id, 'R') : null;
+  const S = m.perLeg ? null : latest(m.id, null);
+  const when = [L, R, S].filter(Boolean).map((r) => r.date).sort().pop();
+  const bestL = m.perLeg ? best(m.id, 'L', m.lower) : null;
+  const bestR = m.perLeg ? best(m.id, 'R', m.lower) : null;
+  const bestS = m.perLeg ? null : best(m.id, null, m.lower);
+  const count = measurementsFor(m.id).length;
+  const pct = (r) => (r?.pctile != null ? ` <span class="pill">${esc(ord(r.pctile))} pct</span>` : '');
+  return `<details class="mrow">
+    <summary>
+      <span class="mrow-name">${esc(m.label)}<span class="mrow-date">${when ? esc(fmtDateNum(when)) : 'not tested yet'}</span></span>
+      <span class="mrow-vals">${m.perLeg
+        ? `<span class="mv"><b class="sidetag L">L</b>${val(m, L)}</span><span class="mv"><b class="sidetag R">R</b>${val(m, R)}</span>`
+        : `<span class="mv">${val(m, S)}</span>`}</span>
+    </summary>
+    <div class="mrow-body">
+      ${count ? `<div class="exh-line"><span class="exh-k">Best</span><span class="exh-v">${m.perLeg
+        ? `<b class="sidetag L">L</b> ${val(m, bestL)}${pct(bestL)} · <b class="sidetag R">R</b> ${val(m, bestR)}${pct(bestR)}`
+        : `${val(m, bestS)}${pct(bestS)}`}${m.lower ? ' <span class="tiny muted">lower is better</span>' : ''}</span></div>` : ''}
+      ${m.perLeg && L && R ? `<div class="exh-line"><span class="exh-k">Asymmetry</span><span class="exh-v">${asymCell(L, R) || '·'}</span></div>` : ''}
+      ${m.how ? `<div class="tiny" style="margin:.3rem 0">${esc(m.how)}</div>` : ''}
+      <div class="row" style="gap:.4rem;margin-top:.3rem">
+        <button class="btn sm" data-record="${esc(m.id)}">Record</button>
+        ${count ? `<button class="btn sm ghost" data-chart="${esc(m.id)}">Chart</button>` : ''}
+        <span class="tiny muted">${count} result${count === 1 ? '' : 's'}</span>
+      </div>
+    </div>
+  </details>`;
+}
+
+function historyTimeline(rows) {
+  const byDate = new Map();
+  for (const r of rows) {
+    if (!byDate.has(r.date)) byDate.set(r.date, []);
+    byDate.get(r.date).push(r);
+  }
+  return `<div class="tline">${[...byDate.entries()].map(([date, list]) => `
+    <div class="tline-day">
+      <div class="tline-date">${esc(fmtDateNum(date))}</div>
+      ${list.map((r) => {
+        const m = MEASURE_BY_ID[r.measure];
+        return `<div class="tline-row">
+          <span class="tline-main">${esc(m?.label || r.measure)}${r.src || r.note ? `<span class="tline-sub">${esc([r.src, r.note].filter(Boolean).join(' · '))}</span>` : ''}</span>
+          <span class="mv">${r.leg ? `<b class="sidetag ${r.leg}">${r.leg}</b>` : ''}${m ? val(m, r) : esc(String(r.value))}${r.pctile != null ? ` <span class="pill">${esc(ord(r.pctile))}</span>` : ''}</span>
+          <button class="btn sm ghost danger" data-delm="${esc(r.id)}" aria-label="Delete this result">Delete</button>
+        </div>`;
+      }).join('')}
+    </div>`).join('')}</div>`;
 }
 
 // ------------------------------------------------------------------ bind ---
@@ -341,6 +418,9 @@ export function bindMeasuresPanel(root, ctx, rerender) {
     rerender();
   }));
   root.querySelectorAll('[data-delm]').forEach((b) => b.addEventListener('click', () => {
+    const r = state.data.measurements.find((m) => m.id === b.dataset.delm);
+    const label = MEASURE_BY_ID[r?.measure]?.label || 'this result';
+    if (!confirm(`Delete ${label} from ${r ? fmtDateNum(r.date) : 'that date'}? This removes it on every device.`)) return;
     update((d) => { d.measurements = d.measurements.filter((m) => m.id !== b.dataset.delm); });
     rerender();
   }));

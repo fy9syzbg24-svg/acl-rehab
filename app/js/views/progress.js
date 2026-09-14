@@ -4,7 +4,7 @@ import { PLAN_MONTHS, monthForDate } from '../../data/plan.js';
 import { CASE, CLINIC_TIMELINE } from '../../data/history.js';
 import { heatmap, lineChart } from '../components.js';
 import { monthCompletion } from '../goals.js';
-import { planStreak } from '../planstreak.js';
+import { planStreak, dayComplete } from '../planstreak.js';
 import { renderWeekPanel, bindWeekPanel } from './week.js';
 import { renderMeasuresPanel, bindMeasuresPanel } from './measures.js';
 import { renderMelbourne, bindMelbourne } from './melbourneview.js';
@@ -66,8 +66,10 @@ function renderHistoryPanel(ctx) {
       <div class="kpi"><div class="v">${checkins30}</div><div class="k">knee check-ins, last 30</div></div>
     </div>
 
+    ${recentDays(today)}
+
     <section class="card">
-      <header><h2>Activity</h2><span class="sub">26 weeks · darker = more categories trained</span></header>
+      <header><h2>Activity</h2><span class="sub">26 weeks · darker = more exercises confirmed</span></header>
       <div class="card-body">
         ${heatmap(today, 26, levelFor)}
         <div class="row tiny muted" style="margin-top:.5rem;gap:.4rem">
@@ -117,17 +119,65 @@ function renderHistoryPanel(ctx) {
   </div>`;
 }
 
+/**
+ * The last three weeks as a dated timeline, workouts and check-ins on their
+ * own lines so neither passes for the other. Confirmed exercises only; a
+ * partial one says so; a day that was only opened does not appear.
+ */
+function recentDays(today) {
+  const rows = [];
+  for (let i = 0; i < 21; i++) {
+    const iso = addDays(today, -i);
+    const d = getDay(iso);
+    if (!d) continue;
+    const logged = (d.entries || []).filter((e) => e.logged);
+    const exercises = new Set(logged.map((e) => e.pid || `x:${e.ex}`));
+    const partial = new Set(logged.filter((e) => e.partial).map((e) => e.pid || `x:${e.ex}`));
+    const c = d.checkin || {};
+    const check = hasCheckin(d);
+    if (!exercises.size && !check && !d.notes) continue;
+    const plan = dayComplete(state.data, iso);
+    rows.push(`<div class="tline-day">
+      <div class="tline-date">${esc(fmtDate(iso, 'short'))}${iso === today ? ' · today' : ''}</div>
+      ${exercises.size ? `<div class="tline-row two">
+        <span class="tline-main"><b>Workout</b><span class="tline-sub">${exercises.size} exercise${exercises.size === 1 ? '' : 's'} confirmed${partial.size ? `, ${partial.size} partly` : ''}${plan && plan.planned ? ` · ${plan.done} of ${plan.planned} planned` : ''}</span></span>
+        ${plan && plan.planned && plan.complete ? '<span class="pill good">plan done</span>' : '<span></span>'}
+      </div>` : ''}
+      ${check ? `<div class="tline-row two">
+        <span class="tline-main"><b>Knee check-in</b><span class="tline-sub">${[
+          (num(c.painL) != null || num(c.painR) != null) ? `pain L ${c.painL ?? '·'} · R ${c.painR ?? '·'}` : '',
+          [c.effusionL, c.effusionR].some((v) => v && v !== 'Zero') ? 'swelling logged' : '',
+          c.nextDay ? `yesterday left you ${String(c.nextDay).toLowerCase()}` : '',
+        ].filter(Boolean).map(esc).join(' · ') || 'notes'}</span></span><span></span>
+      </div>` : ''}
+      ${d.notes ? `<div class="tline-note">${esc(d.notes)}</div>` : ''}
+    </div>`);
+  }
+  if (!rows.length) return '';
+  return `<section class="card">
+    <header><h2>Recent days</h2><span class="sub">workouts and check-ins, last three weeks</span></header>
+    <div class="card-body"><div class="tline">${rows.join('')}</div></div>
+  </section>`;
+}
+
 function renderClinicalPanel() {
   return `<div class="stack">
     <section class="card">
       <header><h2>Clinical history</h2><span class="sub">from your notes: background, not something to tick off</span></header>
       <div class="card-body">
-        ${CLINIC_TIMELINE.map((t) => `
-          <div style="margin-bottom:.9rem">
-            <div class="row" style="gap:.4rem"><strong class="small">${esc(fmtDate(t.date, 'short'))}: ${esc(t.title)}</strong>
-              <span class="tiny muted">${esc(t.who)}</span></div>
-            <ul class="plain">${t.points.map((p) => `<li>${esc(p)}</li>`).join('')}</ul>
-          </div>`).join('')}
+        <div class="tline clinical">${CLINIC_TIMELINE.slice().sort((a, b) => (a.date < b.date ? 1 : -1)).map((t) => {
+          // Long entries fold after two points. Nothing is removed: the rest
+          // is one tap away, word for word.
+          const head = t.points.slice(0, 2);
+          const more = t.points.slice(2);
+          return `<div class="tline-day">
+            <div class="tline-date">${esc(fmtDate(t.date, 'short'))}${t.who ? ` · <span class="tline-who">${esc(t.who)}</span>` : ''}</div>
+            <div class="tline-title">${esc(t.title)}</div>
+            <ul class="plain">${head.map((p) => `<li>${esc(p)}</li>`).join('')}</ul>
+            ${more.length ? `<details class="exh-more"><summary>${more.length} more</summary>
+              <ul class="plain">${more.map((p) => `<li>${esc(p)}</li>`).join('')}</ul></details>` : ''}
+          </div>`;
+        }).join('')}</div>
 
         <div class="section-title" style="margin-top:1rem">Things being watched</div>
         <ul class="plain">${CASE.flags.map((f) => `<li>${esc(f.text)}</li>`).join('')}</ul>

@@ -149,8 +149,38 @@ export function renderMelbourne(ctx) {
   </div>`;
 }
 
+/** One criterion as a compact row for a phone: name, status in words, the
+ *  latest figure, and the goal, how to test and the controls behind a tap. */
+function criterionRows(rows) {
+  return `<div class="mrows">${rows.map((row) => {
+    const st = measureState(row);
+    const cls = st.status === 'pass' ? 'good' : st.status === 'fail' ? 'bad' : '';
+    const how = row.how || MEASURE_BY_ID[row.measure]?.how;
+    return `<details class="mrow crit ${cls}">
+      <summary>
+        <span class="mrow-name">${esc(row.label)}<span class="mrow-date${st.status !== 'none' && /\d/.test(st.text) ? ' mono' : ''}">${st.status === 'none'
+          ? esc(row.goalText || '')
+          : `${esc(st.text)}${st.lsi != null ? ` · LSI ${esc(round(st.lsi, 0))}%` : ''}`}</span></span>
+        <span class="crit-state">${st.status === 'none' ? '<span class="pill">not tested</span>' : `<span class="pill ${cls}">${st.status === 'pass' ? 'met' : 'not yet'}</span>`}</span>
+      </summary>
+      <div class="mrow-body">
+        ${row.goalText ? `<div class="exh-line"><span class="exh-k">Goal</span><span class="exh-v">${esc(row.goalText)}</span></div>` : ''}
+        ${how ? `<div class="tiny" style="margin:.2rem 0">${esc(how)}</div>` : ''}
+        <div class="row" style="gap:.4rem;margin-top:.3rem">
+          ${st.manual ? `<label class="row tiny" style="gap:.25rem"><input type="checkbox" data-mmanual="${esc(row.id)}" ${state.data.melbourne.measures[row.id]?.pass ? 'checked' : ''}> done</label>` : ''}
+          ${st.rating ? `<select data-mrating="${esc(row.id)}" class="sel-sm">
+              <option value="">·</option>${row.goal.options.map((o) => `<option ${state.data.melbourne.measures[row.id]?.rating === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}
+            </select>` : ''}
+          ${row.measure ? `<button class="btn sm" data-record="${esc(row.measure)}">Record</button>` : ''}
+        </div>
+      </div>
+    </details>`;
+  }).join('')}</div>`;
+}
+
 function measureTable(rows) {
-  return `<div class="scroll-x"><table class="tbl" style="min-width:600px"><thead>
+  return `<div class="only-narrow">${criterionRows(rows)}</div>
+  <div class="only-wide scroll-x"><table class="tbl" style="min-width:600px"><thead>
     <tr><th>Test</th><th>Goal</th><th>Latest</th><th class="num">LSI</th><th></th><th></th></tr>
   </thead><tbody>
   ${rows.map((row) => {
@@ -228,7 +258,7 @@ function mrssSection() {
           const t = mrssTotal(a);
           return `<tr>
             <td>${esc(fmtDateNum(a.date))}</td>
-            <td class="num mono"><strong>${round(t.final, 1)}</strong> / 100</td>
+            <td class="num mono"><strong>${round(t.final, 1)}</strong> / 100${(() => { const pr = mrssProgress(a); const d = pr.reduce((n, p) => n + p.done, 0); const tt = pr.reduce((n, p) => n + p.total, 0); return d < tt ? ` <span class="pill warn">${d} of ${tt} answered</span>` : ''; })()}</td>
             <td>${t.tsk == null ? '<span class="muted tiny">·</span>' : `<span class="pill ${t.tskPass ? 'good' : 'bad'}">${t.tsk} ${t.tskPass ? 'pass' : 'fail'}</span>`}</td>
             <td>${a.partE?.t1 ? `<span class="pill ${t.fitnessPass ? 'good' : 'bad'}">${t.fitnessPass ? 'pass' : 'fail'}</span>` : '<span class="muted tiny">·</span>'}</td>
             <td class="num"><button class="btn sm" data-openmrss="${esc(a.id)}">Open</button></td>
@@ -239,10 +269,39 @@ function mrssSection() {
   </section>`;
 }
 
+/**
+ * How much of each MRSS part is answered. The wording and scoring of every
+ * question are untouched; this only counts answers so an unfinished part is
+ * obvious before a score is read.
+ */
+export function mrssProgress(a) {
+  const count = (obj, ids) => ids.filter((id) => obj?.[id] !== undefined && obj?.[id] !== null && obj?.[id] !== '').length;
+  const arr = (list, n) => Array.from({ length: n }, (_, i) => list?.[i]).filter((v) => v !== undefined && v !== null).length;
+  return [
+    { id: 'mrss-a', label: 'A', name: 'Stability', done: count(a.partA, MRSS_PART_A.map((x) => x.id)), total: MRSS_PART_A.length },
+    { id: 'mrss-rsi', label: 'B', name: 'ACL-RSI', done: arr(a.aclrsi, ACL_RSI.items.length), total: ACL_RSI.items.length },
+    { id: 'mrss-ikdc', label: 'B', name: 'IKDC', done: count(a.ikdc, IKDC.items.map((x) => x.id)), total: IKDC.items.length },
+    { id: 'mrss-c', label: 'C', name: 'TSK-11', done: arr(a.tsk, TSK11.items.length), total: TSK11.items.length },
+    { id: 'mrss-d', label: 'D', name: 'Functional', done: count(a.partD, MRSS_PART_D.map((x) => x.id)), total: MRSS_PART_D.length },
+    { id: 'mrss-e', label: 'E', name: 'Fitness', done: ['t1', 't2'].filter((k) => a.partE?.[k]).length, total: 2 },
+    { id: 'mrss-f', label: 'F', name: 'Fatigued', done: count(a.partF, MRSS_PART_F.map((x) => x.id)), total: MRSS_PART_F.length },
+  ];
+}
+
+function partTag(p) {
+  return p.done >= p.total
+    ? `<span class="pill good">${p.done} of ${p.total} answered</span>`
+    : `<span class="pill ${p.done ? 'warn' : ''}">${p.done} of ${p.total} answered</span>`;
+}
+
 function renderMrssForm(ctx) {
   const a = (state.data.mrss || []).find((x) => x.id === ctx.mrssId);
   if (!a) return '<div class="empty">Assessment not found.</div>';
   const t = mrssTotal(a);
+  const prog = mrssProgress(a);
+  const P = Object.fromEntries(prog.map((p) => [p.id, p]));
+  const answered = prog.reduce((n, p) => n + p.done, 0);
+  const total = prog.reduce((n, p) => n + p.total, 0);
 
   const slider = (path, i, val, lo, hi, q) => `
     <div style="margin-bottom:.6rem">
@@ -261,8 +320,14 @@ function renderMrssForm(ctx) {
       </div>
     </div>
 
+    <nav class="mnav" aria-label="Assessment sections">
+      ${prog.map((p) => `<button class="mnav-btn ${p.done >= p.total ? 'done' : p.done ? 'part' : ''}" data-jump-part="${p.id}"
+        aria-label="Part ${p.label}, ${esc(p.name)}: ${p.done} of ${p.total} answered">
+        <b>${p.label}</b><span>${esc(p.name)}</span><i>${p.done}/${p.total}</i></button>`).join('')}
+    </nav>
+
     <section class="card">
-      <header><h2>Final score</h2></header>
+      <header><h2>Final score</h2><span class="sub">${answered} of ${total} answered${answered < total ? ', so this score is incomplete' : ''}</span></header>
       <div class="card-body">
         <div class="kpis">
           <div class="kpi"><div class="v">${round(t.final, 1)}</div><div class="k">/ 100 · need 95+</div></div>
@@ -279,8 +344,8 @@ function renderMrssForm(ctx) {
       </div>
     </section>
 
-    <section class="card">
-      <header><h2>Part A: stability, swelling &amp; range</h2><span class="sub">${t.partA}/20 → ${round(t.partAConv, 1)}/10</span></header>
+    <section class="card" id="mrss-a">
+      <header><h2>Part A: stability, swelling &amp; range</h2><span class="sub">${t.partA}/20 → ${round(t.partAConv, 1)}/10 ${partTag(P['mrss-a'])}</span></header>
       <div class="card-body">
         ${MRSS_PART_A.map((it) => `
           <label class="fld" style="margin-bottom:.5rem">${esc(it.label)}
@@ -292,16 +357,16 @@ function renderMrssForm(ctx) {
       </div>
     </section>
 
-    <section class="card">
-      <header><h2>Part B: ACL-RSI</h2><span class="sub">${t.rsi == null ? 'incomplete' : round(t.rsi, 1) + '% → ' + t.rsiPts + '/10'}</span></header>
+    <section class="card" id="mrss-rsi">
+      <header><h2>Part B: ACL-RSI</h2><span class="sub">${t.rsi == null ? 'incomplete' : round(t.rsi, 1) + '% → ' + t.rsiPts + '/10'} ${partTag(P['mrss-rsi'])}</span></header>
       <div class="card-body">
         <div class="tiny muted" style="margin-bottom:.6rem">${esc(ACL_RSI.note)}</div>
         ${ACL_RSI.items.map((it, i) => slider('aclrsi', i, a.aclrsi?.[i], it.lo, it.hi, it.q)).join('')}
       </div>
     </section>
 
-    <section class="card">
-      <header><h2>Part B: IKDC</h2><span class="sub">${t.ikdc == null ? 'incomplete' : round(t.ikdc.score, 1) + ' → ' + round(t.ikdcPts, 1) + '/10'}</span></header>
+    <section class="card" id="mrss-ikdc">
+      <header><h2>Part B: IKDC</h2><span class="sub">${t.ikdc == null ? 'incomplete' : round(t.ikdc.score, 1) + ' → ' + round(t.ikdcPts, 1) + '/10'} ${partTag(P['mrss-ikdc'])}</span></header>
       <div class="card-body">
         <div class="tiny muted" style="margin-bottom:.6rem">${esc(IKDC.note)}</div>
         ${IKDC.items.map((it) => {
@@ -321,8 +386,8 @@ function renderMrssForm(ctx) {
       </div>
     </section>
 
-    <section class="card">
-      <header><h2>Part C: TSK-11</h2><span class="sub">${t.tsk == null ? 'incomplete' : t.tsk + ' / 44'}</span></header>
+    <section class="card" id="mrss-c">
+      <header><h2>Part C: TSK-11</h2><span class="sub">${t.tsk == null ? 'incomplete' : t.tsk + ' / 44'} ${partTag(P['mrss-c'])}</span></header>
       <div class="card-body">
         <div class="tiny muted" style="margin-bottom:.6rem">${esc(TSK11.note)}</div>
         ${TSK11.items.map((q, i) => `
@@ -333,16 +398,16 @@ function renderMrssForm(ctx) {
       </div>
     </section>
 
-    <section class="card">
-      <header><h2>Part D: functional testing</h2><span class="sub">${round(t.partD, 1)}/50</span></header>
+    <section class="card" id="mrss-d">
+      <header><h2>Part D: functional testing</h2><span class="sub">${round(t.partD, 1)}/50 ${partTag(P['mrss-d'])}</span></header>
       <div class="card-body">
         <div class="tiny muted" style="margin-bottom:.6rem">Enter points directly, or use the LSI helper to convert a limb symmetry index into points.</div>
         ${MRSS_PART_D.map((it) => pointRow('pd', it, a.partD?.[it.id])).join('')}
       </div>
     </section>
 
-    <section class="card">
-      <header><h2>Part E: general fitness</h2><span class="sub">pass / fail hurdle</span></header>
+    <section class="card" id="mrss-e">
+      <header><h2>Part E: general fitness</h2><span class="sub">pass / fail hurdle ${partTag(P['mrss-e'])}</span></header>
       <div class="card-body">
         <div class="tiny muted" style="margin-bottom:.6rem">Two sport-specific tests you have done before. Same result or better than pre-injury.</div>
         <div class="grid2">
@@ -356,8 +421,8 @@ function renderMrssForm(ctx) {
       </div>
     </section>
 
-    <section class="card">
-      <header><h2>Part F: functional testing, fatigued</h2><span class="sub">${round(t.partF, 1)}/20</span></header>
+    <section class="card" id="mrss-f">
+      <header><h2>Part F: functional testing, fatigued</h2><span class="sub">${round(t.partF, 1)}/20 ${partTag(P['mrss-f'])}</span></header>
       <div class="card-body">
         <div class="tiny muted" style="margin-bottom:.6rem">Performed after sport-specific work has taken you to 7/10 general fatigue.</div>
         ${MRSS_PART_F.map((it) => pointRow('pf', it, a.partF?.[it.id])).join('')}
@@ -424,6 +489,15 @@ export function bindMelbourne(root, ctx, rerender) {
   root.querySelectorAll('[data-openmrss]').forEach((b) => b.addEventListener('click', () => {
     ctx.mrssId = b.dataset.openmrss;
     rerender();
+  }));
+  // Section navigation scrolls; it never touches the URL hash, which the app
+  // reads as a tab name.
+  root.querySelectorAll('[data-jump-part]').forEach((b) => b.addEventListener('click', () => {
+    const el = document.getElementById(b.dataset.jumpPart);
+    if (!el) return;
+    const header = document.querySelector('.mtop') || document.querySelector('.topbar');
+    const clear = (header ? header.getBoundingClientRect().height : 0) + 8;
+    window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - clear, behavior: 'smooth' });
   }));
   root.querySelector('[data-backmrss]')?.addEventListener('click', () => {
     ctx.mrssId = null;
