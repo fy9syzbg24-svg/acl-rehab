@@ -730,3 +730,13 @@ rolls on into the rest of today's list. After the tendon loading the workout
 stops on the six hour line. Corrections happen in the row on Today; the review
 screen only appears as the retry when a save fails. Stop early and Save what I
 did logs at once. A timed bout under a second is not work.
+
+## Saved versions
+
+Before a big change the app is tagged and archived so it can be put back:
+`pre-fable-redesign` (2026-09-12, frozen copy served at `/baseline/`) and
+`pre-badass-redesign` (2026-09-14, the build his phone ran as `deploy-dfadfb3`).
+Archives and a copy of the data at that moment live in `snapshots/`
+(gitignored). To revert the code: `git checkout <tag> -- app server.py
+pa_import.py physiapp.py tools`, commit, kickstart the service and deploy.
+Never roll the data back with the code.
