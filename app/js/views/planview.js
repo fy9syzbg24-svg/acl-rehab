@@ -18,27 +18,22 @@ export function renderPlan(ctx) {
   const m = PLAN_MONTHS.find((x) => x.id === openId) || PLAN_MONTHS[0];
 
   return `
-  <div class="stack today">
-    <section class="card">
-      <header class="hero">
-        <div>
-          <h2>6 month plan</h2>
-          <div class="sub">August 2026 to January 2027 · goal based, not date based</div>
-        </div>
-      </header>
-      <div class="card-body tight">
-        <div class="monthstrip">
-          ${PLAN_MONTHS.map((x) => {
-            const c = monthCompletion(x);
-            const isNow = x.id === current?.id;
-            return `<button class="kpi ${x.id === openId ? 'on' : ''} ${isNow ? 'now' : ''}" data-month="${x.id}" title="${esc(x.title)}">
-              <div class="v">${c.goalScore}%</div>
-              <div class="k">${esc(x.monthLabel.replace(/ .*/, '').slice(0, 3))}</div>
-            </button>`;
-          }).join('')}
-        </div>
-      </div>
-    </section>
+  <div class="stack today plan-page">
+    <header class="pagehead">
+      <h1>6-Month Plan</h1>
+      <div class="lede">August 2026 to January 2027 · goal based, not date based</div>
+    </header>
+    <nav class="monthstrip" aria-label="Months">
+      ${PLAN_MONTHS.map((x) => {
+        const c = monthCompletion(x);
+        const isNow = x.id === current?.id;
+        return `<button class="kpi ${x.id === openId ? 'on' : ''} ${isNow ? 'now' : ''}" data-month="${x.id}" title="${esc(x.title)}" aria-pressed="${x.id === openId}">
+          <div class="k">${esc(x.monthLabel.replace(/ .*/, '').slice(0, 3))}</div>
+          <div class="v">${c.goalScore}%</div>
+          <div class="kbar"><i style="width:${c.goalScore}%"></i></div>
+        </button>`;
+      }).join('')}
+    </nav>
 
     ${monthCard(m, today, m.id === current?.id)}
   </div>`;
@@ -60,7 +55,7 @@ function monthCard(m, today, isNow) {
       </span>
       <span class="row" style="gap:.7rem;flex:none">
         <span class="daysleft"><b>${met}/${goals.length}</b><span>markers met</span></span>
-        <span class="pill" style="background:rgba(255,255,255,.18);color:#fff">Phase ${m.melbournePhase}</span>
+        <span class="pill">Phase ${m.melbournePhase}</span>
       </span>
     </div>
     <div class="card-body board-body">

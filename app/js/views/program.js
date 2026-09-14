@@ -41,15 +41,16 @@ export function renderProgram(ctx) {
   const src = PROGRAM_SOURCE;
 
   return `
-  <div class="stack today">
-    <section class="card">
-      <header class="hero">
-        <div>
-          <h2>${esc(src.title)}</h2>
-          <div class="sub">${esc(src.clinician)}${src.updated ? ` · updated ${esc(fmtDate(src.updated))}` : ''}${
-            src.videos ? ` · videos at <strong>${esc(src.videos)}</strong>${src.code ? `, code <span class="mono">${esc(src.code)}</span>` : ''}` : ''}</div>
-        </div>
-      </header>
+  <div class="stack today program-page">
+    <header class="pagehead">
+      <h1>My Program</h1>
+      <div class="lede">${esc(src.clinician)}${src.updated ? ` · updated ${esc(fmtDate(src.updated))}` : ''}</div>
+      ${src.videos ? `<div class="prog-source">${esc(src.title)} · videos at <strong>${esc(src.videos)}</strong>${src.code ? `, code <span class="mono">${esc(src.code)}</span>` : ''}</div>` : ''}
+    </header>
+
+    ${scheduleMatrix(todayKey)}
+
+    <section class="card prog-days-card">
       <div class="card-body tight">
         <div class="dayfilter" role="group" aria-label="Show a day">
           <button class="${filter ? '' : 'on'}" data-pfilter="" title="Every exercise">
@@ -61,18 +62,16 @@ export function renderProgram(ctx) {
               <span class="fd">${esc(name.slice(0, 3))}</span><span class="fn">${n || '·'}</span></button>`;
           }).join('')}
         </div>
-        <div class="tiny muted" style="margin-top:.5rem">${filter
+        <div class="prog-filterline">${filter
           ? `${esc(DAY_NAME[filter])}: ${rehab.length + gym.length} exercise${rehab.length + gym.length === 1 ? '' : 's'}, ${esc(sumMins(rehab.concat(gym)))}. Clinic days drop to the tendon loading and balance work.`
           : 'Tap a day to see what is planned. Tap the days on any exercise to change them; what you set is kept.'}</div>
       </div>
     </section>
 
     <section class="card listcard">
-      <header class="dayhead slim">
-        <div class="dayhead-main">
-          <h2>Rehab</h2>
-          <div class="dayhead-sub">${rehab.length} exercise${rehab.length === 1 ? '' : 's'} · ${esc(sumMins(rehab))}</div>
-        </div>
+      <header class="sectionhead">
+        <div><h2>Rehab</h2>
+          <div class="sectionhead-sub">${rehab.length} exercise${rehab.length === 1 ? '' : 's'} · ${esc(sumMins(rehab))}</div></div>
       </header>
       <div class="checklist">
         ${rehab.length ? rehab.map((p) => progRow(p, ctx)).join('') : `<div class="empty">Nothing from the program on a ${esc(DAY_NAME[filter])}.</div>`}
@@ -80,11 +79,9 @@ export function renderProgram(ctx) {
     </section>
 
     <section class="card listcard">
-      <header class="dayhead slim">
-        <div class="dayhead-main">
-          <h2>Gym</h2>
-          <div class="dayhead-sub">${esc(GYM_SOURCE)}</div>
-        </div>
+      <header class="sectionhead">
+        <div><h2>Gym</h2>
+          <div class="sectionhead-sub">${esc(GYM_SOURCE)}</div></div>
       </header>
       <div class="checklist">
         ${gym.length ? gym.map((p) => progRow(p, ctx)).join('') : `<div class="empty">Nothing at the gym on a ${esc(DAY_NAME[filter])}.</div>`}
@@ -92,6 +89,52 @@ export function renderProgram(ctx) {
     </section>
   </div>`;
 }
+
+/**
+ * The week as a matrix, for a screen wide enough to read it (2026-09-14 ring
+ * design, audit item 18): every exercise by its full name down the side, the
+ * seven days across. A cell is the same toggle as the chips on a row, through
+ * the same change: the arrangement is edited, and a dated schedule version is
+ * written from today, so no earlier day's plan is rewritten.
+ */
+function scheduleMatrix(todayKey) {
+  const col = (k) => ALL_ITEMS.filter((p) => onDay(p.id, k));
+  const group = (title, list) => `
+    <tr class="mx-group"><th colspan="8" scope="colgroup">${esc(title)}</th></tr>
+    ${list.map((p) => {
+      const name = p.title || exerciseById(p.ex)?.name || p.ex;
+      return `<tr>
+        <th scope="row" class="mx-name">${esc(name)}${p.notYet ? ' <span class="mx-note">not yet</span>' : ''}</th>
+        ${DAYS.map(([k, dname]) => {
+          const on = onDay(p.id, k);
+          return `<td class="${k === todayKey ? 'today' : ''}"><button class="mx-cell ${on ? 'on' : ''}" data-pday="${esc(p.id)}" data-day="${k}"
+            aria-pressed="${on}" aria-label="${esc(name)} on ${esc(dname)}">${on ? CHECK : ''}</button></td>`;
+        }).join('')}
+      </tr>`;
+    }).join('')}`;
+  return `
+  <section class="card matrix">
+    <header class="sectionhead"><div><h2>Week</h2>
+      <div class="sectionhead-sub">A change applies from today. Earlier days keep the plan they had.</div></div></header>
+    <div class="mx-scroll">
+      <table class="mx">
+        <thead><tr><th scope="col" class="mx-name">Exercise</th>
+          ${DAYS.map(([k, name]) => `<th scope="col" class="${k === todayKey ? 'today' : ''}">${esc(name.slice(0, 3))}</th>`).join('')}</tr></thead>
+        <tbody>
+          ${group('Rehab', REHAB_PROGRAM)}
+          ${group('Gym', GYM_PROGRAM)}
+        </tbody>
+        <tfoot><tr><th scope="row" class="mx-name">Planned</th>
+          ${DAYS.map(([k]) => {
+            const list = col(k);
+            return `<td class="${k === todayKey ? 'today' : ''}"><b>${list.length}</b><span>${esc(fmtDayTotal(list.map((p) => rowMinutes(p))).replace(/^about /, ''))}</span></td>`;
+          }).join('')}</tr></tfoot>
+      </table>
+    </div>
+  </section>`;
+}
+
+const CHECK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12.5l4 4L18 8"/></svg>';
 
 /** Seven toggles. Always all seven, on or off; the control never changes shape. */
 function dayChips(pid) {
