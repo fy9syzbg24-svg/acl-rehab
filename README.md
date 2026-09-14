@@ -671,8 +671,18 @@ synced document.
 
 ## His songs (2026-09-14)
 
-For paced work (the calf pulses), a Song toggle plays one of his own 120 bpm
-tracks during the work bouts, shuffled per exercise, waiting through rest.
+For paced work (the calf pulses), music is the DEFAULT and the metronome is off;
+choosing one turns the other off (his call). The countdown beeps play either
+way. One of his own 120 bpm tracks plays, shuffled; with Keep playing (on unless
+he turns it off) it carries on through rest, switches, the review and the screen
+between exercises, moving to another track when one ends. A song asks iOS to
+pause other audio ('transient-solo') and hands it back when it stops; beeps and
+the metronome play on top ('transient'). A web page cannot touch Spotify on the
+Mac.
+
+Supplement ticks record their time (an ISO string; older ticks are `true` and
+are never given an invented time), with a time chip on the row to correct it.
+The tendon loading's open row has Done at on the time wheel.
 Private by construction: the public repo and site hold no audio and no song
 names. `tools/add_song.py` copies a track byte for byte into `data/media/`
 (gitignored, served with Range requests) and uploads the same bytes to
