@@ -7,7 +7,7 @@
 // Progress > Overview now. He opens this screen to answer one question, what
 // do I do today, and the first exercise has to be on the first screen.
 
-import { esc, todayIso, addDays, fmtDate, fmtDateNum, uid, num, round, currentDayIso } from '../util.js';
+import { esc, todayIso, addDays, fmtDate, fmtDateNum, uid, num, round, currentDayIso, onTimePicked } from '../util.js';
 import { state, update, ensureDay, getDay, lastEntry, maxLoad, loadSeries, entriesFor } from '../store.js';
 import { monthForDate } from '../../data/plan.js';
 import { CATEGORIES, MEASURE_BY_ID, UNIT_LABEL } from '../../data/measurements.js';
@@ -1037,8 +1037,7 @@ export function bindToday(root, ctx, rerender) {
   root.querySelector('[data-act="start"]')?.addEventListener('click', () => startWorkout(ctx, iso));
   root.querySelector('[data-act="resume"]')?.addEventListener('click', () => resumePlayer(ctx));
   root.querySelectorAll('[data-timer]').forEach((b) => b.addEventListener('click', () => startExercise(ctx, b.dataset.timer, iso)));
-  root.querySelectorAll('[data-doneat]').forEach((inp) => inp.addEventListener('change', () => {
-    const v = inp.value;
+  root.querySelectorAll('[data-doneat]').forEach((inp) => onTimePicked(inp, (v) => {
     if (!/^\d{2}:\d{2}$/.test(v)) return;
     const item = ALL_ITEMS.find((p) => p.id === inp.dataset.doneat);
     if (!item) return;

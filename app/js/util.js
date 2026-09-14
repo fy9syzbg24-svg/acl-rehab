@@ -200,3 +200,24 @@ export function applyStoredTheme() {
   try { pref = localStorage.getItem(THEME_KEY) || 'light'; } catch { /* ignore */ }
   return applyTheme(pref);
 }
+
+/**
+ * Call `fn(value)` once a time wheel is FINISHED, not on every turn of it.
+ *
+ * iOS fires change each time the wheel settles, and saving then redraws the
+ * screen, which closed the picker before he could tap the check mark (his
+ * report, 2026-09-14). So the value is committed when the input loses focus:
+ * the check mark, or a tap outside. A picker opened without focus (the desktop
+ * showPicker route) still commits on change, because no blur will follow.
+ */
+export function onTimePicked(inp, fn) {
+  let start = inp.value;
+  inp.addEventListener('focus', () => { start = inp.value; });
+  const commit = () => {
+    if (inp.value === start) return;
+    start = inp.value;
+    fn(inp.value);
+  };
+  inp.addEventListener('blur', commit);
+  inp.addEventListener('change', () => { if (document.activeElement !== inp) commit(); });
+}

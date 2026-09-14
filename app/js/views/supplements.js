@@ -19,7 +19,7 @@
 // kept all twenty. Anything seeded independently on multiple devices must
 // derive its id from its content so every device produces the same record.
 
-import { esc, todayIso, currentDayIso, uid, fmtDate } from '../util.js';
+import { esc, todayIso, currentDayIso, uid, fmtDate, onTimePicked } from '../util.js';
 import { state, update, ensureDay, getDay } from '../store.js';
 import { renderDatePill, bindDatePill, openModal, closeModal, toast } from '../components.js';
 
@@ -252,8 +252,7 @@ export function bindSuppGroups(root, iso, ctx, rerender) {
       ev.stopPropagation();
       try { inp.showPicker?.(); } catch { /* the native tap still works */ }
     });
-    inp.addEventListener('change', () => {
-      const v = inp.value;
+    onTimePicked(inp, (v) => {
       if (!/^\d{2}:\d{2}$/.test(v)) return;
       const [h, m] = v.split(':').map(Number);
       const at = new Date(iso + 'T00:00:00');
