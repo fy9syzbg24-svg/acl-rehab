@@ -18,6 +18,27 @@ export function audioAvailable() {
   return typeof window !== 'undefined' && !!(window.AudioContext || window.webkitAudioContext);
 }
 
+/**
+ * What the page's audio does to other apps' audio (the Audio Session API,
+ * Safari only; elsewhere this does nothing).
+ *   cues   'transient': beeps and the metronome play on top, so his Spotify
+ *          keeps going underneath
+ *   song   'transient-solo': one of his songs pauses other audio, and the type
+ *          is meant to let it resume when ours stops
+ * Changed 2026-09-14 from 'playback' for everything, on his ask. Untested on the
+ * device at the time of writing: whether iOS resumes Spotify, and whether the
+ * beeps still sound with the silent switch on.
+ */
+let sessionMode = null;
+export function setSession(mode) {
+  if (mode === sessionMode) return;
+  try {
+    if (!navigator.audioSession) return;
+    navigator.audioSession.type = mode === 'song' ? 'transient-solo' : 'transient';
+    sessionMode = mode;
+  } catch { /* not supported */ }
+}
+
 /** Call from a tap. Safe to call repeatedly. */
 export function unlockAudio() {
   if (!audioAvailable()) return false;
@@ -26,10 +47,8 @@ export function unlockAudio() {
       const AC = window.AudioContext || window.webkitAudioContext;
       ctx = new AC();
     }
-    // iOS: without this the ring/silent switch mutes Web Audio. Where the
-    // Audio Session API exists, ask for playback; where it does not, the
-    // visual cues still work.
-    try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch { /* not supported */ }
+    // Only the first time: a tap during a song must not hand the speaker back.
+    if (!sessionMode) setSession('cues');
     if (ctx.state === 'suspended') ctx.resume().catch(() => {});
     return true;
   } catch {

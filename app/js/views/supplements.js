@@ -123,6 +123,17 @@ export function listFor(iso) {
 
 const ticksOn = (iso) => (getDay(iso)?.supps) || {};
 
+// A tick is `true` (before 2026-09-14, no time known) or the ISO moment it was
+// taken. Both are truthy, so every older reader still works. A time is never
+// invented for an old tick; he can set one.
+export function suppTime(value) {
+  if (typeof value !== 'string') return null;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+const hhmm24 = (d) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+const time12 = (d) => d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+
 export function suppScore(iso) {
   const list = listFor(iso);
   if (!list.length) return null;
@@ -202,6 +213,10 @@ export function renderSuppGroups(iso, ctx, { edit = false } = {}) {
               ${edit ? '<span class="supphandle" data-drag aria-label="Drag to reorder">≡</span>' : ''}
               <i class="supptick">${ticks[s.id] ? '✓' : ''}</i>
               <span class="suppname">${esc(s.name)}</span>
+              ${ticks[s.id] && !edit ? `<label class="supptime" data-supptime-wrap title="When you took it">
+                <span>${suppTime(ticks[s.id]) ? esc(time12(suppTime(ticks[s.id]))) : 'set time'}</span>
+                <input type="time" data-supptime="${esc(s.id)}" value="${suppTime(ticks[s.id]) ? hhmm24(suppTime(ticks[s.id])) : ''}" aria-label="Time you took ${esc(s.name)}">
+              </label>` : ''}
               ${edit ? `<span class="suppdel" data-suppdel="${esc(s.id)}" role="button" aria-label="Remove">✕</span>` : ''}
             </div>`).join('')}
         </div>` : ''}
@@ -222,14 +237,38 @@ export function bindSuppGroups(root, iso, ctx, rerender) {
     rerender();
   }));
 
+  // The time wheel on a ticked row: when he actually took it, for the mornings
+  // he logs later. The row's own tap still ticks and unticks.
+  root.querySelectorAll('[data-supptime]').forEach((inp) => {
+    inp.addEventListener('click', (ev) => ev.stopPropagation());
+    // iOS opens its wheel on a tap; desktop browsers need to be asked.
+    inp.closest('[data-supptime-wrap]')?.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      try { inp.showPicker?.(); } catch { /* the native tap still works */ }
+    });
+    inp.addEventListener('change', () => {
+      const v = inp.value;
+      if (!/^\d{2}:\d{2}$/.test(v)) return;
+      const [h, m] = v.split(':').map(Number);
+      const at = new Date(iso + 'T00:00:00');
+      at.setHours(h, m, 0, 0);
+      update(() => {
+        const day = ensureDay(iso);
+        day.supps = { ...(day.supps || {}) };
+        if (day.supps[inp.dataset.supptime]) day.supps[inp.dataset.supptime] = at.toISOString();
+      });
+      rerender();
+    });
+  });
+
   root.querySelectorAll('[data-supp]').forEach((b) => b.addEventListener('click', (ev) => {
-    if (ev.target.closest('[data-suppdel]')) return;
+    if (ev.target.closest('[data-suppdel], [data-supptime-wrap]')) return;
     const id = b.dataset.supp;
     let on = false;
     update(() => {
       const day = ensureDay(iso);
       day.supps = { ...(day.supps || {}) };
-      if (day.supps[id]) delete day.supps[id]; else { day.supps[id] = true; on = true; }
+      if (day.supps[id]) delete day.supps[id]; else { day.supps[id] = new Date().toISOString(); on = true; }
     });
     ctx.suppPop = on ? id : null;    // one render's worth of pop
     rerender();

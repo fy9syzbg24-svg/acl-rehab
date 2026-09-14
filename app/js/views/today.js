@@ -20,7 +20,7 @@ import { openExercisePicker, allExercises, exerciseById, openMeasureEntry, loadB
 import { minutesFor, fmtMins, fmtDayTotal } from '../timing.js';
 import { planStreak } from '../planstreak.js';
 import { renderHistory } from './exhistory.js';
-import { renderSuppGroups, bindSuppGroups, suppScore, prnSummary } from './supplements.js';
+import { renderSuppGroups, bindSuppGroups, suppScore, prnSummary, suppTime } from './supplements.js';
 import { itemStatus, isDone, sidesFor, setLogged, newEntriesFor as makeEntries, runsFor } from '../logging.js';
 import { startExercise, startWorkout, resumePlayer, draftInfo, workoutQueue, readyAfter, fmtTime12 } from '../player/player.js';
 
@@ -52,8 +52,11 @@ function isLogged(item, entries) {
   return isDone(item, entries);
 }
 
+let currentIso = todayIso();
+
 export function renderToday(ctx) {
   const iso = ctx.date || todayIso();
+  currentIso = iso;
   const day = getDay(iso);
   const entries = day?.entries || [];
   const c = day?.checkin || {};
@@ -219,7 +222,7 @@ function checkRow(item, iso, entries, ctx) {
         <span class="crow-name">${esc(name)}</span>
         <span class="crow-sub">${confirmed.length ? entryChips(confirmed) + statusNote(status) : prescriptionLine(item, band)}</span>
         ${item.notYet && !confirmed.length ? `<span class="crow-note warn">${esc(item.notYetNote)}</span>` : ''}
-        ${item.pre && !confirmed.length ? `<span class="crow-note">${esc(item.preShort || item.pre)}</span>` : ''}
+        ${item.pre && !confirmed.length ? `<span class="crow-note">${esc(preNote(item, iso))}</span>` : ''}
       </div>
       <span class="crow-mins ${m.src}" data-rowclick="${esc(item.id)}"
         title="${esc(minsTitle(m))}">${m.mins == null ? '·' : `${m.mins}<small>min</small>`}</span>
@@ -267,10 +270,25 @@ function logBar(key, item, ex, entry = null) {
       <input type="number" class="in-num" min="0" step="1" data-mins="${esc(item.id)}" placeholder="${est.src !== 'yours' && est.mins != null ? est.mins : ''}" value="${own ?? ''}"></label>` : ''}
     ${entry ? `<button class="btn sm ghost danger" data-del-entry="${esc(entry.id)}">Remove</button>` : ''}
     <span class="spacer"></span>
+    ${item?.first ? doneAtField(item) : ''}
     ${item ? `<button class="btn sm" data-timer="${esc(item.id)}">
       <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z"/></svg>Start timer</button>` : ''}
     <button class="btn primary sm" data-log="${esc(key)}">Log it</button>
   </div>`;
+}
+
+/**
+ * "Done at" for the morning's first job, on the time wheel. For the days he
+ * does the tendon loading and logs it later: setting a time marks it done at
+ * that time, and the six hour line follows it.
+ */
+function doneAtField(item) {
+  const iso = currentIso;
+  const rows = (getDay(iso)?.entries || []).filter((e) => e.pid === item.id && e.logged && e.doneAt);
+  const t = rows.length ? new Date(Math.max(...rows.map((e) => Date.parse(e.doneAt)))) : null;
+  const v = t ? `${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}` : '';
+  return `<label class="fld doneatfld" title="When you did it. Setting a time marks it done.">Done at
+    <input type="time" class="in-num" data-doneat="${esc(item.id)}" value="${v}"></label>`;
 }
 
 /** Load history for a gym lift, shown only while the row is open. */
@@ -299,6 +317,23 @@ function boards(item, ex) {
     </div>`;
   }).join('');
   return `<div class="boards">${html}</div>`;
+}
+
+/**
+ * The line before the first job. Once the collagen is ticked with a time, it
+ * says when the loading should start by ("within the hour", his clinic's
+ * wording in the program), instead of the general reminder.
+ */
+function preNote(item, iso) {
+  const sIso = suppIsoFor(iso);
+  const list = state.data.supplements || [];
+  const ticks = getDay(sIso)?.supps || {};
+  const collagen = list.find((s) => /collagen/i.test(s.name || '') && ticks[s.id]);
+  const at = collagen ? suppTime(ticks[collagen.id]) : null;
+  if (!at) return item.preShort || item.pre;
+  const by = new Date(at.getTime() + 60 * 60 * 1000);
+  const t12 = (d) => d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  return `Collagen at ${t12(at)} · start by ${t12(by)}`;
 }
 
 /** The small print after a result: which side is still to do, or that one
@@ -968,6 +1003,23 @@ export function bindToday(root, ctx, rerender) {
   root.querySelector('[data-act="start"]')?.addEventListener('click', () => startWorkout(ctx, iso));
   root.querySelector('[data-act="resume"]')?.addEventListener('click', () => resumePlayer(ctx));
   root.querySelectorAll('[data-timer]').forEach((b) => b.addEventListener('click', () => startExercise(ctx, b.dataset.timer, iso)));
+  root.querySelectorAll('[data-doneat]').forEach((inp) => inp.addEventListener('change', () => {
+    const v = inp.value;
+    if (!/^\d{2}:\d{2}$/.test(v)) return;
+    const item = ALL_ITEMS.find((p) => p.id === inp.dataset.doneat);
+    if (!item) return;
+    const [h, m] = v.split(':').map(Number);
+    const at = new Date(iso + 'T00:00:00');
+    at.setHours(h, m, 0, 0);
+    update(() => {
+      const d = ensureDay(iso);
+      tickItem(d, item, true);
+      for (const e of d.entries) if (e.pid === item.id && e.logged) e.doneAt = at.toISOString();
+    });
+    ctx.editing = null;
+    ctx.pop = item.id;
+    rerender();
+  }));
   root.querySelector('[data-act="readytime"]')?.addEventListener('click', () => editReadyTime(iso, rerender));
   root.querySelector('[data-act="note"]')?.addEventListener('click', () => {
     ctx.openNote = true;

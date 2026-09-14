@@ -1400,7 +1400,8 @@ details.fold .checklist > .crow:first-child { border-top: 1px solid var(--line-2
   font: inherit; font-size: .74rem; cursor: pointer;
 }
 .p-toggle svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.p-toggle.on { color: var(--ink); border-color: var(--ink-3); background: var(--panel-2); }
+/* On is unmistakable: filled, like a pressed key. Off is an outline. */
+.p-toggle.on { color: var(--panel); border-color: var(--ink); background: var(--ink); }
 .p-toggle:disabled { opacity: .4; cursor: default; }
 .p-wake { display: inline-grid; place-items: center; width: 22px; color: var(--ink-3); opacity: .5; }
 .p-wake svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; }
@@ -1624,3 +1625,13 @@ details.setgroup[open] > summary.setsum { border-bottom: 1px solid var(--line-2)
 .tline-note { font-size: .8rem; color: var(--ink-2); padding: .3rem 0; border-top: 1px solid var(--line-2); }
 .tline.clinical .tline-day { padding-bottom: .5rem; border-bottom: 1px solid var(--line-2); }
 .tline.clinical .tline-day:last-child { border-bottom: 0; }
+.p-songgroup { display: inline-flex; gap: 0; }
+.p-songgroup .p-toggle:first-child { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.p-songgroup .p-toggle:last-child { border-top-left-radius: 0; border-bottom-left-radius: 0; margin-left: -1px; }
+.p-setline .p-count { color: var(--ink-3); }
+
+/* the time wheel on a ticked supplement, and Done at for the first job */
+.supptime { position: relative; display: inline-flex; align-items: center; min-height: 32px; padding: 0 .5rem;
+  border-radius: 14px; background: var(--line-2); font-size: .74rem; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.supptime input[type=time] { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; min-height: 0; font-size: 16px; }
+.doneatfld { width: 118px; }

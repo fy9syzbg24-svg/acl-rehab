@@ -13,6 +13,7 @@
 
 import { SERVER_MODE } from '../sync/local-store.js';
 import { getConfig, isConfigured } from '../sync/config.js';
+import { setSession } from './audio.js';
 
 const DB = 'rehab-media';
 const STORE = 'files';
@@ -107,14 +108,38 @@ export async function songUrl(song) {
 let el = null;
 let current = null;
 
+// Keep playing: a queue of songs at the pace. When one ends the next starts,
+// never the same track twice in a row when there is a choice. Without a
+// queue a track loops on its own.
+let queue = null;
+let onTrack = null;
+
 function audioEl() {
   if (!el) {
     el = new Audio();
     el.loop = true;
     el.preload = 'auto';
     el.setAttribute('playsinline', '');
+    el.addEventListener('ended', () => {
+      if (!queue || queue.length < 2 || !wantPlaying) return;
+      const others = queue.filter((x) => x.sha !== current);
+      const nextSong = others[Math.floor(Math.random() * others.length)];
+      prepareSong(nextSong, 0).then((ok) => {
+        if (!ok) return;
+        onTrack?.(nextSong);
+        playSong();
+      });
+    });
   }
   return el;
+}
+
+/** Play through a list of songs (keep playing), or null to loop one track. */
+export function setContinuous(pool, trackListener = null) {
+  const a = audioEl();
+  queue = pool && pool.length ? pool : null;
+  onTrack = trackListener;
+  a.loop = !queue || queue.length < 2;
 }
 
 /**
@@ -154,12 +179,14 @@ export function playSong() {
   wantPlaying = true;
   const a = audioEl();
   if (!a.src || !a.paused) return;
+  setSession('song');          // pauses his Spotify while a song plays
   a.play().catch(() => {});
 }
 
 export function pauseSong() {
   wantPlaying = false;
   if (el && !el.paused) el.pause();
+  setSession('cues');          // and hands the speaker back when it stops
 }
 
 export function songPosition() { return el ? el.currentTime : 0; }
