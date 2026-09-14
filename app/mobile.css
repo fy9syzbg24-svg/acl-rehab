@@ -332,3 +332,7 @@ body.mobile .dayfilter { gap: .2rem; }
 body.mobile .dayfilter button { padding: .35rem 0; min-height: 50px; border-radius: 9px; }
 body.mobile .dayfilter button .fd { font-size: .58rem; letter-spacing: .02em; }
 body.mobile .dayfilter button .fn { font-size: .98rem; }
+
+/* The player's action area sits above the fixed tab bar. */
+body.mobile .p-actions { bottom: calc(var(--mtab-h) + var(--safe-b) + .4rem); }
+body.mobile .p-img { height: clamp(120px, 23svh, 200px); }

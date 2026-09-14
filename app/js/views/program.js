@@ -12,6 +12,8 @@ import { state, update, maxLoad, loadSeries, lastEntry } from '../store.js';
 import { REHAB_PROGRAM, GYM_PROGRAM, PROGRAM_SOURCE, GYM_SOURCE, THERABAND, BAND_BY_ID, DAYS, DAY_NAME, dayKeyOf } from '../../data/program.js';
 import { exerciseById, openPicture, thumb, prescriptionLine, loadBars } from '../components.js';
 import { minutesFor, fmtMins, fmtDayTotal } from '../timing.js';
+import { runsFor } from '../logging.js';
+import { startExercise } from '../player/player.js';
 
 const ALL_ITEMS = REHAB_PROGRAM.concat(GYM_PROGRAM);
 
@@ -25,7 +27,7 @@ function onDay(pid, key) {
 }
 function rowMinutes(item, ex = exerciseById(item.ex)) {
   const last = ex?.cardio ? num(lastEntry(item.ex, 'B')?.time) : null;
-  return minutesFor(item, ex, state.data, last);
+  return minutesFor(item, ex, state.data, last, runsFor(state.data, state.rev, item.id));
 }
 
 export function renderProgram(ctx) {
@@ -140,6 +142,8 @@ function progRow(p, ctx) {
         <ol class="steps">${p.steps.map((s) => `<li>${esc(s)}</li>`).join('')}</ol>` : ''}
       ${p.goal ? `<div class="tiny muted" style="margin-top:.4rem">Goal: ${esc(p.goal)}</div>` : ''}
 
+      <div class="row" style="margin-top:.7rem"><button class="btn" data-timer="${esc(p.id)}">
+        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z"/></svg>Start timer</button></div>
       <div class="row" style="gap:.7rem;align-items:flex-end;margin-top:.7rem">
         <label class="fld minsfld" title="Minutes this takes you. Leave it empty to use the estimate.">Minutes
           <input type="number" class="in-num" min="0" step="1" data-mins="${esc(p.id)}" placeholder="${m.src !== 'yours' && m.mins != null ? m.mins : ''}" value="${own ?? ''}"></label>
@@ -203,6 +207,10 @@ function gymBoards(item, ex) {
 }
 
 export function bindProgram(root, ctx, rerender) {
+  root.querySelectorAll('[data-timer]').forEach((b) => b.addEventListener('click', (e) => {
+    e.stopPropagation();
+    startExercise(ctx, b.dataset.timer, todayIso());
+  }));
   root.querySelectorAll('[data-pfilter]').forEach((b) => b.addEventListener('click', () => {
     const k = b.dataset.pfilter;
     ctx.pday = (!k || ctx.pday === k) ? null : k;

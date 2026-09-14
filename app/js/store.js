@@ -65,6 +65,9 @@ function blank() {
 
 export const state = {
   data: blank(),
+  // Bumped on every change to the document, so derived caches (learned
+  // estimates) know when to recompute and can never go stale.
+  rev: 0,
   saving: false,
   lastSaved: null,
   error: null,
@@ -80,6 +83,7 @@ export function subscribe(fn) {
   return () => listeners.delete(fn);
 }
 function emit() {
+  state.rev++;
   // A sync pull can replace caseFile or the theme, so repoint first.
   applyTheme(state.data.settings?.theme || 'light');
   hydrateCase(state.data);

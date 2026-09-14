@@ -20,7 +20,8 @@ import { openExercisePicker, allExercises, exerciseById, openMeasureEntry, loadB
 import { minutesFor, fmtMins, fmtDayTotal } from '../timing.js';
 import { streakDays } from '../insights.js';
 import { renderSuppGroups, bindSuppGroups, suppScore, prnSummary } from './supplements.js';
-import { itemStatus, isDone, sidesFor, setLogged, newEntriesFor as makeEntries } from '../logging.js';
+import { itemStatus, isDone, sidesFor, setLogged, newEntriesFor as makeEntries, runsFor } from '../logging.js';
+import { startExercise, startWorkout, resumePlayer, draftInfo, workoutQueue, readyAfter, fmtTime12 } from '../player/player.js';
 
 const EFFUSION = ['', 'Zero', 'Trace', '1+', '2+', '3+'];
 const ALL_ITEMS = REHAB_PROGRAM.concat(GYM_PROGRAM);
@@ -42,7 +43,7 @@ function restItems(iso) {
 /** Minutes for a row: his number, else the estimate; cardio uses last time. */
 function rowMinutes(item, ex = exerciseById(item.ex)) {
   const last = ex?.cardio ? num(lastEntry(item.ex, 'B')?.time) : null;
-  return minutesFor(item, ex, state.data, last);
+  return minutesFor(item, ex, state.data, last, runsFor(state.data, state.rev, item.id));
 }
 
 /** Green means every required side confirmed. See itemStatus in logging.js. */
@@ -69,7 +70,7 @@ export function renderToday(ctx) {
     <section class="card listcard" id="session-card">
       ${dayHead(iso, planned, extras, entries, ctx)}
       <div class="checklist">
-        ${planned.map((p, i) => checkRow(p, iso, entries, ctx) + gapAfter(planned, i)).join('')}
+        ${planned.map((p, i) => checkRow(p, iso, entries, ctx) + gapAfter(planned, i, iso)).join('')}
         ${extras.map((e) => extraRow(e, iso, ctx)).join('')}
         <button class="list-add" data-act="add-ex"><span class="plus">+</span>Add something else</button>
       </div>
@@ -118,6 +119,7 @@ function dayHead(iso, planned, extras, entries, ctx) {
       <h2>${esc(plan.name || (total ? 'Today' : 'Rest day'))}</h2>
       <div class="dayhead-sub">${esc(sub)}${plan.clinic ? ` · ${esc(plan.sub)}` : ''}</div>
     </div>
+    ${workoutButton(iso)}
     <button class="icon-btn" data-act="menu" title="More" aria-label="More">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
     </button>
@@ -133,11 +135,33 @@ export function minsTitle(m) {
   return 'Estimated from the prescription. Open the row to change it.';
 }
 
-/** A thin line between the morning's first job and everything else. */
-function gapAfter(planned, i) {
+/**
+ * Start or Resume: one control in one place, its label saying which. Dimmed
+ * when there is nothing left and no workout open.
+ */
+function workoutButton(iso) {
+  const d = draftInfo();
+  const left = workoutQueue(state.data, iso).length;
+  const resume = !!d;
+  return `<button class="btn primary dayplay" data-act="${resume ? 'resume' : 'start'}" ${resume || left ? '' : 'disabled'}
+    aria-label="${resume ? `Resume ${esc(d.title || 'workout')}` : 'Start the workout'}">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z"/></svg>${resume ? 'Resume' : 'Start'}</button>`;
+}
+
+/**
+ * The line between the morning's first job and everything else. Once the
+ * tendon loading is confirmed with a time, it says when the rest may start;
+ * before that, or for a row logged without a time, just the gap.
+ */
+function gapAfter(planned, i, iso) {
   const p = planned[i];
   const next = planned[i + 1];
   if (!p?.first || !next || next.first) return '';
+  const ready = readyAfter(state.data, iso);
+  if (ready) {
+    return `<button class="list-sep readysep" data-act="readytime" title="Change when the tendon loading was done">
+      <span>Rest of your workout after ${esc(fmtTime12(ready))}</span></button>`;
+  }
   return `<div class="list-sep"><span>${esc(p.gap || '')} later</span></div>`;
 }
 
@@ -242,6 +266,8 @@ function logBar(key, item, ex, entry = null) {
       <input type="number" class="in-num" min="0" step="1" data-mins="${esc(item.id)}" placeholder="${est.src !== 'yours' && est.mins != null ? est.mins : ''}" value="${own ?? ''}"></label>` : ''}
     ${entry ? `<button class="btn sm ghost danger" data-del-entry="${esc(entry.id)}">Remove</button>` : ''}
     <span class="spacer"></span>
+    ${item ? `<button class="btn sm" data-timer="${esc(item.id)}">
+      <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z"/></svg>Start timer</button>` : ''}
     <button class="btn primary sm" data-log="${esc(key)}">Log it</button>
   </div>`;
 }
@@ -279,8 +305,9 @@ function boards(item, ex) {
 function statusNote(status) {
   const bits = [];
   if (status.state === 'partial') {
-    bits.push(status.missing?.length
-      ? `${status.missing.map((s) => (s === 'L' ? 'left' : s === 'R' ? 'right' : 'both')).join(' and ')} still to do`
+    const sides = (status.missing || []).filter((s) => s === 'L' || s === 'R');
+    bits.push(sides.length
+      ? `${sides.map((s) => (s === 'L' ? 'left' : 'right')).join(' and ')} still to do`
       : 'partly done');
   }
   if (status.unsplit) bits.push('one figure for both legs');
@@ -293,7 +320,9 @@ function entryChips(mine) {
   if (!mine.length) return '';
   return mine.map((e) => {
     const bits = [];
-    if (e.sets && e.reps) bits.push(`${e.sets}×${e.reps}`);
+    const bySet = Array.isArray(e.repsBySet) ? e.repsBySet.filter((x) => x != null) : [];
+    if (bySet.length > 1 && bySet.some((x) => x !== bySet[0])) bits.push(`${bySet.join(' + ')} reps`);
+    else if (e.sets && e.reps) bits.push(`${e.sets}×${e.reps}`);
     else if (e.reps) bits.push(`${e.reps} reps`);
     else if (e.sets) bits.push(`${e.sets} sets`);
     if (num(e.load)) bits.push(`${round(num(e.load), 2)} ${e.loadUnit || state.data.settings.weightUnit}`);
@@ -868,6 +897,42 @@ function openDayMenu(iso, ctx, rerender) {
   });
 }
 
+/**
+ * Correct when the tendon loading was done, for when he logged it later than
+ * he did it. Only rows that already carry a time are changed; nothing is
+ * invented for a row without one.
+ */
+function editReadyTime(iso, rerender) {
+  const first = ALL_ITEMS.find((p) => p.first);
+  const rows = (getDay(iso)?.entries || []).filter((e) => e.pid === first?.id && e.logged && e.doneAt);
+  if (!rows.length) return;
+  const t = new Date(Math.max(...rows.map((e) => Date.parse(e.doneAt))));
+  const hh = String(t.getHours()).padStart(2, '0');
+  const mm = String(t.getMinutes()).padStart(2, '0');
+  openModal({
+    title: 'When did you finish the tendon loading?',
+    body: `<label class="fld">Finished at<input type="time" class="in-num" data-readyinput value="${hh}:${mm}"></label>
+      <div class="tiny muted" style="margin-top:.4rem">The rest of your workout can start ${esc(first.gap || '6 hours')} after this.</div>`,
+    footer: '<button class="btn" data-close>Cancel</button><button class="btn primary" data-readysave>Save</button>',
+    onMount(root) {
+      root.querySelector('[data-readysave]').addEventListener('click', () => {
+        const v = root.querySelector('[data-readyinput]').value;
+        if (!/^\d{2}:\d{2}$/.test(v)) return;
+        const [h, m] = v.split(':').map(Number);
+        const at = new Date(iso + 'T00:00:00');
+        at.setHours(h, m, 0, 0);
+        update(() => {
+          for (const e of ensureDay(iso).entries) {
+            if (e.pid === first.id && e.logged && e.doneAt) e.doneAt = at.toISOString();
+          }
+        });
+        closeModal();
+        rerender();
+      });
+    },
+  });
+}
+
 // ---------------------------------------------------------------- bind ----
 export function bindToday(root, ctx, rerender) {
   const iso = ctx.date || todayIso();
@@ -899,6 +964,10 @@ export function bindToday(root, ctx, rerender) {
     ctx.go(v);
   }));
   root.querySelector('[data-act="menu"]')?.addEventListener('click', () => openDayMenu(iso, ctx, rerender));
+  root.querySelector('[data-act="start"]')?.addEventListener('click', () => startWorkout(ctx, iso));
+  root.querySelector('[data-act="resume"]')?.addEventListener('click', () => resumePlayer(ctx));
+  root.querySelectorAll('[data-timer]').forEach((b) => b.addEventListener('click', () => startExercise(ctx, b.dataset.timer, iso)));
+  root.querySelector('[data-act="readytime"]')?.addEventListener('click', () => editReadyTime(iso, rerender));
   root.querySelector('[data-act="note"]')?.addEventListener('click', () => {
     ctx.openNote = true;
     rerender();

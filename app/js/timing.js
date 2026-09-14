@@ -272,7 +272,7 @@ export function fmtClock(secs) {
   return `${m}:${String(s % 60).padStart(2, '0')}`;
 }
 
-/** "About 45 min + 1 untimed exercise", for a day's header. */
+/** "about 45 min + 1 untimed", for a day's header (short: it shares a line with Start). */
 export function fmtDayTotal(list) {
   let mins = 0;
   let untimed = 0;
@@ -281,5 +281,5 @@ export function fmtDayTotal(list) {
     else mins += m.mins;
   }
   const base = `about ${fmtMins(mins)}`;
-  return untimed ? `${base} + ${untimed} untimed exercise${untimed === 1 ? '' : 's'}` : base;
+  return untimed ? `${base} + ${untimed} untimed` : base;
 }

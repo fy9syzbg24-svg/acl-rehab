@@ -24,6 +24,7 @@ import { renderPlan, bindPlan } from './views/planview.js';
 import { renderSupplements, bindSupplements } from './views/supplements.js';
 import { renderProgress, bindProgress } from './views/progress.js';
 import { renderSettings, bindSettings } from './views/settings.js';
+import { renderPlayer, bindPlayer, playerLeaving, playerBusy } from './player/player.js';
 import { isConfigured } from './sync/config.js';
 
 applyStoredTheme();   // before first paint, so there is no flash
@@ -35,6 +36,8 @@ const VIEWS = {
   supplements: [renderSupplements, bindSupplements],
   progress: [renderProgress, bindProgress],
   settings: [renderSettings, bindSettings],
+  // The workout player: a view of its own, opened from Today or My Program.
+  player: [renderPlayer, bindPlayer],
 };
 
 // Only an installed app owns the space over the home indicator; in Safari the
@@ -54,6 +57,7 @@ const ctx = {
   view: (location.hash.slice(1) || 'today'),
   date: todayIso(),
   go(v) {
+    if (ctx.view === 'player' && v !== 'player') playerLeaving();
     ctx.view = v;
     history.replaceState(null, '', '#' + v);
     paint();
@@ -68,8 +72,10 @@ function paint() {
   const [render, bind] = VIEWS[ctx.view] || VIEWS.today;
   viewEl.innerHTML = render(ctx);
   bind?.(viewEl, ctx, paint);
+  // The player belongs to the tab it was opened from.
+  const tabView = ctx.view === 'player' ? (ctx.playerFrom || 'today') : ctx.view;
   document.querySelectorAll('#mtabs button').forEach((b) => {
-    b.classList.toggle('on', b.dataset.view === ctx.view);
+    b.classList.toggle('on', b.dataset.view === tabView);
   });
   document.getElementById('nav-settings')?.classList.toggle('on', ctx.view === 'settings');
   // Re-rendering in place keeps your scroll position; changing tab starts at
@@ -220,7 +226,8 @@ window.addEventListener('touchstart', (e) => {
   if (window.scrollY > 0 || !isConfigured() || modalOpen()) return;
   // Gestures that belong to something else stay theirs: reordering a
   // supplement, dragging a pain slider, swiping a wide table sideways.
-  if (e.target.closest?.('[data-drag], input[type=range], .scroll-x, table')) return;
+  // The workout player too: its picture, zoom and controls are not a pull.
+  if (e.target.closest?.('[data-drag], input[type=range], .scroll-x, table, [data-player]')) return;
   pullY0 = e.touches[0].clientY;
   pullX0 = e.touches[0].clientX;
   pullDy = 0;
@@ -239,7 +246,7 @@ window.addEventListener('touchcancel', pullRelease, { passive: true });
 
 window.addEventListener('hashchange', () => {
   const v = location.hash.slice(1);
-  if (VIEWS[v] && v !== ctx.view) { ctx.view = v; paint(); }
+  if (VIEWS[v] && v !== ctx.view) { if (ctx.view === 'player') playerLeaving(); ctx.view = v; paint(); }
 });
 
 subscribe(paintChrome);
@@ -277,6 +284,12 @@ load().then(() => {
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (!hadController || reloading) return;   // not the very first install
     reloading = true;
+    // Never mid-workout: the draft is safe either way, but a reload would
+    // throw him out of the set he is doing. Wait for the player to close.
+    if (playerBusy()) {
+      window.addEventListener('rehab-player-idle', () => location.reload(), { once: true });
+      return;
+    }
     location.reload();
   });
 
