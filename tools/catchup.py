@@ -98,5 +98,6 @@ print("\n── Facts " + "─" * 63)
 # and clinical details live in MEMORY (project-acl-rehab) and in the SYNCED DATA only.
 print("  Medical context, dates and the clinician program: memory `project-acl-rehab`")
 print("  (never in this repo -- it is the PUBLIC shell). PhysiApp sync is MAC-ONLY (CORS).")
-print("  Tests: open /dev-tests.html against the RUNNING server (103 assertions; no Node).")
+print("  Tests: open /dev-tests.html against the TEST server (244 assertions; no Node), and tools/test_pa_import.py (41).")
+print("  Player handover: PLAYER-2026-09-14.local.md. Reps are his pace; completion is itemStatus in logging.js.")
 print("=" * 72)
