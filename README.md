@@ -570,11 +570,11 @@ is a test asserting no unregistered top-level keys; keep it passing.
 
 ## Tests
 
-Open `/dev-tests.html` against a running server. 244 assertions: the merge
+Open `/dev-tests.html` against a running server. 259 assertions: the merge
 rules and the sync engine (`dev-merge.js`, `dev-engine.js`), the timing model
 (`dev-timing.js`), completion and run saving (`dev-logging.js`), the player's
 state machine with fake clocks (`dev-player.js`) and the plan streak
-(`dev-streak.js`), including both devices editing offline, same-record
+(`dev-streak.js`), the edit guard in a real DOM (`dev-editguard.js`), including both devices editing offline, same-record
 conflicts, deletions propagating, stale devices failing to resurrect deleted
 records, backend outages and interrupted writes.
 
@@ -694,3 +694,15 @@ names. `tools/add_song.py` copies a track byte for byte into `data/media/`
 (gitignored, served with Range requests) and uploads the same bytes to
 `media/` in the PRIVATE sync repo, where the phone downloads it once into
 IndexedDB. The originals in his Music library are never touched.
+
+## Never redraw mid-edit (2026-09-14)
+
+Every repaint in both shells goes through `guardPaint` (`app/js/editguard.js`).
+A redraw asked for while a text or number field is in use, or on a touch screen
+while a select, date or time picker is open, waits until he leaves the control;
+a change of tab is never held back. Data is still saved the moment it changes.
+It exists because iOS closed his time wheel before he could tap the check mark,
+and Codex's audit found the same shape in load typing, date and band pickers and
+sync pulls. Reloads (service worker, the Mac's PhysiApp import) also wait for
+idle and flush the pending save first (`flushSave`, `saveOutstanding` in
+`store.js`). Anything that must not claim "saved" early awaits `flushSave()`.
