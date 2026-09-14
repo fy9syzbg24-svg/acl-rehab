@@ -200,10 +200,14 @@ body.mobile #modal-root .sheet {
 }
 
 /* Toasts must clear the tab bar. */
-body.mobile .toast {
-  bottom: calc(var(--mtab-h) + var(--safe-b) + .7rem) !important;
-  left: .7rem !important; right: .7rem !important;
+/* The ROOT is the positioned box; the rule used to target .toast, which is not
+   positioned, so a toast sat behind the tab bar (seen 2026-09-14, "Logged"). */
+body.mobile #toast-root {
+  bottom: calc(var(--mtab-h) + var(--safe-b) + .7rem);
+  left: .7rem; right: .7rem; align-items: stretch;
+  pointer-events: none;   /* it sits over the player's buttons: taps go through */
 }
+body.mobile .toast { max-width: none; }
 
 
 /* ------------------------------------------------------------- iPad --- */

@@ -51,6 +51,7 @@ function readDraft() {
     if (!raw) return null;
     const d = JSON.parse(raw);
     if (!d || d.v !== 1) return null;
+    d.finishing = false;   // a reload mid-save retries from the review screen
     // A draft left running (a crash, a reload, an update) comes back
     // interrupted. The time since it was last saved is not credited.
     if (d.run?.state === 'running') {
@@ -172,12 +173,15 @@ export function fmtTime12(d) {
 }
 
 // ------------------------------------------------------------ opening ----
-function newRun(pid, iso) {
+function newRun(pid, iso, opts = {}) {
   const item = ITEM[pid];
   const ex = exerciseById(item.ex);
   const last = ex?.cardio ? num(lastEntry(item.ex, 'B')?.time) : null;
-  return E.createRun({ item, ex, iso, prefs: timerPrefs(state.data, pid), cardioMin: last, runId: `run-${uid()}` });
+  return E.createRun({ item, ex, iso, prefs: timerPrefs(state.data, pid), cardioMin: last, runId: `run-${uid()}`, readySec: opts.readySec });
 }
+
+// Carrying straight on to the next exercise gives this long to set up.
+const NEXT_READY_SEC = 10;
 
 function open(ctx, next) {
   P = next;
@@ -194,7 +198,10 @@ export function startExercise(ctx, pid, iso = ctx.date || todayIso()) {
     ctx.go('player');
     return;
   }
-  open(ctx, { run: newRun(pid, iso), session: null, phase: 'run', base: rowsFingerprint(getDay(iso), pid), savedRunIds: [] });
+  // One exercise opened from a row still carries on into the rest of the day
+  // afterwards (his ask, 2026-09-14: "entice me to continue working out").
+  const queue = [pid, ...workoutQueue(state.data, iso).filter((x) => x !== pid)];
+  open(ctx, { run: newRun(pid, iso), session: { queue, pos: 0, iso }, phase: 'run', base: rowsFingerprint(getDay(iso), pid), savedRunIds: [] });
 }
 
 /** The day's list in order, skipping what is done. */
@@ -337,6 +344,7 @@ function loop() {
   if (events.length) {
     announce(events);
     writeDraft();
+    if (run.state === 'review' && P.phase === 'run' && currentCtx) { finishRun(currentCtx); return; }
     currentRerender?.();
     return;
   }
@@ -349,7 +357,7 @@ function announce(events) {
   const el = document.querySelector('[data-p-live]');
   if (!el) return;
   const last = events[events.length - 1];
-  if (last.type === 'review') el.textContent = 'All steps done. Review and save.';
+  if (last.type === 'review') el.textContent = 'All sets done. Logged.';
   else if (last.type === 'step') el.textContent = phaseLabel(E.step(P.run)?.kind);
 }
 
@@ -445,7 +453,14 @@ function setLine(run, st, item) {
 
 function nextLine(run) {
   const nx = run.steps[run.i + 1];
-  if (!nx) return run.i >= run.steps.length ? '' : 'Review and save';
+  if (!nx) {
+    if (run.i >= run.steps.length) return '';
+    const s = P.session;
+    const item = ITEM[run.pid];
+    if (item?.first) return 'Log it, then the six hour gap';
+    const upcoming = s ? s.queue.slice(s.pos + 1).map((id) => ITEM[id]).find(Boolean) : null;
+    return upcoming ? `Log it, then ${upcoming.title || upcoming.ex}` : 'Log it and finish';
+  }
   if (nx.kind === 'rest') return `Rest ${fmtSecs(nx.secs)}`;
   if (nx.kind === 'switch') return `Switch to the ${sideName(nx.side).toLowerCase()} side`;
   if (nx.kind === 'hold') return `Hold ${nx.units > 1 ? `${nx.unit} of ${nx.units}` : `${nx.set} of ${nx.sets}`}${nx.side !== 'B' ? `, ${sideName(nx.side).toLowerCase()}` : ''}`;
@@ -681,8 +696,11 @@ function renderDone(ctx) {
     <div class="p-top">${backBtn(ctx)}<span></span><span></span></div>
     <div class="p-finish">
       <div class="p-finish-ring">${I.check}</div>
-      <h2>${all ? 'Done for today' : 'Workout finished'}</h2>
-      <div class="p-setline">${done} of ${planned.length} planned exercises done</div>
+      ${P.stopForGap
+        ? `<h2>${esc(ITEM[P.stopForGap]?.title || 'Logged')}: done</h2>
+           <div class="p-setline">${(() => { const r = readyAfter(state.data, iso); return r ? `Do the rest of your workout after ${esc(fmtTime12(r))}.` : 'The rest of your workout waits six hours.'; })()}</div>`
+        : `<h2>${all ? 'Done for today' : 'Workout finished'}</h2>
+           <div class="p-setline">${done} of ${planned.length} planned exercises done</div>`}
       ${(() => { const n = iso === todayIso() ? planStreak(state.data, iso) : 0; return n >= 2 ? `<div class="p-streak">Plan streak: ${n} days</div>` : ''; })()}
       <button class="btn primary p-big-btn" data-p="close">Back to ${ctx.playerFrom === 'program' ? 'My Program' : 'Today'}</button>
     </div>
@@ -826,7 +844,8 @@ function collectReview(run, item) {
       minutes: run.mode === 'cardio' ? num(v.minutes) : null,
       load: v.load === undefined ? undefined : num(v.load),
       loadUnit: v.load != null ? state.data.settings.weightUnit : undefined,
-      band: exerciseById(item.ex)?.usesBand ? (v.band ?? '') : undefined,
+      // With no review screen, the band is the one set for this exercise.
+      band: exerciseById(item.ex)?.usesBand ? (v.band ?? state.data.program.band?.[item.id] ?? item.band ?? '') : undefined,
     };
   });
   const planSides = new Set(run.steps.filter((x) => E.WORK.has(x.kind)).map((x) => x.side || 'B'));
@@ -860,10 +879,9 @@ function saveCurrent() {
     const item = ITEM[run.pid];
     const review = collectReview(run, item);
     if (!review.sides.some((x) => x.anyDone)) {
-      // Every set corrected to zero: there is nothing to record, and saying
-      // "Saved" would be a lie.
-      toast('<b>Nothing to save</b><br><span>Every set is at 0. Change a set, or close to leave without recording.</span>', 'warn');
-      return false;
+      // Nothing done (every set skipped or at zero): nothing to record, and
+      // saying "Saved" would be a lie.
+      return 'empty';
     }
     update(() => {
       const day = ensureDay(run.iso);
@@ -874,6 +892,73 @@ function saveCurrent() {
   } finally {
     saving = false;
   }
+}
+
+let currentCtx = null;
+
+/**
+ * The last set is done: log it and keep going. No review screen in the flow
+ * (his call, 2026-09-14: "If I complete the sets, it should just log it as
+ * completed. I can always go back in"). Numbers are corrected afterwards in
+ * the row on Today. The save is durable before anything moves on; if it
+ * fails, the review screen stays as the place to retry.
+ *
+ * After the tendon loading the workout stops, because the rest of the day
+ * waits six hours. After anything else the next exercise opens with a short
+ * get ready and starts by itself.
+ */
+async function finishRun(ctx, { leave = false } = {}) {
+  if (!P?.run || P.finishing) return;
+  P.finishing = true;
+  const run = P.run;
+  const item = ITEM[run.pid];
+  stopEffects();
+  const saved = saveCurrent();
+  if (saved === true) {
+    const ok = await flushSave();
+    if (!ok) {
+      P.finishing = false;
+      toast('<b>Not saved yet</b><br><span>Your workout is kept here. Tap Save to try again.</span>', 'warn');
+      currentRerender?.();
+      return;
+    }
+    toast(`<b>Logged</b><br><span>${esc(item.title || item.ex)}</span>`);
+  }
+  P.finishing = false;
+  if (leave || !P.session) {
+    clearDraft();
+    notifyIdle();
+    ctx.go(ctx.playerFrom || 'today');
+    return;
+  }
+  if (item.first) {
+    P.phase = 'done';
+    P.stopForGap = item.id;
+    writeDraft();
+    currentRerender?.();
+    return;
+  }
+  moveOn(P.session);
+  if (P.phase === 'between') startNextNow();
+  writeDraft();
+  currentRerender?.();
+}
+
+/** Open the session's next exercise and start its get ready. */
+function startNextNow() {
+  const s = P.session;
+  const pid = s.queue[s.pos];
+  P.run = newRun(pid, s.iso, { readySec: NEXT_READY_SEC });
+  P.base = rowsFingerprint(getDay(s.iso), pid);
+  // A fresh pick for each exercise, unless the music is meant to carry on.
+  if (!(songFor(pid) && songThroughOn(pid))) {
+    P.songSha = null;
+    P.songPos = 0;
+  } else {
+    P.songPos = S.songPosition() || P.songPos || 0;
+  }
+  P.phase = 'run';
+  E.start(P.run, performance.now(), Date.now());
 }
 
 /** After a save: the next exercise in the session, or the finish. */
@@ -909,6 +994,7 @@ export function bindPlayer(root, ctx, rerender) {
   const song = run ? songFor(run.pid) : null;
   if (song) S.prepareSong(song, P.songPos);
 
+  currentCtx = ctx;
   const act = (fn) => {
     if (!P?.run) return;
     A.unlockAudio();
@@ -917,6 +1003,7 @@ export function bindPlayer(root, ctx, rerender) {
     if (events.length) announce(events);
     P.repsAdjust = null;
     writeDraft();
+    if (P.run.state === 'review' && P.phase === 'run') { finishRun(ctx); return; }
     rerender();
   };
 
@@ -1014,20 +1101,8 @@ export function bindPlayer(root, ctx, rerender) {
       return;
     }
     if (k === 'start-next') {
-      const s = P.session;
-      const pid = s.queue[s.pos];
-      P.run = newRun(pid, s.iso);
-      P.base = rowsFingerprint(getDay(s.iso), pid);
-      // A fresh pick for each exercise, unless the music is meant to carry on.
-      if (!(songFor(pid) && songThroughOn(pid))) {
-        P.songSha = null;
-        P.songPos = 0;
-      } else {
-        P.songPos = S.songPosition() || P.songPos || 0;
-      }
-      P.phase = 'run';
       A.unlockAudio();
-      E.start(P.run, performance.now(), Date.now());
+      startNextNow();
       writeDraft();
       rerender();
       return;
@@ -1113,14 +1188,14 @@ function closePlayer(ctx, rerender) {
         if (s === 'resume') { E.resume(run, performance.now(), Date.now()); writeDraft(); rerender(); return; }
         if (s === 'later') { writeDraft(); notifyIdle(); back(); return; }
         if (s === 'save') {
-          // To the review sheet, with what was done; Save there commits it.
+          // Log what was done straight away, no review screen, and go back.
           // A hold stopped part way keeps its seconds.
           E.capturePartial(run, performance.now());
           run.state = 'review';
           run.since = null;
           run.reviewAt = new Date().toISOString();
           writeDraft();
-          rerender();
+          finishRun(ctx, { leave: true });
           return;
         }
         if (s === 'discard') {

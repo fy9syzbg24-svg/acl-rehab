@@ -26,8 +26,8 @@ export const WORK = new Set(['reps', 'hold', 'work', 'manual']);
 export const TIMED = new Set(['ready', 'hold', 'work', 'rest', 'switch']);
 const FULL_SLACK_MS = 400;   // a hold ended this close to its end counts as full
 
-export function createRun({ item, ex, iso, prefs = {}, cardioMin = null, runId }) {
-  const built = buildSteps(item, ex, { prefs, cardioMin });
+export function createRun({ item, ex, iso, prefs = {}, cardioMin = null, runId, readySec = null }) {
+  const built = buildSteps(item, ex, { prefs, cardioMin, readySec });
   return {
     v: 1,
     runId,
@@ -175,7 +175,9 @@ export function setDone(run, now, wall, reps = undefined) {
   } else {
     const ms = run.stepMs;
     const full = st.secs != null && ms >= st.secs * 1000 - FULL_SLACK_MS;
-    run.results[run.i] = { secs: full ? st.secs : Math.round(ms / 1000), full };
+    // Under a second is not a bout done (his screenshot: four "0 s" bouts
+    // counted as four sets). Recorded, but never counted as work.
+    run.results[run.i] = { secs: full ? st.secs : Math.floor(ms / 1000), full };
   }
   return advance(run, now, wall);
 }
@@ -262,7 +264,7 @@ export function summary(run) {
     const b = (bySide[side] ||= { side, planned: 0, units: [], sets: new Set(), full: true });
     b.planned++;
     // A zero-rep result is recorded but is not work done.
-    if (!p.result || p.result.reps === 0) { b.full = false; continue; }
+    if (!p.result || p.result.reps === 0 || (p.result.reps == null && p.result.secs === 0)) { b.full = false; continue; }
     done++;
     if (p.result.short) short = true;
     if (p.result.full) full++; else b.full = false;

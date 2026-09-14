@@ -125,11 +125,14 @@ export function buildSteps(item, ex, opts = {}) {
   const steps = [];
   const rest = restFor(item, prefs);
   const pace = num(item?.pace) || null;
+  // Longer when the player carries straight on from one exercise into the
+  // next, so there is time to set up; the estimate always uses READY_SEC.
+  const readySec = num(opts.readySec) || READY_SEC;
 
   if (mode === 'cardio') {
     const m = num(opts.cardioMin);
     const mins = m && m > 0 ? m : CARDIO_DEFAULT_MIN;
-    steps.push({ kind: 'ready', secs: READY_SEC });
+    steps.push({ kind: 'ready', secs: readySec });
     steps.push({ kind: 'work', side: 'B', set: 1, sets: 1, secs: Math.round(mins * 60),
                  target: m && m > 0 ? 'last' : 'default' });
     return { mode, steps, rest, pace, targetKnown: true };
@@ -160,7 +163,7 @@ export function buildSteps(item, ex, opts = {}) {
     }
   }
 
-  steps.push({ kind: 'ready', secs: READY_SEC });
+  steps.push({ kind: 'ready', secs: readySec });
   plan.forEach((p, i) => {
     const base = { side: p.side, set: p.set, sets: S, unit: p.unit, units: unitsPerSide };
     if (mode === 'hold') steps.push({ ...base, kind: 'hold', secs: hold || null, estSecs: hold || null, hold });
