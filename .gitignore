@@ -37,3 +37,6 @@ app/dev-*.js
 
 # Saved versions of the app and his data before a big change. PERSONAL (the data copy): never commit.
 /snapshots/
+
+# screenshots for design reviews: they show his real logs and names, never public
+/design-reference-*/
