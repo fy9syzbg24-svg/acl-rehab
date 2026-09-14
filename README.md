@@ -422,12 +422,21 @@ medication) stays on the tab.
 
 ## Minutes per exercise
 
-He wants to know what a session costs before he starts. `app/js/timing.js`
-derives a figure from the prescription: 3 seconds a rep, a hold of 10 seconds
-or more stands alone with a rest after each one, sets 30 seconds apart unless
-the item says otherwise ("2 min"), each side doubles the work, cardio is the
-minutes logged last time or 20. Two known slow movements have their own per-rep
-time (the star excursion, the wall squat). It says it is an estimate.
+He wants to know what a session costs before he starts. Since 2026-09-14 the
+figure is the workout player's own steps added up (`buildSteps` in
+`app/js/timing.js`), so the estimate and the player cannot disagree: get
+ready 5 s, the work, a 5 s side switch between legs of the same set, rest
+between sets or holds (prescribed where the program says, otherwise a 30 s
+default labeled as one), no final rest. A rep is 3 s including any short
+hold, counted once; the star excursion and the wall squat have their own.
+Cardio is last time's minutes or 20. An item with no target at all (the hip
+lift) has no figure: the day reads "about 1h 13m + 1 untimed".
+
+Once he has three complete, accurate player runs of the same prescription,
+the trimmed mean of the newest seven replaces the estimate
+(`learnedSeconds`). Only active time and rest count; time away, review time,
+quick ticks, partial runs and runs marked "Timing was inaccurate" never do.
+It is computed from the entries every time, never stored as a summary.
 
 A number he types wins. It lives in `program.mins[pid]` (synced as
 `p|mins|<pid>`, a sub-map, registered in `SUB_MAPS` with its own regression
@@ -561,8 +570,111 @@ is a test asserting no unregistered top-level keys; keep it passing.
 
 ## Tests
 
-Open `/dev-tests.html` against a running server. 103 assertions: the merge
-rules and the sync engine (`dev-merge.js`, `dev-engine.js`) and the time
-estimator (`dev-timing.js`), including both devices editing offline, same-record
+Open `/dev-tests.html` against a running server. 244 assertions: the merge
+rules and the sync engine (`dev-merge.js`, `dev-engine.js`), the timing model
+(`dev-timing.js`), completion and run saving (`dev-logging.js`), the player's
+state machine with fake clocks (`dev-player.js`) and the plan streak
+(`dev-streak.js`), including both devices editing offline, same-record
 conflicts, deletions propagating, stale devices failing to resurrect deleted
 records, backend outages and interrupted writes.
+
+`python3 tools/test_pa_import.py`: 41 assertions on the PhysiApp import rules.
+
+Test against a COPY, never the live file: run the server with
+`--port 8767 --no-physiapp --data <copy>` (the `acl-rehab-test` launch
+configuration). A different port is a different origin, so it has no sync
+token; `--no-physiapp` refuses their site outright.
+
+## The workout player (2026-09-14)
+
+One player for every exercise on every device: Start on Today runs the day's
+list in order (skipping what is done), Resume returns to an open one, and
+Start timer sits in any open row on Today and My Program. Built from
+ChatGPT's brief as reviewed and settled with him; the full record is
+`BUILD-PLAN-2026-09-14.local.md` and the handover
+`PLAYER-2026-09-14.local.md`.
+
+    app/js/timing.js         modes, steps, estimates, learned minutes (pure)
+    app/js/player/engine.js  the state machine and the time buckets (pure)
+    app/js/player/audio.js   cues and the metronome on the Web Audio clock
+    app/js/player/songs.js   his own songs for paced work (private)
+    app/js/player/player.js  the screen, drafts, Wake Lock, saving
+    app/js/logging.js        completion rules and saveRun, shared with Today
+
+**Every program item has an explicit `timer` mode** in `program.js`: reps,
+hold, timed, cardio or manual. Reps happen at HIS pace: the player shows the
+target, he taps Set done (adjusting the reps), rest starts. Nothing counts
+reps for him. Holds, timed work and cardio are timed. Manual where the
+prescription contradicts itself (pa04, pa08, pa16) or is missing (tp17);
+nothing is invented.
+
+**Controls never change identity.** Pause and Set done are always in the same
+places, with Previous, Skip rest and Next beneath; what does not apply is
+dimmed. Set done ends the SET; ending a hold early records the seconds held,
+marked partial. Colours: the exercise's category colour for work and holds,
+neutral for rest and get ready, the side colour for a switch, green only for
+confirmed done.
+
+**It renders in the document flow**, under the header, with the tab bar kept:
+never a fixed full-screen box (the iOS trap above). Leaving the tab pauses it.
+The step picture is contained, never cropped (placed absolutely inside its
+box, because a grid item at height 100% overflowed on a wide screen).
+
+**Time is kept in buckets** (active, rest, away) on a monotonic clock that only
+moves while running. A pause, a locked phone or a timer that did not fire for
+4 s is an interruption and is never credited. Hidden means paused, with
+Resume; it never advances through unseen sets.
+
+**The draft is this device's**, in localStorage (`rehab.player.v1`): written at
+every transition, on hide and every 5 s while running, restored as
+interrupted after a reload. Only a confirmed result enters the synced
+document. The service worker waits for the player to close before reloading
+onto a new deploy.
+
+**Saving goes through `saveRun`**, the same completion model a tick uses. It
+is idempotent on the run id, reuses unlogged scaffolding, records the
+prescription and timing it ran against (`rxSnap`, `timing`), keeps exercise
+discomfort and effort on the result (never the daily knee check-in), and
+writes nothing for a side with nothing done. If the exercise was logged on
+another device meanwhile, both are kept and the review says so.
+
+**Completion** (`itemStatus`): none, started (scaffolding only), partial,
+done. An unlogged scaffold beside a logged row is ignored; an unsplit side B
+result covers a per-leg item and is flagged, never read as left and right.
+
+**The six hour notice** reads the tendon loading's confirmed time (`doneAt`,
+recorded on every tick from 2026-09-14): "Rest of your workout after 3:30 PM",
+tappable to correct. Old rows without a time get no precise time. Nothing is
+blocked.
+
+## Plan streak (2026-09-14)
+
+`app/js/planstreak.js`. Days whose PLANNED work was done, judged against dated
+schedule versions in `program.schedule` (a registered sub-map): each is the
+resolved plan (weekday lists and the clinic list), written when the
+arrangement changes, effective from that day, exactly like the supplement
+list's rule. A clinic mark is a fact about one date. Days before the first
+version are unknown and stop the walk; a known day with nothing planned
+keeps the streak; check-ins never count. Milestones on Overview
+(`milestones.js`) are derived the same way and never stored.
+
+## PhysiApp import rules (2026-09-14)
+
+The merge lives in `pa_import.py`, pure and tested. The server writes the
+file directly, so every record an import changes is STAMPED in `_sync.rec`,
+or a change to an existing row would never reach the phone. Unchanged results
+are unchanged, not updated. Scaffolding is never filled: an import is its own
+side B row. A row he unticks or edits (load and notes included) is his. No
+positional guessing: an unmatched name is reported for review. The last
+attempt and its error live in server memory (`/api/physiapp/status`), not the
+synced document.
+
+## His songs (2026-09-14)
+
+For paced work (the calf pulses), a Song toggle plays one of his own 120 bpm
+tracks during the work bouts, shuffled per exercise, waiting through rest.
+Private by construction: the public repo and site hold no audio and no song
+names. `tools/add_song.py` copies a track byte for byte into `data/media/`
+(gitignored, served with Range requests) and uploads the same bytes to
+`media/` in the PRIVATE sync repo, where the phone downloads it once into
+IndexedDB. The originals in his Music library are never touched.
