@@ -719,3 +719,14 @@ From Codex's design ideas, all three built on his say-so:
 - **One chip for "is my work safe"** (`status.js`), same place on every device:
   Not saved, Saving, Syncing, Retry, N to sync, Synced, or Saved when sync is
   not set up on that device.
+
+## Log and carry on, no review screen (2026-09-14)
+
+His call: "If I complete the sets, it should just log it as completed... I don't
+need a quality check when I'm logging." The last set logs the exercise durably
+and the next exercise opens with a 10 s get ready that starts by itself
+(`finishRun`, `startNextNow` in `player.js`). One exercise opened from its row
+rolls on into the rest of today's list. After the tendon loading the workout
+stops on the six hour line. Corrections happen in the row on Today; the review
+screen only appears as the retry when a save fails. Stop early and Save what I
+did logs at once. A timed bout under a second is not work.
