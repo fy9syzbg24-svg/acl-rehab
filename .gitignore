@@ -34,3 +34,6 @@ app/dev-timing.js
 
 # Every dev-only test module (dev-logging.js, dev-player.js, ...).
 app/dev-*.js
+
+# Saved versions of the app and his data before a big change. PERSONAL (the data copy): never commit.
+/snapshots/
