@@ -11,7 +11,7 @@ import { esc, fmtDate, round, fmtDateNum, todayIso, num } from '../util.js';
 import { state, update, maxLoad, loadSeries, lastEntry } from '../store.js';
 import { REHAB_PROGRAM, GYM_PROGRAM, PROGRAM_SOURCE, GYM_SOURCE, THERABAND, BAND_BY_ID, DAYS, DAY_NAME, dayKeyOf } from '../../data/program.js';
 import { exerciseById, openPicture, thumb, prescriptionLine, loadBars } from '../components.js';
-import { minutesFor, fmtMins } from '../timing.js';
+import { minutesFor, fmtMins, fmtDayTotal } from '../timing.js';
 
 const ALL_ITEMS = REHAB_PROGRAM.concat(GYM_PROGRAM);
 
@@ -33,7 +33,7 @@ export function renderProgram(ctx) {
   const todayKey = dayKeyOf(todayIso());
   const rehab = filter ? REHAB_PROGRAM.filter((p) => onDay(p.id, filter)) : REHAB_PROGRAM;
   const gym = filter ? GYM_PROGRAM.filter((p) => onDay(p.id, filter)) : GYM_PROGRAM;
-  const sumMins = (list) => list.reduce((a, p) => a + rowMinutes(p).mins, 0);
+  const sumMins = (list) => fmtDayTotal(list.map((p) => rowMinutes(p)));
   const src = PROGRAM_SOURCE;
 
   return `
@@ -58,7 +58,7 @@ export function renderProgram(ctx) {
           }).join('')}
         </div>
         <div class="tiny muted" style="margin-top:.5rem">${filter
-          ? `${esc(DAY_NAME[filter])}: ${rehab.length + gym.length} exercise${rehab.length + gym.length === 1 ? '' : 's'}, about ${esc(fmtMins(sumMins(rehab) + sumMins(gym)))}. Clinic days drop to the tendon loading and balance work.`
+          ? `${esc(DAY_NAME[filter])}: ${rehab.length + gym.length} exercise${rehab.length + gym.length === 1 ? '' : 's'}, ${esc(sumMins(rehab.concat(gym)))}. Clinic days drop to the tendon loading and balance work.`
           : 'Tap a day to see what is planned. Tap the days on any exercise to change them; what you set is kept.'}</div>
       </div>
     </section>
@@ -67,7 +67,7 @@ export function renderProgram(ctx) {
       <header class="dayhead slim">
         <div class="dayhead-main">
           <h2>Rehab</h2>
-          <div class="dayhead-sub">${rehab.length} exercise${rehab.length === 1 ? '' : 's'} · about ${esc(fmtMins(sumMins(rehab)))}</div>
+          <div class="dayhead-sub">${rehab.length} exercise${rehab.length === 1 ? '' : 's'} · ${esc(sumMins(rehab))}</div>
         </div>
       </header>
       <div class="checklist">
@@ -124,7 +124,7 @@ function progRow(p, ctx) {
         : `<span class="prog-shot plain">${thumb(p.ex, 43)}</span>`}
       <div class="prog-main">
         <div class="prog-title">${esc(name)}</div>
-        <div class="prog-sub">${[prescriptionLine(p, band), `${m.mins} min${m.src === 'yours' ? ' (yours)' : ''}`].concat(flags)
+        <div class="prog-sub">${[prescriptionLine(p, band), m.mins == null ? 'target not specified' : `${m.mins} min${m.src === 'yours' ? ' (yours)' : m.src === 'learned' ? ' (usual)' : ''}`].concat(flags)
           .filter(Boolean).join('<span class="dot">·</span>')}${ex?.aka ? `<span class="muted"><em>${esc(ex.aka)}</em></span>` : ''}</div>
       </div>
       <span class="prog-chev">⌄</span>
@@ -142,7 +142,7 @@ function progRow(p, ctx) {
 
       <div class="row" style="gap:.7rem;align-items:flex-end;margin-top:.7rem">
         <label class="fld minsfld" title="Minutes this takes you. Leave it empty to use the estimate.">Minutes
-          <input type="number" class="in-num" min="0" step="1" data-mins="${esc(p.id)}" placeholder="${m.src === 'estimate' ? m.mins : ''}" value="${own ?? ''}"></label>
+          <input type="number" class="in-num" min="0" step="1" data-mins="${esc(p.id)}" placeholder="${m.src !== 'yours' && m.mins != null ? m.mins : ''}" value="${own ?? ''}"></label>
         <span class="tiny muted" style="flex:1;min-width:140px">${own != null
           ? 'Your number. Clear the box to go back to the estimate.'
           : 'Estimated from the prescription. Type your own if it is wrong.'}</span>

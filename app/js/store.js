@@ -59,7 +59,7 @@ function blank() {
     doses: [],
     // Clinician program: which progression step you're on, and your current
     // band colour, per program item.
-    program: { stage: {}, band: {}, weeklyTarget: {}, days: {}, clinicDays: {}, mins: {} },
+    program: { stage: {}, band: {}, weeklyTarget: {}, days: {}, clinicDays: {}, mins: {}, timer: {}, schedule: {} },
   };
 }
 
@@ -192,13 +192,15 @@ function migrate(d) {
   out.supplements = out.supplements || [];
   out.prnMeds = out.prnMeds || [];
   out.doses = out.doses || [];
-  out.program = { stage: {}, band: {}, weeklyTarget: {}, days: {}, clinicDays: {}, mins: {}, ...(d.program || {}) };
+  out.program = { stage: {}, band: {}, weeklyTarget: {}, days: {}, clinicDays: {}, mins: {}, timer: {}, schedule: {}, ...(d.program || {}) };
   out.program.stage = out.program.stage || {};
   out.program.band = out.program.band || {};
   out.program.weeklyTarget = out.program.weeklyTarget || {};
   out.program.days = out.program.days || {};
   out.program.clinicDays = out.program.clinicDays || {};
   out.program.mins = out.program.mins || {};
+  out.program.timer = out.program.timer || {};
+  out.program.schedule = out.program.schedule || {};
   if ((d.schema || 0) < 4) dedupeEntries(out);
   if ((d.schema || 0) < 5) markExistingLogged(out);
   out.schema = SCHEMA;

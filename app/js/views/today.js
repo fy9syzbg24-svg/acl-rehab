@@ -17,7 +17,7 @@ import { goalGroups } from './week.js';
 import { shortCat } from './monthboard.js';
 import { openExercisePicker, allExercises, exerciseById, openMeasureEntry, loadBars, thumb,
          openPicture, renderDatePill, prescriptionLine, toast, openModal, closeModal } from '../components.js';
-import { minutesFor, fmtMins } from '../timing.js';
+import { minutesFor, fmtMins, fmtDayTotal } from '../timing.js';
 import { streakDays } from '../insights.js';
 import { renderSuppGroups, bindSuppGroups, suppScore, prnSummary } from './supplements.js';
 import { itemStatus, isDone, sidesFor, setLogged, newEntriesFor as makeEntries } from '../logging.js';
@@ -94,16 +94,17 @@ function dayHead(iso, planned, extras, entries, ctx) {
   const doneP = planned.filter((p) => isLogged(p, entries));
   const doneN = doneP.length + extras.filter((e) => e.logged).length;
   const total = planned.length + extras.length;
-  const mins = planned.reduce((a, p) => a + rowMinutes(p).mins, 0);
-  const left = planned.filter((p) => !doneP.includes(p)).reduce((a, p) => a + rowMinutes(p).mins, 0);
+  const allMins = planned.map((p) => rowMinutes(p));
+  const leftMins = planned.filter((p) => !doneP.includes(p)).map((p) => rowMinutes(p));
+  const mins = allMins.reduce((a, m) => a + (m.mins || 0), 0);
 
   const complete = total > 0 && doneN >= total;
   const streak = streakDays(iso);
   let sub;
   if (!total) sub = 'Nothing planned. Everything is below if you want it.';
-  else if (!doneN) sub = `${total} to do · about ${fmtMins(mins)}`;
+  else if (!doneN) sub = `${total} to do · ${fmtDayTotal(allMins)}`;
   else if (complete) sub = `All ${total} done · ${fmtMins(mins)} of rehab. Nice work.`;
-  else sub = `${doneN} of ${total} done · about ${fmtMins(left)} left`;
+  else sub = `${doneN} of ${total} done · ${fmtDayTotal(leftMins)} left`;
   if (streak >= 2) sub += ` · ${streak} days in a row`;
 
   // The ring bursts once, on the render where the day becomes complete.
@@ -121,6 +122,15 @@ function dayHead(iso, planned, extras, entries, ctx) {
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
     </button>
   </header>`;
+}
+
+/** What the minutes on a row are based on, for its tooltip and the open row. */
+export function minsTitle(m) {
+  if (m.src === 'yours') return 'Your number';
+  if (m.src === 'logged') return 'What you logged';
+  if (m.src === 'learned') return `Usually about ${m.mins} min, from your last ${m.learned?.runs ?? ''} timed runs`;
+  if (m.src === 'untimed') return 'Target not specified, so no time estimate';
+  return 'Estimated from the prescription. Open the row to change it.';
 }
 
 /** A thin line between the morning's first job and everything else. */
@@ -187,7 +197,7 @@ function checkRow(item, iso, entries, ctx) {
         ${item.pre && !confirmed.length ? `<span class="crow-note">${esc(item.preShort || item.pre)}</span>` : ''}
       </div>
       <span class="crow-mins ${m.src}" data-rowclick="${esc(item.id)}"
-        title="${m.src === 'yours' ? 'Your number' : m.src === 'logged' ? 'What you logged' : 'Estimated from the prescription. Open the row to change it.'}">${m.mins}<small>min</small></span>
+        title="${esc(minsTitle(m))}">${m.mins == null ? '·' : `${m.mins}<small>min</small>`}</span>
     </div>
     ${editing ? boards(item, ex) + mine.map((e) => entryFields(e, ex)).join('') + logBar(item.id, item, ex) : ''}
   </div>`;
@@ -229,7 +239,7 @@ function logBar(key, item, ex, entry = null) {
   const own = item ? num(state.data.program.mins?.[item.id]) : null;
   return `<div class="logbar">
     ${item ? `<label class="fld minsfld" title="Minutes this takes you. Leave it empty to use the estimate.">Minutes
-      <input type="number" class="in-num" min="0" step="1" data-mins="${esc(item.id)}" placeholder="${est.src === 'estimate' ? est.mins : ''}" value="${own ?? ''}"></label>` : ''}
+      <input type="number" class="in-num" min="0" step="1" data-mins="${esc(item.id)}" placeholder="${est.src !== 'yours' && est.mins != null ? est.mins : ''}" value="${own ?? ''}"></label>` : ''}
     ${entry ? `<button class="btn sm ghost danger" data-del-entry="${esc(entry.id)}">Remove</button>` : ''}
     <span class="spacer"></span>
     <button class="btn primary sm" data-log="${esc(key)}">Log it</button>

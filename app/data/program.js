@@ -17,9 +17,16 @@ export const THERABAND = [
 export const BAND_BY_ID = Object.fromEntries(THERABAND.map((b) => [b.id, b]));
 
 // sides: 'both' -> one row · 'each' -> a left row and a right row · 'left' -> left only
+// timer: how the workout player runs it (see timing.js). 'manual' where the
+// prescription contradicts itself or is missing, so nothing is invented:
+//   pa04  3 x 8, but its note says a hold building from 45 s to 2 min
+//   pa08  2 x 8, but its note says as many reps as possible
+//   pa16  2 x 3 reps, but the exercise is tracked as a timed hold
+//   tp17  no sets or reps at all
+// pace: beats per minute for the metronome, only where the program states one.
 export const REHAB_PROGRAM = [
   {
-    n: 1, id: 'pa01', freq: 5, ex: 'dl_bridge_band', title: 'Bridge with resisted hip abduction',
+    n: 1, id: 'pa01', timer: 'reps', freq: 5, ex: 'dl_bridge_band', title: 'Bridge with resisted hip abduction',
     img: 'img/program/ex-01.png', thumb: 'img/program/ex-01-thumb.png',
     sides: 'both', sets: 2, reps: 12, band: 'green',
     steps: [
@@ -32,7 +39,7 @@ export const REHAB_PROGRAM = [
     progressions: ['Single-leg bridge, exercises 2 and 3 below', 'Add weight over the hips'],
   },
   {
-    n: 2, id: 'pa02', freq: 5, ex: 'bridge_band_sl_ext', title: 'Bridge with resisted hip abduction, into single-leg extension',
+    n: 2, id: 'pa02', timer: 'reps', freq: 5, ex: 'bridge_band_sl_ext', title: 'Bridge with resisted hip abduction, into single-leg extension',
     img: 'img/program/ex-02.png', thumb: 'img/program/ex-02-thumb.png',
     sides: 'each', sets: 3, reps: 6,
     steps: [
@@ -45,7 +52,7 @@ export const REHAB_PROGRAM = [
     ],
   },
   {
-    n: 3, id: 'pa03', freq: 5, ex: 'sl_bridge_band_abd', title: 'Single-leg bridge with resisted hip abduction',
+    n: 3, id: 'pa03', timer: 'reps', freq: 5, ex: 'sl_bridge_band_abd', title: 'Single-leg bridge with resisted hip abduction',
     img: 'img/program/ex-03.png', thumb: 'img/program/ex-03-thumb.png',
     sides: 'each', sets: 3, reps: 6, hold: '1s',
     goal: '20 on each side',
@@ -59,7 +66,7 @@ export const REHAB_PROGRAM = [
     ],
   },
   {
-    n: 4, id: 'pa04', freq: 5, ex: 'bridge_butterfly', title: 'Butterfly gluteal bridge',
+    n: 4, id: 'pa04', timer: 'manual', freq: 5, ex: 'bridge_butterfly', title: 'Butterfly gluteal bridge',
     img: 'img/program/ex-04.png', thumb: 'img/program/ex-04-thumb.png',
     sides: 'both', sets: 3, reps: 8,
     steps: [
@@ -75,7 +82,7 @@ export const REHAB_PROGRAM = [
     photoNote: 'Four frames supplied by the user; the PhysiApp export had a close-up of a light ring instead.',
   },
   {
-    n: 5, id: 'pa05', freq: 5, ex: 'sts_band_foam', title: 'Sit to stand with resisted hip external rotation, on foam',
+    n: 5, id: 'pa05', timer: 'reps', freq: 5, ex: 'sts_band_foam', title: 'Sit to stand with resisted hip external rotation, on foam',
     img: 'img/program/ex-05.png', thumb: 'img/program/ex-05-thumb.png',
     sides: 'both', sets: 3, reps: 12,
     steps: [
@@ -88,7 +95,7 @@ export const REHAB_PROGRAM = [
     progressions: ['Split stance', 'Single leg'],
   },
   {
-    n: 6, id: 'pa06', freq: 6, ex: 'seated_knee_ext_band', title: 'Resisted knee extension, seated',
+    n: 6, id: 'pa06', timer: 'reps', freq: 6, ex: 'seated_knee_ext_band', title: 'Resisted knee extension, seated',
     img: 'img/program/ex-06.png', thumb: 'img/program/ex-06-thumb.png',
     sides: 'each', sets: 3, reps: 15, hold: '1s',
     steps: [
@@ -99,7 +106,7 @@ export const REHAB_PROGRAM = [
     ],
   },
   {
-    n: 7, id: 'pa07', freq: 6, ex: 'knee_ext_pulses_band', title: 'Knee extension with pulses, Theraband',
+    n: 7, id: 'pa07', timer: 'reps', freq: 6, ex: 'knee_ext_pulses_band', title: 'Knee extension with pulses, Theraband',
     img: 'img/program/ex-07.png', thumb: 'img/program/ex-07-thumb.png',
     sides: 'each', sets: 3, reps: 15, band: 'red',
     steps: [
@@ -111,7 +118,7 @@ export const REHAB_PROGRAM = [
     progressions: ['Increase the resistance or weight', 'Perform in time to a metronome or song'],
   },
   {
-    n: 8, id: 'pa08', freq: 5, ex: 'sl_mini_squat_band', title: 'Knee extension into the band',
+    n: 8, id: 'pa08', timer: 'manual', freq: 5, ex: 'sl_mini_squat_band', title: 'Knee extension into the band',
     img: 'img/program/ex-08.png', thumb: 'img/program/ex-08-thumb.png',
     sides: 'each', sets: 2, reps: 8,
     steps: [
@@ -125,7 +132,7 @@ export const REHAB_PROGRAM = [
     progressions: ['Increase the hold time at the bottom', 'Perform on a foam mat'],
   },
   {
-    n: 9, id: 'pa09', freq: 5, ex: 'sl_calf_band', title: 'Single-leg calf raises with a band on the inside of the ankle',
+    n: 9, id: 'pa09', timer: 'reps', freq: 5, ex: 'sl_calf_band', title: 'Single-leg calf raises with a band on the inside of the ankle',
     img: 'img/program/ex-09.jpeg', thumb: 'img/program/ex-09-thumb.png',
     sides: 'each', sets: 3, reps: 8,
     goal: '20 single-leg calf raises',
@@ -137,14 +144,14 @@ export const REHAB_PROGRAM = [
     progressions: ['Increase the hold time at the top', 'No hand support', 'Perform on a foam mat'],
   },
   {
-    n: 10, id: 'pa10', freq: 7, ex: 'calf_pulses', title: 'Calf pulses at 120 beats per minute',
+    n: 10, id: 'pa10', timer: 'timed', pace: 120, freq: 7, ex: 'calf_pulses', title: 'Calf pulses at 120 beats per minute',
     img: 'img/program/ex-10.png', thumb: 'img/program/ex-10-thumb.png',
     sides: 'both', sets: 4, reps: 1, hold: '30s',
     steps: ['Pulse through the calves in time with a 120 bpm metronome or song.'],
     progressions: ['Increase the time', 'Build to 30-second intervals over 3 min 30 s'],
   },
   {
-    n: 11, id: 'pa11', freq: 7, ex: 'sl_foam_task', title: 'Single-leg balance with a ball throw, catch, juggling or other dynamic skill',
+    n: 11, id: 'pa11', timer: 'hold', freq: 7, ex: 'sl_foam_task', title: 'Single-leg balance with a ball throw, catch, juggling or other dynamic skill',
     img: 'img/program/ex-11.png', thumb: 'img/program/ex-11-thumb.png',
     sides: 'left', sets: 1, reps: 5, hold: '30s',
     steps: [
@@ -154,7 +161,7 @@ export const REHAB_PROGRAM = [
     notes: ['Left side only for now.', 'Adding an unstable surface makes it harder.'],
   },
   {
-    n: 12, id: 'pa12', freq: 7, ex: 'sebt', title: 'Single-leg star excursion, 8 points',
+    n: 12, id: 'pa12', timer: 'reps', freq: 7, ex: 'sebt', title: 'Single-leg star excursion, 8 points',
     img: 'img/program/ex-12.png', thumb: 'img/program/ex-12-thumb.png',
     sides: 'each', sets: 4, reps: 5,
     steps: [
@@ -165,7 +172,7 @@ export const REHAB_PROGRAM = [
     ],
   },
   {
-    n: 13, id: 'pa13', freq: 3, ex: 'fwd_stepup', title: 'Step up',
+    n: 13, id: 'pa13', timer: 'reps', freq: 3, ex: 'fwd_stepup', title: 'Step up',
     img: 'img/program/ex-13.png', thumb: 'img/program/ex-13-thumb.png',
     sides: 'each', sets: 2, reps: 8,
     steps: [
@@ -177,7 +184,7 @@ export const REHAB_PROGRAM = [
     progressions: ['Slow the speed down', 'Increase the height of the step'],
   },
   {
-    n: 14, id: 'pa14', freq: 3, ex: 'lat_stepup', title: 'Sideways step up',
+    n: 14, id: 'pa14', timer: 'reps', freq: 3, ex: 'lat_stepup', title: 'Sideways step up',
     img: 'img/program/ex-14.png', thumb: 'img/program/ex-14-thumb.png',
     sides: 'each', sets: 2, reps: 8,
     steps: [
@@ -190,7 +197,7 @@ export const REHAB_PROGRAM = [
     progressions: ['Slow the speed down', 'Increase the height of the step'],
   },
   {
-    n: 15, id: 'pa15', freq: 0, ex: 'jump_prep_step', title: 'Jump preparation off a step',
+    n: 15, id: 'pa15', timer: 'reps', freq: 0, ex: 'jump_prep_step', title: 'Jump preparation off a step',
     img: 'img/program/ex-15.png', thumb: 'img/program/ex-15-thumb.png',
     sides: 'each', sets: 2, reps: 10,
     notYet: true,
@@ -204,7 +211,7 @@ export const REHAB_PROGRAM = [
     notes: ['Keep most of your weight on the landing leg, using the leg on the step to assist.'],
   },
   {
-    n: 16, id: 'pa16', freq: 7, ex: 'wall_sit_adductor', title: 'Wall squat with a ball squeeze between the knees',
+    n: 16, id: 'pa16', timer: 'manual', freq: 7, ex: 'wall_sit_adductor', title: 'Wall squat with a ball squeeze between the knees',
     img: 'img/program/ex-16.png', thumb: 'img/program/ex-16-thumb.png',
     sides: 'both', sets: 2, reps: 3,
     steps: [
@@ -218,7 +225,7 @@ export const REHAB_PROGRAM = [
 
   // --- from the user's typed list, not in the PhysiApp program ---------------
   {
-    n: 17, id: 'tp17', freq: 3, ex: 'hip_lift_step', title: 'Hip lift and lower off a step', typed: true, sides: 'each',
+    n: 17, id: 'tp17', timer: 'manual', freq: 3, ex: 'hip_lift_step', title: 'Hip lift and lower off a step', typed: true, sides: 'each',
     img: 'img/program/ex-14.png', thumb: 'img/program/ex-14-thumb.png',
     photoNote: 'Same set-up as exercise 14, the photo is of the sideways step up.',
     steps: [
@@ -228,7 +235,7 @@ export const REHAB_PROGRAM = [
     progressions: ['Increase the depth of the hip drop and lift'],
   },
   {
-    n: 18, id: 'tl18', freq: 7, ex: 'tendon_load_iso_squat', title: 'Tendon loading mini squat, 20 degrees', typed: true, sides: 'both',
+    n: 18, id: 'tl18', timer: 'hold', freq: 7, ex: 'tendon_load_iso_squat', title: 'Tendon loading mini squat, 20 degrees', typed: true, sides: 'both',
     img: 'img/program/ex-18.png', thumb: 'img/program/ex-18-thumb.png',
     sets: 4, reps: 1, hold: '30s', rest: '2 min',
     // First thing in the morning, then nothing else for six hours (his
@@ -259,19 +266,19 @@ export const GYM_PROGRAM = [
   // The heavy loading happens with his physio instead. They stay listed so the
   // prescription is on record and so a load can be entered after a clinic
   // session; give one a frequency the day he has a gym again.
-  { id: 'g_knee_ext_full', ex: 'sl_full_quad', freq: 0, sides: 'each', sets: 3, reps: 8 },
-  { id: 'g_knee_ext_eor', ex: 'sl_inner_quad', freq: 0, sides: 'each', sets: 3, reps: 8 },
-  { id: 'g_squat', ex: 'barbell_squat', freq: 0, sides: 'both', sets: 3, reps: 8 },
-  { id: 'g_leg_press', ex: 'leg_press', freq: 0, sides: 'each', sets: 3, reps: 8 },
-  { id: 'g_calf_straight', ex: 'weighted_calf_straight', freq: 0, sides: 'each', sets: 3, reps: 8 },
-  { id: 'g_calf_bent', ex: 'weighted_calf_bent', freq: 0, sides: 'each', sets: 3, reps: 8 },
+  { id: 'g_knee_ext_full', timer: 'reps', ex: 'sl_full_quad', freq: 0, sides: 'each', sets: 3, reps: 8 },
+  { id: 'g_knee_ext_eor', timer: 'reps', ex: 'sl_inner_quad', freq: 0, sides: 'each', sets: 3, reps: 8 },
+  { id: 'g_squat', timer: 'reps', ex: 'barbell_squat', freq: 0, sides: 'both', sets: 3, reps: 8 },
+  { id: 'g_leg_press', timer: 'reps', ex: 'leg_press', freq: 0, sides: 'each', sets: 3, reps: 8 },
+  { id: 'g_calf_straight', timer: 'reps', ex: 'weighted_calf_straight', freq: 0, sides: 'each', sets: 3, reps: 8 },
+  { id: 'g_calf_bent', timer: 'reps', ex: 'weighted_calf_bent', freq: 0, sides: 'each', sets: 3, reps: 8 },
   // ONE cardio row, not two: the elliptical and a bike count as the same thing
   // and he logs whichever he has. He owns an elliptical. The separate `bike`
   // exercise stays in the library so his August sessions still read correctly.
   // freq 7, and a clinic day takes it back out, so this lands on every day he
   // is NOT at physical therapy. His words: even a light 20 minutes helps his
   // knees, and he wants it on the schedule rather than left to memory.
-  { id: 'g_elliptical', ex: 'elliptical', freq: 7, sides: 'both', cardio: true,
+  { id: 'g_elliptical', timer: 'cardio', ex: 'elliptical', freq: 7, sides: 'both', cardio: true,
     note: 'Every day you are not at physical therapy. A light 20 minutes counts; it is a warm up for the knees as much as conditioning. The plan\u2019s 30 minute target is for the harder sessions.' },
 ];
 
