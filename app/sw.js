@@ -52,6 +52,7 @@ const SHELL_ASSETS = [
   './js/player/audio.js',
   './js/player/engine.js',
   './js/player/player.js',
+  './js/player/songs.js',
   './js/store.js',
   './js/sync/config.js',
   './js/sync/engine.js',

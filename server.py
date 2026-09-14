@@ -246,6 +246,15 @@ def physiapp_sync(payload) -> dict:
             "review": out["review"], "syncedAt": settings["physiappLastSync"]}
 
 
+def media_index() -> dict:
+    """The songs on this Mac (data/media/index.json), or none."""
+    f = DATA_DIR / "media" / "index.json"
+    try:
+        return json.loads(f.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {"songs": []}
+
+
 class DataUnreadable(Exception):
     """The file exists but cannot be parsed, never treat that as 'no data'."""
 
@@ -315,6 +324,56 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if self.command != "HEAD":
             self.wfile.write(body)
 
+    def _send_media(self, name: str) -> None:
+        """His own audio, from data/media/ beside the data file. Never from app/,
+        so nothing here can ever be published with the shell. Range requests,
+        because Safari will not play audio from a server without them."""
+        media = (DATA_DIR / "media").resolve()
+        target = (media / name).resolve()
+        try:
+            target.relative_to(media)
+        except ValueError:
+            self._send(403, b"forbidden", "text/plain; charset=utf-8")
+            return
+        if not target.is_file() or target.name == "index.json":
+            self._send(404, b"not found", "text/plain; charset=utf-8")
+            return
+        size = target.stat().st_size
+        ctype = {".m4a": "audio/mp4", ".mp3": "audio/mpeg", ".aac": "audio/aac"}.get(target.suffix.lower(), "application/octet-stream")
+        rng = self.headers.get("Range")
+        start, end = 0, size - 1
+        code = 200
+        if rng and rng.startswith("bytes="):
+            a, _, b = rng[6:].partition("-")
+            try:
+                if a:
+                    start = int(a)
+                    end = int(b) if b else size - 1
+                else:
+                    start = max(0, size - int(b))
+                end = min(end, size - 1)
+                code = 206
+            except ValueError:
+                start, end, code = 0, size - 1, 200
+        if start > end:
+            self._send(416, b"", "text/plain; charset=utf-8", {"Content-Range": "bytes */%d" % size})
+            return
+        with target.open("rb") as fh:
+            fh.seek(start)
+            body = fh.read(end - start + 1)
+        extra = {"Accept-Ranges": "bytes"}
+        if code == 206:
+            extra["Content-Range"] = "bytes %d-%d/%d" % (start, end, size)
+        self.send_response(code)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "private, max-age=86400")
+        for k, v in extra.items():
+            self.send_header(k, v)
+        self.end_headers()
+        if self.command != "HEAD":
+            self.wfile.write(body)
+
     def _json(self, code: int, obj) -> None:
         self._send(code, json.dumps(obj).encode("utf-8"), "application/json; charset=utf-8")
 
@@ -348,6 +407,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
             ip = lan_ip()
             port = self.server.server_address[1]
             self._json(200, {"lan": ("http://%s:%s" % (ip, port)) if ip else None, "port": port})
+            return
+        if self.path.split("?")[0] == "/api/media":
+            self._json(200, media_index())
+            return
+        if self.path.startswith("/media/"):
+            self._send_media(urllib.parse.unquote(self.path.split("?")[0][len("/media/"):]))
             return
         if self.path.split("?")[0] == "/api/physiapp/status":
             self._json(200, dict(_pa_status, off=PHYSIAPP_OFF))

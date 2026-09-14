@@ -29,6 +29,7 @@ import { fmtClock, fmtMins, timerPrefs, minutesFor } from '../timing.js';
 import { itemStatus, saveRun, rowsFingerprint, runsFor } from '../logging.js';
 import * as E from './engine.js';
 import * as A from './audio.js';
+import * as S from './songs.js';
 
 const ALL_ITEMS = REHAB_PROGRAM.concat(GYM_PROGRAM);
 const ITEM = Object.fromEntries(ALL_ITEMS.map((p) => [p.id, p]));
@@ -85,11 +86,15 @@ function writeDraft() {
 }
 
 function clearDraft() {
+  S.stopSong();
   P = null;
   try { localStorage.removeItem(DRAFT_KEY); } catch { /* nothing to do */ }
 }
 
 P = readDraft();
+
+// Which songs this device can play; the player repaints once it knows.
+S.loadSongs().then((list) => { if (list.length) currentRerender?.(); });
 
 export function hasDraft() { return !!P; }
 export function draftInfo() {
@@ -236,6 +241,8 @@ function stopEffects() {
   clearTimeout(tickTimer);
   tickTimer = null;
   A.cancelAll();
+  if (P) P.songPos = S.songPosition() || P.songPos || 0;
+  S.pauseSong();
   dropWake();
 }
 
@@ -250,6 +257,15 @@ function syncEffects() {
   const rem = E.remainingSec(run, now);
   if (cuesOn() && rem != null) A.scheduleCues(rem);
   if (st?.kind === 'work' && run.pace && metronomeOn(run.pid) && rem != null) A.startMetronome(run.pace, rem);
+  // His song plays through the work bouts and waits, where it stopped,
+  // through rest, pause and anything else.
+  const song = songFor(run.pid);
+  if (song && st?.kind === 'work') {
+    S.prepareSong(song, P.songPos).then((ok) => { if (ok && P?.run?.state === 'running' && E.step(P.run)?.kind === 'work') S.playSong(); });
+  } else {
+    if (P) P.songPos = S.songPosition() || P.songPos || 0;
+    S.pauseSong();
+  }
   lastTick = now;
   clearTimeout(tickTimer);
   tickTimer = setTimeout(loop, 200);
@@ -309,6 +325,35 @@ function metronomeOn(pid) {
   return !!ITEM[pid]?.pace;   // on by default only where a pace is prescribed
 }
 
+const LAST_SONG_KEY = 'rehab.player.lastSong';
+
+/** Songs at this exercise's pace. */
+function songsAtPace(pid) {
+  const pace = ITEM[pid]?.pace;
+  return pace ? S.songsNow().filter((x) => !x.bpm || x.bpm === pace) : [];
+}
+
+/**
+ * The song this run plays, if he turned songs on and this device has one.
+ * "shuffle" picks one at random for each exercise, never the one played last
+ * time when there is a choice; the pick stays for the whole run.
+ */
+function songFor(pid) {
+  const pref = timerPrefs(state.data, pid).song;
+  if (!pref) return null;
+  const pool = songsAtPace(pid);
+  if (!pool.length) return null;
+  if (pref !== 'shuffle') return S.songBySha(pref) || null;
+  if (P && P.songSha && pool.some((x) => x.sha === P.songSha)) return S.songBySha(P.songSha);
+  let last = null;
+  try { last = localStorage.getItem(LAST_SONG_KEY); } catch { /* per device */ }
+  const choices = pool.length > 1 ? pool.filter((x) => x.sha !== last) : pool;
+  const pick = choices[Math.floor(Math.random() * choices.length)];
+  if (P) { P.songSha = pick.sha; P.songPos = 0; }
+  try { localStorage.setItem(LAST_SONG_KEY, pick.sha); } catch { /* per device */ }
+  return pick;
+}
+
 // ------------------------------------------------------------ labels ----
 function phaseLabel(kind) {
   return { ready: 'GET READY', reps: 'WORK', manual: 'WORK', work: 'WORK', hold: 'HOLD', rest: 'REST', switch: 'SWITCH SIDES' }[kind] || '';
@@ -356,6 +401,7 @@ const I = {
   cues: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h4l5-4v13l-5-4H4z"/><path d="M16.5 9a4 4 0 0 1 0 6M19 6.5a7.5 7.5 0 0 1 0 11"/></svg>',
   metro: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3.5h6l3.5 17h-13z"/><path d="M12 16l5-9"/></svg>',
   wake: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6.5" y="3" width="11" height="18" rx="2.5"/><path d="M10.5 18h3"/></svg>',
+  song: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5.5l10-2V16"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/></svg>',
   zoom: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M10 20H4v-6M20 4l-6.5 6.5M4 20l6.5-6.5"/></svg>',
   close: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>',
 };
@@ -399,6 +445,7 @@ export function renderPlayer(ctx) {
         <button class="p-toggle ${metroIsOn ? 'on' : ''}" data-p="metro" ${metro ? '' : 'disabled'}
           aria-pressed="${metroIsOn}" aria-label="Metronome${metro ? ` at ${run.pace} beats per minute` : ', no pace prescribed'}">
           ${I.metro}<span class="mono">${metro ? run.pace : 'BPM'}</span></button>
+        ${songToggle(run)}
         <button class="p-toggle ${cuesOn() ? 'on' : ''}" data-p="cues" aria-pressed="${cuesOn()}" aria-label="Sound cues">${I.cues}</button>
       </span>
     </div>
@@ -445,6 +492,18 @@ export function renderPlayer(ctx) {
     </div>
     <div class="sr-only" aria-live="polite" data-p-live></div>
   </div>`;
+}
+
+function songToggle(run) {
+  const pool = songsAtPace(run.pid);
+  const usable = pool.length > 0;
+  const on = usable && !!timerPrefs(state.data, run.pid).song;
+  const now = on ? songFor(run.pid) : null;
+  const label = !run.pace ? 'No pace prescribed, so no song'
+    : !usable ? 'No song at this pace on this device'
+    : on ? `Songs on: ${now?.name || ''}` : `Play one of your ${pool.length} song${pool.length === 1 ? '' : 's'} during the work`;
+  return `<button class="p-toggle ${on ? 'on' : ''}" data-p="song" ${usable ? '' : 'disabled'} aria-pressed="${on}"
+    aria-label="${esc(label)}" title="${esc(label)}">${I.song}</button>`;
 }
 
 function backBtn(ctx) {
@@ -730,9 +789,15 @@ function moveOn(s) {
 export function bindPlayer(root, ctx, rerender) {
   currentRerender = () => { if (ctx.view === 'player') rerender(); };
   const run = P?.run;
+  // Load his song ahead of the tap that starts it: iOS allows the first play
+  // only inside that tap, so the file has to be ready by then.
+  const song = run ? songFor(run.pid) : null;
+  if (song) S.prepareSong(song, P.songPos);
+
   const act = (fn) => {
     if (!P?.run) return;
     A.unlockAudio();
+    if (songFor(P.run.pid)) S.primeSong();
     const events = fn(P.run, performance.now(), Date.now()) || [];
     if (events.length) announce(events);
     P.repsAdjust = null;
@@ -783,6 +848,25 @@ export function bindPlayer(root, ctx, rerender) {
       rerender();
       return;
     }
+    if (k === 'song') {
+      const cur = timerPrefs(state.data, run.pid).song;
+      const next = cur ? null : 'shuffle';
+      update((d) => {
+        d.program.timer ||= {};
+        d.program.timer[run.pid] = { ...(d.program.timer[run.pid] || {}), song: next };
+      });
+      if (next) {
+        const pick = songFor(run.pid);
+        if (pick) {
+          S.prepareSong(pick, P.songPos).then(() => S.primeSong());
+          toast(`<b>Songs on</b><br><span>${esc(pick.name)} this time. It plays during the work and waits through rest.</span>`);
+        }
+      } else {
+        S.pauseSong();
+      }
+      rerender();
+      return;
+    }
     if (k === 'zoom') return openZoom(ctx, rerender);
     if (k === 'save') {
       if (!saveCurrent()) return;
@@ -797,6 +881,8 @@ export function bindPlayer(root, ctx, rerender) {
       const pid = s.queue[s.pos];
       P.run = newRun(pid, s.iso);
       P.base = rowsFingerprint(getDay(s.iso), pid);
+      P.songSha = null;   // a fresh pick for each exercise
+      P.songPos = 0;
       P.phase = 'run';
       A.unlockAudio();
       E.start(P.run, performance.now(), Date.now());
