@@ -369,3 +369,10 @@ body.mobile .p-img { height: clamp(120px, 23svh, 200px); }
 }
 body.mobile .today .crow-shot { width: 66px; height: 48px; }
 @media (max-width: 380px) { body.mobile .today .crow-shot { width: 54px; height: 40px; } }
+body.mobile .weeksec .weekcat.tappable { padding: .55rem .6rem; gap: .35rem; }
+body.mobile .weeksec .weekcat.tappable .wclabel { font-size: .85rem; }
+body.mobile .weeksec .weekcat.tappable .wchead { flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: 0 .4rem; }
+@media (max-width: 899px) {
+  body.mobile.in-player .player .p-eyebrow .p-count { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  body.mobile.in-player .player .p-eyebrow .p-wake { display: none; }
+}

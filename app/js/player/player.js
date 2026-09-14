@@ -523,7 +523,7 @@ export function renderPlayer(ctx) {
   const key = `${run.runId}`;
   const enter = lastContentKey !== null && lastContentKey !== key;
   lastContentKey = key;
-  const count = P.session ? `Workout · ${P.session.pos + 1} of ${P.session.queue.length}` : 'Exercise';
+  const count = P.session ? `<span class="p-count-word">Workout · </span>${P.session.pos + 1} of ${P.session.queue.length}` : 'Exercise';
   const side = sideOfStep(run, st);
 
   return `
@@ -531,7 +531,7 @@ export function renderPlayer(ctx) {
     style="--cat:${cat};${run.pace ? `--beat:${(60 / run.pace).toFixed(3)}s;` : ''}">
     <div class="p-eyebrow">
       ${backBtn(ctx)}
-      <span class="p-count">${esc(count)}${run.iso !== todayIso() ? ` · <span class="warnish">${esc(fmtDate(run.iso, 'dow'))}</span>` : ''}</span>
+      <span class="p-count">${count}${run.iso !== todayIso() ? ` · <span class="warnish">${esc(fmtDate(run.iso, 'dow'))}</span>` : ''}</span>
       <span class="p-wake" data-p-wake data-state="${wakeState}" aria-hidden="true">${I.wake}</span>
     </div>
     ${receiptSlot(run)}
@@ -1191,7 +1191,13 @@ function startNextNow() {
 function afterSave(ctx) {
   const s = P.session;
   if (!s) { clearDraft(); ctx.go(ctx.playerFrom || 'today'); return; }
+  // A retried save follows the same rules as the automatic one: the tendon
+  // loading stops for the recovery break, anything else carries on.
+  const item = ITEM[P.run?.pid];
+  if (item?.first) { P.phase = 'done'; P.stopForGap = item.id; writeDraft(); return; }
   moveOn(s);
+  if (P.phase === 'between') startNextNow();
+  writeDraft();
 }
 
 function moveOn(s) {

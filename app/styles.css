@@ -2248,3 +2248,27 @@ body .sess table.sess-table { display: table; white-space: normal; overflow: vis
 .focusitem { border-radius: 10px; }
 .mx thead th:not(.mx-name), .mx td { width: 64px; }
 .mx .mx-name { width: auto; }
+
+.p-eyebrow .p-count { white-space: nowrap; }
+@media (max-width: 380px) {
+  .p-count-word { display: none; }
+  .p-back span { display: none; }
+}
+.today .crow-note { white-space: normal; overflow: visible; }
+/* larger text: controls wrap onto another line rather than run off the screen */
+.p-sound { grid-template-columns: repeat(auto-fit, minmax(max(68px, 4.6em), 1fr)); }
+.p-tool { min-width: 0; }
+.p-tool span { white-space: normal; overflow-wrap: anywhere; }
+.player .p-row1, .player .p-row2 { grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); }
+.player .p-row1 .btn, .player .p-row2 .btn { min-width: 0; white-space: normal; text-align: center; line-height: 1.15; }
+/* narrow screens and larger text: nothing forces the page wider than the screen */
+.ov, .ov-summary, .ov-card, .ov-sec, .trend, .tr-head, .tr-title, .tr-main { min-width: 0; }
+.tr-title { flex: 1 1 12rem; }
+.tr-pick, .tr-pick select { display: block; width: 100%; max-width: 100%; }
+.tr-pick select { text-overflow: ellipsis; white-space: nowrap; overflow: hidden; }
+.weekdots { grid-template-columns: repeat(7, minmax(0, 1fr)); gap: .2rem; }
+.weekdots i { width: 100%; max-width: 36px; height: auto; aspect-ratio: 1; }
+.ov-big { flex-wrap: wrap; }
+.ov-big b { font-size: clamp(3rem, 16vw, 4.2rem); }
+.plan-page .monthstrip { grid-template-columns: repeat(auto-fit, minmax(max(84px, 5em), 1fr)); }
+.p-tool { padding-left: .1rem; padding-right: .1rem; font-size: .75rem; }
