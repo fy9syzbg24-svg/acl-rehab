@@ -1,5 +1,6 @@
-import { load, state, subscribe, runSync, syncState, pendingSyncCount, onRemoteChange, surgeryDate, flushSave } from './store.js';
+import { load, state, subscribe, runSync, syncState, pendingSyncCount, onRemoteChange, surgeryDate, flushSave, saveOutstanding } from './store.js';
 import { guardPaint, whenIdle } from './editguard.js';
+import { chipState } from './status.js';
 import { esc, todayIso, postOp, applyStoredTheme } from './util.js';
 import { isConfigured } from './sync/config.js';
 import { renderToday, bindToday } from './views/today.js';
@@ -84,23 +85,24 @@ function paintChrome() {
 
   const el = document.getElementById('save-state');
   document.body.classList.toggle('readonly', !!state.readOnly);
-  if (state.error) { el.textContent = state.error; el.className = 'save-state err'; }
-  else if (state.saving) { el.textContent = 'saving…'; el.className = 'save-state'; }
-  else if (state.lastSaved) { el.textContent = 'saved'; el.className = 'save-state'; }
-  else { el.textContent = ''; el.className = 'save-state'; }
+  // Saving and syncing now share the chip. This line is kept only for an error
+  // long enough to need its full sentence.
+  el.textContent = state.error || '';
+  el.className = state.error ? 'save-state err' : 'save-state';
 
   // The same sync chip the phone shows. save-state is the LOCAL save (the
   // JSON file on this Mac); the chip is the cloud relay, different facts.
   const dot = document.getElementById('sync-dot');
   const label = document.getElementById('sync-label');
   if (!dot || !label) return;
-  dot.className = 'msync-dot';
-  if (!isConfigured()) { label.textContent = 'Local'; return; }
-  const pending = pendingSyncCount();
-  if (syncState.running || Date.now() < busyUntil) { dot.classList.add('busy'); label.textContent = 'Sync'; }
-  else if (syncState.lastError) { dot.classList.add('err'); label.textContent = 'Retry'; }
-  else if (pending) { dot.classList.add('pending'); label.textContent = String(pending); }
-  else { dot.classList.add('ok'); label.textContent = 'Synced'; }
+  const configured = isConfigured();
+  const c = chipState({
+    state, configured, syncing: syncState.running || Date.now() < busyUntil,
+    pending: configured ? pendingSyncCount() : 0, syncError: syncState.lastError, saveOutstanding: saveOutstanding(),
+  });
+  dot.className = `msync-dot ${c.dot}`;
+  if (label.textContent !== c.label) label.textContent = c.label;
+  document.getElementById('sync-btn')?.setAttribute('title', c.title);
 }
 
 document.getElementById('sync-btn').addEventListener('click', async () => {

@@ -28,16 +28,25 @@ export function historyFor(doc, item, beforeIso) {
   return [...byDate.entries()].sort((a, b) => (a[0] < b[0] ? 1 : -1)).map(([date, rows]) => ({ date, rows }));
 }
 
+/** A load in today's unit, whatever it was entered in (50 lb shows as 22.68 kg). */
+function loadIn(e, unit) {
+  const l = num(e.load);
+  if (!l) return null;
+  const from = e.loadUnit || unit;
+  return from === unit ? l : fromKg(toKg(l, from), unit);
+}
+
 function rowText(e, unit) {
   const bits = [];
   const bySet = Array.isArray(e.repsBySet) ? e.repsBySet.filter((x) => x != null) : [];
-  if (bySet.length > 1 && bySet.some((x) => x !== bySet[0])) bits.push(`${bySet.join(' + ')} reps`);
+  if (bySet.length > 1) bits.push(`${bySet.join(' + ')} reps`);
   else if (e.sets && e.reps) bits.push(`${e.sets} × ${e.reps}`);
   else if (e.reps) bits.push(`${e.reps} reps`);
   const secs = num(e.secs) ?? num(e.hold);
   if (secs) bits.push(`${round(secs, 1)} s`);
   if (num(e.time)) bits.push(`${round(num(e.time), 1)} min`);
-  if (num(e.load)) bits.push(`${round(num(e.load), 2)} ${e.loadUnit || unit}`);
+  const l = loadIn(e, unit);
+  if (l) bits.push(`${round(l, 2)} ${unit}`);
   const b = e.band ? BAND_BY_ID[e.band] : null;
   if (b) bits.push(`${b.name} band`);
   if (e.partial) bits.push('partial');
@@ -66,12 +75,27 @@ export function bestLoad(history, unit) {
   return best;
 }
 
+// Which exercises have "Recent sessions" open, so a save or a sync repaint does
+// not fold it shut while he is reading it.
+const openRecent = new Set();
+
+/** Keep the disclosure's open state across repaints. Call from the view's bind. */
+export function bindHistory(root) {
+  root.querySelectorAll('details[data-exh]').forEach((d) => d.addEventListener('toggle', () => {
+    if (d.open) openRecent.add(d.dataset.exh); else openRecent.delete(d.dataset.exh);
+  }));
+}
+
 export function renderHistory(doc, item, iso) {
   const unit = doc.settings?.weightUnit || 'kg';
   const hist = historyFor(doc, item, iso);
   const band = doc.program?.band?.[item.id] ?? item.band ?? '';
   const target = prescriptionLine(item, band);
   const last = hist[0];
+  // This session beside last session: what is confirmed today, per side, in
+  // the same words, so progression reads at a glance.
+  const todayRows = (doc.days?.[iso]?.entries || []).filter((e) => e.pid === item.id || (e.pid == null && e.ex === item.ex));
+  const todayDone = todayRows.filter((e) => e.logged);
   const best = bestLoad(hist, unit);
   const bestSides = Object.entries(best);
 
@@ -85,13 +109,16 @@ export function renderHistory(doc, item, iso) {
 
   return `<div class="exhist">
     ${target ? `<div class="exh-line"><span class="exh-k">Target</span><span class="exh-v">${target}</span></div>` : ''}
-    <div class="exh-line"><span class="exh-k">Last</span><span class="exh-v">${last
+    <div class="exh-line"><span class="exh-k">This session</span><span class="exh-v">${todayDone.length
+      ? todayDone.map((e) => `${sideLabel(e, item)}${esc(rowText(e, unit))}`).join(' · ')
+      : '<span class="muted">not logged yet</span>'}</span></div>
+    <div class="exh-line"><span class="exh-k">Last session</span><span class="exh-v">${last
       ? `${esc(fmtDateNum(last.date))} · ${last.rows.map((e) => `${sideLabel(e, item)}${esc(rowText(e, unit))}`).join(' · ')}${last.rows.some((e) => e.via === 'physiapp') ? '<span class="srcnote">PhysiApp</span>' : ''}`
       : '<span class="muted">nothing confirmed yet</span>'}</span></div>
     ${bestSides.length ? `<div class="exh-line"><span class="exh-k">Best load</span><span class="exh-v">${bestSides
       .map(([s, b]) => `${s === 'B' ? '' : `<b class="sidetag ${s}">${s}</b> `}${esc(String(round(fromKg(b.kg, unit), 1)))} ${esc(unit)} <span class="tiny muted">${esc(fmtDateNum(b.date))}</span>`)
       .join(' · ')}</span></div>` : ''}
-    ${recent.length > 1 || notes.length ? `<details class="exh-more">
+    ${recent.length > 1 || notes.length ? `<details class="exh-more" data-exh="${esc(item.id)}" ${openRecent.has(item.id) ? 'open' : ''}>
       <summary>Recent sessions${notes.length ? ' and notes' : ''}</summary>
       <ul class="exh-list">${recent.map(({ date, rows }) => `<li><span class="mono">${esc(fmtDateNum(date))}</span> ${rows.map((e) => `${sideLabel(e, item)}${esc(rowText(e, unit))}`).join(' · ')}</li>`).join('')}</ul>
       ${notes.length ? `<ul class="exh-list notes">${notes.map((n) => `<li><span class="mono">${esc(fmtDateNum(n.date))}</span> ${esc(n.text)}${n.via === 'physiapp' ? ' <span class="srcnote">PhysiApp</span>' : ''}</li>`).join('')}</ul>` : ''}

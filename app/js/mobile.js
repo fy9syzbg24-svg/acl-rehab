@@ -18,6 +18,7 @@ import {
   surgeryDate, saveOutstanding,
 } from './store.js';
 import { guardPaint, whenIdle } from './editguard.js';
+import { chipState } from './status.js';
 import { todayIso, postOp, applyStoredTheme } from './util.js';
 import { renderToday, bindToday } from './views/today.js';
 import { renderProgram, bindProgram } from './views/program.js';
@@ -127,13 +128,15 @@ function paintChrome() {
   const dot = document.getElementById('sync-dot');
   const label = document.getElementById('sync-label');
   if (!dot || !label) return;
-  dot.className = 'msync-dot';
-  if (!isConfigured()) { label.textContent = 'Local'; return; }
-  const pending = pendingSyncCount();
-  if (syncState.running || Date.now() < busyUntil) { dot.classList.add('busy'); label.textContent = 'Sync'; }
-  else if (syncState.lastError) { dot.classList.add('err'); label.textContent = 'Retry'; }
-  else if (pending) { dot.classList.add('pending'); label.textContent = String(pending); }
-  else { dot.classList.add('ok'); label.textContent = 'Synced'; }
+  const configured = isConfigured();
+  const c = chipState({
+    state, configured, syncing: syncState.running || Date.now() < busyUntil,
+    pending: configured ? pendingSyncCount() : 0, syncError: syncState.lastError, saveOutstanding: saveOutstanding(),
+  });
+  dot.className = `msync-dot ${c.dot}`;
+  if (label.textContent !== c.label) label.textContent = c.label;
+  document.getElementById('sync-btn')?.setAttribute('title', c.title);
+  document.getElementById('sync-btn')?.setAttribute('aria-label', `${c.label}. ${c.title}`);
 }
 
 // -------------------------------------------------------------------- wiring

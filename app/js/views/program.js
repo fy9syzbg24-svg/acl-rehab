@@ -14,7 +14,7 @@ import { exerciseById, openPicture, thumb, prescriptionLine, loadBars } from '..
 import { minutesFor, fmtMins, fmtDayTotal } from '../timing.js';
 import { runsFor } from '../logging.js';
 import { recordScheduleVersion } from '../planstreak.js';
-import { renderHistory } from './exhistory.js';
+import { renderHistory, bindHistory } from './exhistory.js';
 import { startExercise } from '../player/player.js';
 
 const ALL_ITEMS = REHAB_PROGRAM.concat(GYM_PROGRAM);
@@ -210,6 +210,7 @@ function gymBoards(item, ex) {
 }
 
 export function bindProgram(root, ctx, rerender) {
+  bindHistory(root);
   root.querySelectorAll('[data-timer]').forEach((b) => b.addEventListener('click', (e) => {
     e.stopPropagation();
     startExercise(ctx, b.dataset.timer, todayIso());

@@ -101,7 +101,31 @@ export function hasDraft() { return !!P; }
 export function draftInfo() {
   if (!P) return null;
   const item = ITEM[P.run?.pid];
-  return { iso: P.run?.iso, pid: P.run?.pid, title: item?.title || item?.ex, session: !!P.session };
+  const run = P.run;
+  // Where the open workout is, for Today's status line.
+  let where = '';
+  if (P.phase === 'between' && P.session) {
+    const nx = ITEM[P.session.queue[P.session.pos]];
+    return { iso: P.session.iso, pid: nx?.id, title: nx?.title || nx?.ex, session: true, phase: 'between',
+             where: `next up, ${P.session.pos + 1} of ${P.session.queue.length}`, pausedAt: null };
+  }
+  if (P.phase === 'done') return { iso: run?.iso, pid: run?.pid, title: item?.title, session: !!P.session, phase: 'done', where: 'finished', pausedAt: null };
+  if (run) {
+    if (run.state === 'review') where = 'ready to save';
+    else {
+      const st = E.step(run);
+      const work = st && (E.WORK.has(st.kind) ? st : run.steps.slice(run.i).find((x) => E.WORK.has(x.kind)));
+      if (work) {
+        where = run.mode === 'hold' && work.units > 1 ? `hold ${work.unit} of ${work.units}`
+          : run.mode === 'cardio' || !run.targetKnown ? '' : `set ${work.set} of ${work.sets}`;
+        if (work.side === 'L' || work.side === 'R') where += `${where ? ', ' : ''}${work.side === 'L' ? 'left' : 'right'}`;
+      }
+    }
+  }
+  return {
+    iso: run?.iso, pid: run?.pid, title: item?.title || item?.ex, session: !!P.session,
+    phase: P.phase, state: run?.state, where, pausedAt: run?.pausedAtWall || null,
+  };
 }
 /** True while a workout is open and not finished: the service worker must not reload. */
 export function playerBusy() {

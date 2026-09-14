@@ -19,7 +19,7 @@ import { openExercisePicker, allExercises, exerciseById, openMeasureEntry, loadB
          openPicture, renderDatePill, prescriptionLine, toast, openModal, closeModal } from '../components.js';
 import { minutesFor, fmtMins, fmtDayTotal } from '../timing.js';
 import { planStreak } from '../planstreak.js';
-import { renderHistory } from './exhistory.js';
+import { renderHistory, bindHistory } from './exhistory.js';
 import { renderSuppGroups, bindSuppGroups, suppScore, prnSummary, suppTime, onSuppTime } from './supplements.js';
 import { itemStatus, isDone, sidesFor, setLogged, newEntriesFor as makeEntries, runsFor } from '../logging.js';
 import { startExercise, startWorkout, resumePlayer, draftInfo, workoutQueue, readyAfter, fmtTime12 } from '../player/player.js';
@@ -160,7 +160,45 @@ function dayHead(iso, planned, extras, entries, ctx) {
     <button class="icon-btn" data-act="menu" title="More" aria-label="More">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
     </button>
-  </header>`;
+  </header>
+  ${statusLine(iso, planned, entries)}`;
+}
+
+/**
+ * One line under the header that says what Start or Resume will do: the open
+ * workout and where it stopped, or what is up next, or that the day is done.
+ * Always there, in the same place, so coming back after a break needs no
+ * working out. Text, not a second button: the Start/Resume control is the one
+ * to tap (Codex audit design idea, 2026-09-14).
+ */
+function statusLine(iso, planned, entries) {
+  const d = draftInfo();
+  const t12 = (ms) => new Date(ms).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  let label;
+  let text;
+  let cls = '';
+  if (d && d.phase !== 'done') {
+    label = d.phase === 'between' ? 'Up next' : d.state === 'running' ? 'Running' : 'Paused';
+    cls = 'resume';
+    const when = d.pausedAt ? `since ${t12(d.pausedAt)}` : '';
+    const other = d.iso && d.iso !== iso ? fmtDate(d.iso, 'dow') : '';
+    text = [d.title, d.where, when, other].filter(Boolean).join(' · ');
+  } else {
+    const next = planned.find((p) => !p.notYet && itemStatus(p, entries).state !== 'done');
+    if (next) {
+      const m = rowMinutes(next);
+      label = 'Up next';
+      text = `${next.title || exerciseById(next.ex)?.name || next.ex}${m.mins != null ? ` · ${m.mins} min` : ''}`;
+    } else if (planned.length) {
+      label = 'Done';
+      cls = 'alldone';
+      text = 'Everything planned for today is done';
+    } else {
+      label = 'Rest day';
+      text = 'Nothing planned';
+    }
+  }
+  return `<div class="daystatus ${cls}" aria-live="polite"><span class="ds-label">${esc(label)}</span><span class="ds-text">${esc(text)}</span></div>`;
 }
 
 /** What the minutes on a row are based on, for its tooltip and the open row. */
@@ -1034,6 +1072,7 @@ export function bindToday(root, ctx, rerender) {
     ctx.go(v);
   }));
   root.querySelector('[data-act="menu"]')?.addEventListener('click', () => openDayMenu(iso, ctx, rerender));
+  bindHistory(root);
   root.querySelector('[data-act="start"]')?.addEventListener('click', () => startWorkout(ctx, iso));
   root.querySelector('[data-act="resume"]')?.addEventListener('click', () => resumePlayer(ctx));
   root.querySelectorAll('[data-timer]').forEach((b) => b.addEventListener('click', () => startExercise(ctx, b.dataset.timer, iso)));

@@ -706,3 +706,16 @@ and Codex's audit found the same shape in load typing, date and band pickers and
 sync pulls. Reloads (service worker, the Mac's PhysiApp import) also wait for
 idle and flush the pending save first (`flushSave`, `saveOutstanding` in
 `store.js`). Anything that must not claim "saved" early awaits `flushSave()`.
+
+## Status line, session comparison, one save chip (2026-09-14)
+
+From Codex's design ideas, all three built on his say-so:
+- **Today's status line**, always under the header: what Start or Resume will
+  do (the open workout and where it stopped, "Up next", or done). Text only;
+  Start/Resume stays the one control (`statusLine` in `today.js`,
+  `draftInfo` in `player.js`).
+- **This session and Last session** in every open row, per set and in today's
+  weight unit; "Recent sessions" stays open through repaints (`exhistory.js`).
+- **One chip for "is my work safe"** (`status.js`), same place on every device:
+  Not saved, Saving, Syncing, Retry, N to sync, Synced, or Saved when sync is
+  not set up on that device.
