@@ -744,8 +744,8 @@ function ringCenter(run, st, now) {
   }
   const rem = E.remainingSec(run, now);
   let cap = `of ${esc(secsWords(st.secs))}`;
-  if (st.kind === 'ready') cap = P.session && run.state === 'running' ? 'Starts automatically' : 'Get ready';
-  if (st.kind === 'switch') cap = `Switch to the ${st.side === 'L' ? 'left' : 'right'} leg`;
+  if (st.kind === 'ready') cap = P.session && run.state === 'running' ? 'Starts by itself' : 'Get ready';
+  if (st.kind === 'switch') cap = `Now the ${st.side === 'L' ? 'left' : 'right'} leg`;
   if (st.kind === 'work' && run.mode === 'cardio') cap = `of ${esc(fmtMins(Math.round(st.secs / 60)))}${st.target === 'last' ? ', same as last time' : ''}`;
   return `<div class="p-num" data-p-clock>${fmtClock(ceilSec(rem))}</div><div class="p-cap">${cap}</div>${unit}`;
 }

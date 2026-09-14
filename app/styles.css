@@ -2272,3 +2272,9 @@ body .sess table.sess-table { display: table; white-space: normal; overflow: vis
 .ov-big b { font-size: clamp(3rem, 16vw, 4.2rem); }
 .plan-page .monthstrip { grid-template-columns: repeat(auto-fit, minmax(max(84px, 5em), 1fr)); }
 .p-tool { padding-left: .1rem; padding-right: .1rem; font-size: .75rem; }
+/* the numeral stays clear of the ring when the caption under it is long */
+.p-center { padding: 0 12px; gap: 0; }
+.p-num { font-size: 54px; }
+.p-cap { font-size: .85rem; line-height: 1.2; }
+.tr-pick { display: inline-block; width: auto; }
+.tr-pick select { width: auto; }
