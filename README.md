@@ -570,7 +570,7 @@ is a test asserting no unregistered top-level keys; keep it passing.
 
 ## Tests
 
-Open `/dev-tests.html` against a running server. 262 assertions: the merge
+Open `/dev-tests.html` against a running server. 277 assertions (262 before the ring design): the merge
 rules and the sync engine (`dev-merge.js`, `dev-engine.js`), the timing model
 (`dev-timing.js`), completion and run saving (`dev-logging.js`), the player's
 state machine with fake clocks (`dev-player.js`) and the plan streak
@@ -740,3 +740,77 @@ Archives and a copy of the data at that moment live in `snapshots/`
 (gitignored). To revert the code: `git checkout <tag> -- app server.py
 pa_import.py physiapp.py tools`, commit, kickstart the service and deploy.
 Never roll the data back with the code.
+
+## Ring design (2026-09-14, evening)
+
+ChatGPT's revision 2 design kit, with seven decisions settled through Reuben
+(the continuation record is `RING-BUILD-2026-09-14.local.md`, gitignored).
+It supersedes these lines above where they differ; the older text stays as
+history.
+
+**Colours mean one thing each, in both themes** (tokens at the top of
+`styles.css`): green is confirmed done and nothing else; blue the left leg,
+orange the right; each category has its own token (`--cat-strength` and so
+on, referenced from `data/measurements.js` as `var()`), always beside its
+label; navigation, ordinary actions, rest and get ready are neutral. No
+gradients, no shadows. The old names (`--accent`, `--panel`, `--ink`) are kept
+and now carry the new values, so every view picked them up at once.
+
+**Shell.** From 900 px wide (the Mac, an iPad in landscape) the tabs become a
+left rail with Settings at the bottom (`.rail-only`); below that the tabs stay
+as they were. On a phone the header puts the name on the left and the save
+chip and Settings on the right (superseding the centred title); inside the
+player the player's own line (back, workout 2 of 6) takes the header's left
+side (`body.in-player`).
+
+**The player** (`player.js` render section): the whole photo grid, then one
+ring in the same place for every phase, the phase and the leg named outside
+it. A timed step drains its arc from the engine clock, painted once a frame by
+patching SVG attributes (`paintArc`); a reps step shows one segment per set on
+that side, green only once confirmed, a small category mark on the current
+set, and never animates reps or time. Four sound controls, then Pause and Set
+done, then Previous, Skip rest and Next, in a dock above the tab bar. After a
+durable save the Logged receipt shows in a reserved slot while the next get
+ready already runs (`showReceipt`); a failed save shows no receipt and keeps
+the retry screen. The tendon loading is never rolled into from another
+exercise, and a retried save follows the same carry-on rules.
+
+**The finish** plays once per date, inside the player: one check drawing with
+one outline dissipating, the count, workout time, the week, and one sentence;
+a milestone earned at the same moment becomes that sentence, never a second
+moment. `program.seen` (a synced sub-map, in `SUB_MAPS` with a regression
+test) records what has played; the first load of this build records what was
+already earned without playing it.
+
+**Milestones** (`milestones.js`) stay derived from records: the existing ladder
+plus First plan complete; guided exercises count once per planned item per
+date, only when confirmed done; streak steps come from the best run, so an
+earned step never disappears. The whole collection opens from the latest
+milestone on Overview. A heaviest load is stated as a fact, not praise.
+
+**Today** is the dated queue: the date with its arrows, the title, the count
+and time, one segment per planned exercise, one Start or Resume (dimmed when
+nothing is left), one status line (the open workout in full, what Start will
+do, or a check beside Plan complete), First up with the tendon loading, the
+recovery break as one sentence with the real time once known, then the rest
+in order. Rows keep their place; a tick never folds a row open for
+correcting. Thumbnails show the whole frame (`contain`). Coming back to a view
+restores its scroll; an app left open moves to the new date after midnight.
+
+**Progress.** Overview in the settled order: plan streak and latest milestone,
+the weekly goal tiles, the journey road, one measurement trend, three recent
+sessions, the insight cards. The trend (`trend.js`) charts one test from real
+dated observations, left and right named beside their lines, a leg's line
+broken where that leg was not tested, a single test as a point; tap, click or
+the arrow keys pin a date, hover previews; the selected record sits in a
+300 px panel beside the chart when the container is at least 900 px, under it
+otherwise. History opens with every confirmed session (`sessions.js`): per
+set and side as recorded, work plus recovery, source; the detail shows away
+time and opens the same record in Today's editor.
+
+**My Program** shows the week as a matrix (full names down, days across) when
+its container is at least 760 px wide; a cell goes through the same change as
+the row chips, which writes a dated schedule version from today.
+
+**Tests** are now 277 on `/dev-tests.html` (milestone rules added to
+`dev-streak.js`, the `program.seen` regression in `dev-merge.js`).
