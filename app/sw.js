@@ -43,6 +43,7 @@ const SHELL_ASSETS = [
   './data/questionnaires.js',
   './js/app.js',
   './js/components.js',
+  './js/editguard.js',
   './js/goals.js',
   './js/insights.js',
   './js/logging.js',

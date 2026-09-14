@@ -1510,9 +1510,12 @@ details.fold .checklist > .crow:first-child { border-top: 1px solid var(--line-2
 .rv-chip { font-size: .8rem; font-variant-numeric: tabular-nums; padding: .15rem .45rem; border-radius: 6px; background: var(--line-2); color: var(--ink); }
 .rv-scale { display: flex; flex-direction: column; gap: .3rem; }
 .rv-scale-label { font-size: .78rem; color: var(--ink-2); font-weight: 560; }
-.rv-scale-btns { display: grid; grid-template-columns: repeat(11, 1fr); gap: 3px; }
+/* Two rows, 0 to 5 and 6 to 10, so every target is at least 44 px (Codex audit). */
+.rv-scale-btns { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }
+.rv-scale-val { font-weight: 650; color: var(--ink); }
+.p-streak { font-size: .9rem; font-weight: 600; color: var(--ink-2); }
 .rv-dot {
-  min-height: 36px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel);
+  min-height: 44px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel);
   font: inherit; font-size: .8rem; font-variant-numeric: tabular-nums; color: var(--ink-2); cursor: pointer; padding: 0;
 }
 .rv-dot.on { background: var(--ink); color: var(--panel); border-color: var(--ink); }

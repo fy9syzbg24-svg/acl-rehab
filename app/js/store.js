@@ -279,13 +279,22 @@ function seed(d, seeds) {
 }
 
 // ---------------------------------------------------------------- saving ---
-const doSave = debounce(async () => {
+let savePending = false;
+
+/** True while a change is waiting for, or in the middle of, its local save. */
+export function saveOutstanding() { return savePending || state.saving; }
+
+async function persist() {
+  savePending = false;
   state.saving = true;
   emit();
+  let ok = false;
   try {
     state.lastSaved = await writeLocalDoc(state.data);   // Mac: server. iPhone: IDB.
     state.error = null;
+    ok = true;
   } catch (err) {
+    savePending = true;   // still owed
     state.error = SERVER_MODE
       ? 'Save failed. The server may have stopped. Your data is still on screen.'
       : 'Could not save locally. Your data is still on screen.';
@@ -293,6 +302,24 @@ const doSave = debounce(async () => {
     state.saving = false;
     emit();
   }
+  return ok;
+}
+
+/**
+ * Save now and say whether it worked. For anything that must not report
+ * "saved" or throw away a recovery copy before the write is durable (the
+ * player's Save). The debounced save may still run afterwards; writing the
+ * same document twice is harmless.
+ */
+export async function flushSave() {
+  if (state.readOnly) return false;
+  const ok = await persist();
+  if (ok) scheduleSync();
+  return ok;
+}
+
+const doSave = debounce(async () => {
+  await persist();
   // A local save is durable on its own; the cloud is a follow-on. Nudge a sync
   // shortly after edits settle, so the other device sees them soon, but never
   // block the save on it.
@@ -301,6 +328,7 @@ const doSave = debounce(async () => {
 
 export function queueSave() {
   if (state.readOnly) return;   // a failed load must never write
+  savePending = true;
   doSave();
 }
 

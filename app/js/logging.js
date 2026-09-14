@@ -135,7 +135,7 @@ export function saveRun(day, { item, run, review, now = new Date() }) {
     awaySec: review.timing.awaySec,
     interruptions: review.timing.interruptions,
     reviewSec: review.timing.reviewSec ?? null,
-    complete: !!review.complete,
+    complete: !!(review.trainable ?? review.complete),
     inaccurate: !!review.inaccurate,
     rx: run.rx,
   };

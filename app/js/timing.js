@@ -222,7 +222,9 @@ export function rxSignature(item, ex) {
  * are averaged with the highest and lowest dropped once there are five or
  * more, so one distracted run cannot drag the figure.
  */
-export function learnedSeconds(item, ex, runs) {
+export function learnedSeconds(item, ex, runs, prefs = {}) {
+  // Cardio's length is his choice each time, not a pace to learn.
+  if (timerMode(item, ex) === 'cardio') return null;
   const sig = rxSignature(item, ex);
   const seen = new Set();
   const ok = [];
@@ -230,13 +232,19 @@ export function learnedSeconds(item, ex, runs) {
     if (!r || r.inaccurate || !r.complete || r.rx !== sig) continue;
     if (r.runId && seen.has(r.runId)) continue;
     if (r.runId) seen.add(r.runId);
-    const s = (num(r.activeSec) || 0) + (num(r.restSec) || 0);
+    // Only his ACTIVE time is learned (Codex audit, 2026-09-14): the rest he
+    // took depended on the rest setting at the time, so the current planned
+    // rest is added back instead. Changing the rest moves the figure at once.
+    const s = num(r.activeSec) || 0;
     if (s > 0) ok.push(s);
   }
   if (ok.length < LEARN_MIN_RUNS) return null;
   let sample = ok.slice(0, LEARN_WINDOW).sort((a, b) => a - b);
   if (sample.length >= 5) sample = sample.slice(1, -1);
-  return { secs: sample.reduce((a, b) => a + b, 0) / sample.length, runs: ok.length, used: sample.length };
+  const active = sample.reduce((a, b) => a + b, 0) / sample.length;
+  const rest = buildSteps(item, ex, { prefs }).steps
+    .filter((st) => st.kind === 'rest').reduce((a, st) => a + (st.secs || 0), 0);
+  return { secs: active + rest, active, rest, runs: ok.length, used: sample.length };
 }
 
 /**
@@ -249,7 +257,7 @@ export function learnedSeconds(item, ex, runs) {
 export function minutesFor(item, ex, doc, lastMinutes = null, runs = null) {
   const o = num(doc?.program?.mins?.[item?.id]);
   if (o != null && o >= 0) return { mins: o, src: 'yours' };
-  const learned = runs ? learnedSeconds(item, ex, runs) : null;
+  const learned = runs ? learnedSeconds(item, ex, runs, timerPrefs(doc, item?.id)) : null;
   if (learned) return { mins: Math.max(1, Math.round(learned.secs / 60)), src: 'learned', learned };
   const est = estimateMinutes(item, ex, lastMinutes, timerPrefs(doc, item?.id));
   if (est == null) return { mins: null, src: 'untimed' };

@@ -15,8 +15,9 @@
 
 import {
   state, subscribe, load, runSync, syncState, pendingSyncCount, onRemoteChange,
-  surgeryDate,
+  surgeryDate, saveOutstanding,
 } from './store.js';
+import { guardPaint, whenIdle } from './editguard.js';
 import { todayIso, postOp, applyStoredTheme } from './util.js';
 import { renderToday, bindToday } from './views/today.js';
 import { renderProgram, bindProgram } from './views/program.js';
@@ -67,7 +68,12 @@ if (!VIEWS[ctx.view]) ctx.view = 'today';
 
 let lastView = null;
 
-function paint() {
+// Every repaint goes through the edit guard: a redraw asked for while a field
+// or a native picker is in use waits until he leaves it (editguard.js). A
+// change of tab is never held back.
+const paint = guardPaint(viewEl, rawPaint, () => ctx.view !== lastView);
+
+function rawPaint() {
   const y = window.scrollY;      // the document scrolls now, not an inner box
   const [render, bind] = VIEWS[ctx.view] || VIEWS.today;
   viewEl.innerHTML = render(ctx);
@@ -290,7 +296,9 @@ load().then(() => {
       window.addEventListener('rehab-player-idle', () => location.reload(), { once: true });
       return;
     }
-    location.reload();
+    // Nor while he is typing, or before his last change has been saved on this
+    // device: a reload then would lose it.
+    whenIdle(viewEl, saveOutstanding).then(() => location.reload());
   });
 
   navigator.serviceWorker.register('./sw.js', { scope: './' }).then((reg) => {

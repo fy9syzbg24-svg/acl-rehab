@@ -20,13 +20,14 @@
 // done sit in the same places for every exercise and phase, with Previous,
 // Skip rest and Next beneath; whatever does not apply is dimmed, not removed.
 
-import { esc, uid, todayIso, num, fmtDate } from '../util.js';
-import { state, update, ensureDay, getDay, lastEntry } from '../store.js';
+import { esc, uid, todayIso, num, fmtDate, toKg, fromKg, round } from '../util.js';
+import { state, update, ensureDay, getDay, lastEntry, flushSave } from '../store.js';
 import { REHAB_PROGRAM, GYM_PROGRAM, THERABAND, BAND_BY_ID, plannedOn } from '../../data/program.js';
 import { CATEGORIES } from '../../data/measurements.js';
 import { exerciseById, thumb, openModal, closeModal, toast } from '../components.js';
 import { fmtClock, fmtMins, timerPrefs, minutesFor } from '../timing.js';
 import { itemStatus, saveRun, rowsFingerprint, runsFor } from '../logging.js';
+import { planStreak } from '../planstreak.js';
 import * as E from './engine.js';
 import * as A from './audio.js';
 import * as S from './songs.js';
@@ -277,8 +278,12 @@ function syncEffects() {
   const through = !!song && songThroughOn(run.pid);
   S.setContinuous(through ? songsAtPace(run.pid) : null, (t) => { if (P) { P.songSha = t.sha; P.songPos = 0; writeDraft(); } });
   if (song && (st?.kind === 'work' || through)) {
+    const token = S.playTokenNow();
+    const pid = run.pid;
     S.prepareSong(song, P.songPos).then((ok) => {
-      if (ok && P?.run?.state === 'running' && (through || E.step(P.run)?.kind === 'work')) S.playSong();
+      // Re-check after the load: paused, closed, another exercise, or music off.
+      if (!ok || token !== S.playTokenNow() || !P?.run || P.run.pid !== pid || !songFor(pid)) return;
+      if (P.run.state === 'running' && (through || E.step(P.run)?.kind === 'work')) S.playSong();
     });
   } else {
     if (P) P.songPos = S.songPosition() || P.songPos || 0;
@@ -654,6 +659,7 @@ function renderDone(ctx) {
       <div class="p-finish-ring">${I.check}</div>
       <h2>${all ? 'Done for today' : 'Workout finished'}</h2>
       <div class="p-setline">${done} of ${planned.length} planned exercises done</div>
+      ${(() => { const n = iso === todayIso() ? planStreak(state.data, iso) : 0; return n >= 2 ? `<div class="p-streak">Plan streak: ${n} days</div>` : ''; })()}
       <button class="btn primary p-big-btn" data-p="close">Back to ${ctx.playerFrom === 'program' ? 'My Program' : 'Today'}</button>
     </div>
   </div>`;
@@ -665,7 +671,13 @@ function renderReview(ctx, run, item, ex) {
   const title = item.title || ex?.name || item.ex;
   P.reviewStartedWall ||= Date.now();
   const unit = state.data.settings.weightUnit;
-  const prevLoad = (side) => num(lastEntry(item.ex, side)?.load);
+  // Last time's load, in today's unit: a 50 lb entry is 22.68 kg, never "50 kg".
+  const prevLoad = (side) => {
+    const e = lastEntry(item.ex, side);
+    const l = num(e?.load);
+    if (!l) return null;
+    return round(fromKg(toKg(l, e.loadUnit || unit), unit), 2);
+  };
   const showLoad = GYM_PROGRAM.includes(item) || [...new Set(sum.sides.map((s) => s.side))].some((s) => prevLoad(s) > 0);
   const band = state.data.program.band[item.id] ?? item.band ?? '';
   const r = (P.review ||= { rpe: null, discomfort: null, notes: '', inaccurate: false, sides: {} });
@@ -673,12 +685,18 @@ function renderReview(ctx, run, item, ex) {
     && (getDay(run.iso)?.entries || []).some((e) => e.pid === run.pid && e.logged && e.runId !== run.runId);
 
   const sideRows = sum.sides.map((s) => {
-    const v = (r.sides[s.side] ||= {
+    // What the sets recorded. If he went back and redid a set, the review
+    // takes the new numbers; his own edits to load, band and minutes stay.
+    const sig = JSON.stringify([s.sets, s.repsBySet, s.secsList]);
+    const prev = r.sides[s.side];
+    const v = (r.sides[s.side] = prev && prev.sig === sig ? prev : {
+      sig,
       sets: s.sets,
       repsBySet: s.repsBySet.slice(),
-      minutes: run.mode === 'cardio' ? Math.max(1, Math.round((s.secsList[0] || 0) / 60)) : null,
-      load: showLoad ? (prevLoad(s.side) || null) : undefined,
-      band,
+      minutes: prev?.minutes ?? (run.mode === 'cardio' ? Math.max(1, Math.round((s.secsList[0] || 0) / 60)) : null),
+      load: prev && 'load' in prev ? prev.load : (showLoad ? prevLoad(s.side) : undefined),
+      band: prev?.band ?? band,
+      freeReps: prev?.freeReps,
     });
     const reps = run.mode === 'reps' || (run.mode === 'manual' && run.targetKnown);
     return `<div class="rv-side" data-rv-side="${esc(s.side)}">
@@ -702,7 +720,7 @@ function renderReview(ctx, run, item, ex) {
   }).join('');
 
   const scale = (key, label) => `<div class="rv-scale" role="group" aria-label="${esc(label)}">
-    <span class="rv-scale-label">${esc(label)}</span>
+    <span class="rv-scale-label">${esc(label)}<b class="rv-scale-val">${r[key] == null ? '' : ` ${r[key]} of 10`}</b></span>
     <span class="rv-scale-btns">${Array.from({ length: 11 }, (_, i) => `<button class="rv-dot ${r[key] === i ? 'on' : ''}" data-rv-scale="${key}" data-v="${i}" aria-pressed="${r[key] === i}">${i}</button>`).join('')}</span>
   </div>`;
 
@@ -743,21 +761,42 @@ function collectReview(run, item) {
   const r = P.review || {};
   const sides = sum.sides.map((s) => {
     const v = r.sides?.[s.side] || {};
-    const repsBySet = (v.repsBySet || s.repsBySet).map((x) => (x == null ? null : Number(x)));
-    const doneReps = repsBySet.filter((x) => x != null);
-    const same = doneReps.length && doneReps.every((x) => x === doneReps[0]);
+    const repsBySet = (v.repsBySet || s.repsBySet).map((x) => (x == null || x === '' ? null : Number(x)));
+    const countsReps = run.mode === 'reps' || (run.mode === 'manual' && run.targetKnown);
+    // Completion comes from the numbers he CONFIRMED here, not from what the
+    // player first recorded: a set changed to 0 is not done, and a set below
+    // its target is done but short.
+    const target = run.steps.find((x) => x.side === s.side && E.WORK.has(x.kind))?.reps ?? null;
+    const planned = plannedSets(run, s.side);
+    let full = s.full;
+    let anyDone = s.anyDone;
+    let short = false;
     let sets = s.sets;
+    if (countsReps) {
+      const didSets = repsBySet.filter((x) => x != null && x > 0);
+      sets = didSets.length;
+      anyDone = sets > 0;
+      full = sets >= planned;
+      short = target != null && didSets.some((x) => x < target);
+    }
+    const doneReps = repsBySet.filter((x) => x != null && x > 0);
+    const same = doneReps.length && doneReps.every((x) => x === doneReps[0]);
     let reps = doneReps.length ? (same ? doneReps[0] : Math.max(...doneReps)) : null;
-    if (!run.targetKnown) { sets = num(v.sets); reps = num(v.freeReps); }
+    if (run.mode === 'hold') reps = doneReps.length ? Math.max(...doneReps) : null;
+    if (!run.targetKnown) {
+      sets = num(v.sets);
+      reps = num(v.freeReps);
+      anyDone = s.anyDone && sets !== 0 && reps !== 0;
+    }
     const secs = s.secsList.length ? Math.round(s.secsList.reduce((a, b) => a + b, 0) / s.secsList.length) : null;
-    const anyDone = s.anyDone;
     return {
       side: s.side,
       anyDone,
-      full: s.full,
+      full: anyDone && full,
+      short,
       sets,
       reps,
-      repsBySet: run.mode === 'reps' ? repsBySet : [],
+      repsBySet: countsReps ? repsBySet : [],
       secs: run.mode === 'cardio' ? null : secs,
       secsList: run.mode === 'cardio' ? [] : s.secsList,
       minutes: run.mode === 'cardio' ? num(v.minutes) : null,
@@ -766,9 +805,13 @@ function collectReview(run, item) {
       band: exerciseById(item.ex)?.usesBand ? (v.band ?? '') : undefined,
     };
   });
+  const planSides = new Set(run.steps.filter((x) => E.WORK.has(x.kind)).map((x) => x.side || 'B'));
+  const complete = sides.length === planSides.size && sides.every((x) => x.full);
   return {
     sides,
-    complete: sum.complete,
+    complete,
+    // Only a run done as prescribed, with honest timing, trains the estimate.
+    trainable: complete && !sides.some((x) => x.short) && sum.asPrescribed !== false,
     rpe: r.rpe ?? null,
     discomfort: r.discomfort ?? null,
     notes: (r.notes || '').trim(),
@@ -792,6 +835,12 @@ function saveCurrent() {
   try {
     const item = ITEM[run.pid];
     const review = collectReview(run, item);
+    if (!review.sides.some((x) => x.anyDone)) {
+      // Every set corrected to zero: there is nothing to record, and saying
+      // "Saved" would be a lie.
+      toast('<b>Nothing to save</b><br><span>Every set is at 0. Change a set, or close to leave without recording.</span>', 'warn');
+      return false;
+    }
     update(() => {
       const day = ensureDay(run.iso);
       saveRun(day, { item, run, review });
@@ -925,9 +974,19 @@ export function bindPlayer(root, ctx, rerender) {
     if (k === 'save') {
       if (!saveCurrent()) return;
       const item = ITEM[P.run.pid];
-      toast(`<b>Saved</b><br><span>${esc(item.title || item.ex)}</span>`);
-      afterSave(ctx);
-      if (P) rerender();
+      b.disabled = true;
+      // "Saved" only once it is on this device, and the recovery draft stays
+      // until then. A failed write keeps the workout here to try again.
+      flushSave().then((ok) => {
+        if (!ok) {
+          b.disabled = false;
+          toast('<b>Not saved yet</b><br><span>Your workout is kept here. Tap Save again.</span>', 'warn');
+          return;
+        }
+        toast(`<b>Saved</b><br><span>${esc(item.title || item.ex)}</span>`);
+        afterSave(ctx);
+        if (P) rerender();
+      });
       return;
     }
     if (k === 'start-next') {
@@ -1001,8 +1060,9 @@ function closePlayer(ctx, rerender) {
     return back();
   }
   const run = P.run;
-  const sum = E.summary(run);
-  if (run.state === 'ready' || (!sum.anyDone && run.state !== 'review')) {
+  // Only a run that never really started is closed without asking. A hold
+  // under way counts as started, even before its first set is done.
+  if (run.state === 'ready' || (!E.started(run, performance.now()) && run.state !== 'review')) {
     clearDraft();
     stopEffects();
     notifyIdle();
@@ -1012,12 +1072,14 @@ function closePlayer(ctx, rerender) {
   stopEffects();
   writeDraft();
   rerender();   // so the screen behind the sheet reads Resume, if he dismisses it
+  const sum = E.summary(run);
+  const inProgress = E.started(run, performance.now()) && !sum.anyDone;
   openModal({
     title: 'Stop this exercise?',
     body: `<div class="menu">
       <button class="btn" data-s="resume">Resume</button>
       <button class="btn" data-s="later">Finish later<span class="tiny muted">keeps your progress on this device</span></button>
-      <button class="btn" data-s="save">Save what I did<span class="tiny muted">${sum.done} of ${sum.total} done, marked partial</span></button>
+      <button class="btn" data-s="save">Save what I did<span class="tiny muted">${inProgress ? 'the part of this hold you did, marked partial' : `${sum.done} of ${sum.total} done, marked partial`}</span></button>
       <button class="btn danger" data-s="discard">Leave without recording</button>
     </div>`,
     onMount(m) {
@@ -1028,6 +1090,8 @@ function closePlayer(ctx, rerender) {
         if (s === 'later') { writeDraft(); notifyIdle(); back(); return; }
         if (s === 'save') {
           // To the review sheet, with what was done; Save there commits it.
+          // A hold stopped part way keeps its seconds.
+          E.capturePartial(run, performance.now());
           run.state = 'review';
           run.since = null;
           run.reviewAt = new Date().toISOString();

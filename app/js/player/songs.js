@@ -113,6 +113,9 @@ let current = null;
 // queue a track loops on its own.
 let queue = null;
 let onTrack = null;
+// Bumped on every pause or stop, so a track lookup that finishes afterwards
+// knows it is stale and never restarts the music.
+let playToken = 0;
 
 function audioEl() {
   if (!el) {
@@ -124,8 +127,10 @@ function audioEl() {
       if (!queue || queue.length < 2 || !wantPlaying) return;
       const others = queue.filter((x) => x.sha !== current);
       const nextSong = others[Math.floor(Math.random() * others.length)];
+      const token = playToken;
       prepareSong(nextSong, 0).then((ok) => {
-        if (!ok) return;
+        // Paused, closed or switched off while the next track was loading.
+        if (!ok || token !== playToken || !wantPlaying) return;
         onTrack?.(nextSong);
         playSong();
       });
@@ -160,6 +165,8 @@ export function primeSong() {
 
 let wantPlaying = false;
 
+export function playTokenNow() { return playToken; }
+
 /** Load a song (no playback yet). Resolves true when it is ready to play. */
 export async function prepareSong(song, position = 0) {
   if (!song) return false;
@@ -184,6 +191,7 @@ export function playSong() {
 }
 
 export function pauseSong() {
+  playToken++;
   wantPlaying = false;
   if (el && !el.paused) el.pause();
   setSession('cues');          // and hands the speaker back when it stops

@@ -167,13 +167,39 @@ export function setDone(run, now, wall, reps = undefined) {
   accrue(run, now);
   if (st.kind === 'reps' || st.kind === 'manual') {
     const n = reps === undefined ? st.reps : reps;
-    run.results[run.i] = { reps: n ?? null, full: true };
+    // Zero reps is not a set done. Fewer than the target is a set done, but
+    // short: it counts as done and never trains a full-prescription estimate.
+    const r = { reps: n ?? null, full: n == null || n > 0 };
+    if (n != null && n > 0 && st.reps != null && n < st.reps) r.short = true;
+    run.results[run.i] = r;
   } else {
     const ms = run.stepMs;
     const full = st.secs != null && ms >= st.secs * 1000 - FULL_SLACK_MS;
     run.results[run.i] = { secs: full ? st.secs : Math.round(ms / 1000), full };
   }
   return advance(run, now, wall);
+}
+
+/**
+ * Before saving an unfinished run: a hold or timed bout in progress becomes a
+ * partial result for the seconds actually done, so stopping mid-hold keeps
+ * that work instead of dropping it. Does not advance.
+ */
+export function capturePartial(run, now) {
+  const st = step(run);
+  if (!st || (st.kind !== 'hold' && st.kind !== 'work') || run.results[run.i]) return false;
+  accrue(run, now);
+  const secs = Math.floor(run.stepMs / 1000);
+  if (secs < 1) return false;
+  run.results[run.i] = { secs, full: false };
+  return true;
+}
+
+/** Any work at all: a result, or a timed step already under way. */
+export function started(run, now) {
+  if (Object.keys(run.results).length) return true;
+  const st = step(run);
+  return !!st && (st.kind === 'hold' || st.kind === 'work') && elapsedMs(run, now) >= 1000;
 }
 
 /** Skip rest, a side switch or get ready. */
@@ -229,13 +255,16 @@ export function summary(run) {
   let total = 0;
   let done = 0;
   let full = 0;
+  let short = false;
   for (const p of progress(run)) {
     total++;
     const side = p.side || 'B';
     const b = (bySide[side] ||= { side, planned: 0, units: [], sets: new Set(), full: true });
     b.planned++;
-    if (!p.result) { b.full = false; continue; }
+    // A zero-rep result is recorded but is not work done.
+    if (!p.result || p.result.reps === 0) { b.full = false; continue; }
     done++;
+    if (p.result.short) short = true;
     if (p.result.full) full++; else b.full = false;
     b.sets.add(p.set);
     b.units.push({ set: p.set, unit: p.unit, ...p.result });
@@ -265,6 +294,8 @@ export function summary(run) {
     total,
     done,
     complete: total > 0 && full === total,
+    // Complete AND every set at or above its target: only this trains estimates.
+    asPrescribed: total > 0 && full === total && !short,
     anyDone: done > 0,
     activeSec: Math.round(run.activeMs / 1000),
     restSec: Math.round(run.restMs / 1000),

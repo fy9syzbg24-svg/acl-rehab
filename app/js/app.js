@@ -1,4 +1,5 @@
-import { load, state, subscribe, runSync, syncState, pendingSyncCount, onRemoteChange, surgeryDate } from './store.js';
+import { load, state, subscribe, runSync, syncState, pendingSyncCount, onRemoteChange, surgeryDate, flushSave } from './store.js';
+import { guardPaint, whenIdle } from './editguard.js';
 import { esc, todayIso, postOp, applyStoredTheme } from './util.js';
 import { isConfigured } from './sync/config.js';
 import { renderToday, bindToday } from './views/today.js';
@@ -36,7 +37,10 @@ const viewEl = document.getElementById('view');
 
 let lastView = null;
 
-function paint() {
+// Repaints wait while a field is in use (editguard.js); a change of tab does not.
+const paint = guardPaint(viewEl, rawPaint, () => ctx.view !== lastView);
+
+function rawPaint() {
   const y = window.scrollY;
   const [render, bind] = VIEWS[ctx.view] || VIEWS.today;
   viewEl.innerHTML = render(ctx);
@@ -146,6 +150,11 @@ async function autoSync() {
     }
     if (out.skipped) return;
     if (!(out.added || out.updated)) return;
+    // The server wrote the file; reading it back replaces what is in memory.
+    // Wait until he is not typing, and save anything outstanding first, or a
+    // change he just made would be overwritten by the older copy.
+    await whenIdle(viewEl);
+    await flushSave();
     await load();
     paint();
     toast(`<b>${esc(out.message)}</b><br><span>from PhysiApp, just now</span>`);
