@@ -580,9 +580,10 @@ records, backend outages and interrupted writes.
 
 `python3 tools/test_pa_import.py`: 41 assertions on the PhysiApp import rules.
 
-Test against a COPY, never the live file: run the server with
-`--port 8767 --no-physiapp --data <copy>` (the `acl-rehab-test` launch
-configuration). A different port is a different origin, so it has no sync
+Test against a COPY, never the live file: `python3 tools/make_test_copy.py`
+writes `data/test-copy/` (PhysiApp sign-in removed, songs linked), and the
+`acl-rehab-test` launch configuration serves it with
+`--port 8767 --no-physiapp --data data/test-copy/rehab-data.json`. A different port is a different origin, so it has no sync
 token; `--no-physiapp` refuses their site outright.
 
 ## The workout player (2026-09-14)
