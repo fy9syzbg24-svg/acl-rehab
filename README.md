@@ -683,6 +683,11 @@ Mac.
 Supplement ticks record their time (an ISO string; older ticks are `true` and
 are never given an invented time), with a time chip on the row to correct it.
 The tendon loading's open row has Done at on the time wheel.
+
+**The morning pair (his rule):** the tendon loading is always exactly 30 minutes
+after the collagen. A time he SETS for either one sets the other (and marks it
+done or taken); a plain tick records now and changes nothing else. The collagen
+is found by name in his supplement list (`MORNING_GAP_MIN` in `today.js`).
 Private by construction: the public repo and site hold no audio and no song
 names. `tools/add_song.py` copies a track byte for byte into `data/media/`
 (gitignored, served with Range requests) and uploads the same bytes to

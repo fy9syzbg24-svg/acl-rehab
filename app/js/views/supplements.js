@@ -131,6 +131,12 @@ export function suppTime(value) {
   const d = new Date(value);
   return Number.isNaN(d.getTime()) ? null : d;
 }
+// Today registers what else a supplement's time sets: his collagen and the
+// tendon loading are thirty minutes apart, always (his rule, 2026-09-14). A
+// hook, because today.js already imports this file.
+let suppTimeHook = null;
+export function onSuppTime(fn) { suppTimeHook = fn; }
+
 const hhmm24 = (d) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 const time12 = (d) => d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
 
@@ -256,6 +262,7 @@ export function bindSuppGroups(root, iso, ctx, rerender) {
         const day = ensureDay(iso);
         day.supps = { ...(day.supps || {}) };
         if (day.supps[inp.dataset.supptime]) day.supps[inp.dataset.supptime] = at.toISOString();
+        suppTimeHook?.(iso, inp.dataset.supptime, at);
       });
       rerender();
     });

@@ -20,7 +20,7 @@ import { openExercisePicker, allExercises, exerciseById, openMeasureEntry, loadB
 import { minutesFor, fmtMins, fmtDayTotal } from '../timing.js';
 import { planStreak } from '../planstreak.js';
 import { renderHistory } from './exhistory.js';
-import { renderSuppGroups, bindSuppGroups, suppScore, prnSummary, suppTime } from './supplements.js';
+import { renderSuppGroups, bindSuppGroups, suppScore, prnSummary, suppTime, onSuppTime } from './supplements.js';
 import { itemStatus, isDone, sidesFor, setLogged, newEntriesFor as makeEntries, runsFor } from '../logging.js';
 import { startExercise, startWorkout, resumePlayer, draftInfo, workoutQueue, readyAfter, fmtTime12 } from '../player/player.js';
 
@@ -53,6 +53,39 @@ function isLogged(item, entries) {
 }
 
 let currentIso = todayIso();
+
+// ------------------------------------------------------- the morning pair --
+// His rule, 2026-09-14: the tendon loading is always exactly thirty minutes
+// after the collagen. So a time he sets for either one sets the other, and
+// marks it done or taken if it was not. Only a time he SETS carries over; a
+// plain tick records now and changes nothing else.
+export const MORNING_GAP_MIN = 30;
+
+function collagenSupp() {
+  return (state.data.supplements || []).find((s) => /collagen/i.test(s.name || '')) || null;
+}
+
+/** Inside update(): the tendon loading done at `at`. */
+function setFirstDoneAt(iso, at) {
+  const item = ALL_ITEMS.find((p) => p.first);
+  if (!item) return;
+  const d = ensureDay(iso);
+  tickItem(d, item, true);
+  for (const e of d.entries) if (e.pid === item.id && e.logged) e.doneAt = at.toISOString();
+}
+
+/** Inside update(): the collagen taken at `at`. */
+function setCollagenAt(iso, at) {
+  const c = collagenSupp();
+  if (!c) return;
+  const day = ensureDay(iso);
+  day.supps = { ...(day.supps || {}), [c.id]: at.toISOString() };
+}
+
+onSuppTime((iso, suppId, at) => {
+  if (collagenSupp()?.id !== suppId) return;
+  setFirstDoneAt(iso, new Date(at.getTime() + MORNING_GAP_MIN * 60000));
+});
 
 export function renderToday(ctx) {
   const iso = ctx.date || todayIso();
@@ -331,9 +364,9 @@ function preNote(item, iso) {
   const collagen = list.find((s) => /collagen/i.test(s.name || '') && ticks[s.id]);
   const at = collagen ? suppTime(ticks[collagen.id]) : null;
   if (!at) return item.preShort || item.pre;
-  const by = new Date(at.getTime() + 60 * 60 * 1000);
+  const due = new Date(at.getTime() + MORNING_GAP_MIN * 60000);
   const t12 = (d) => d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-  return `Collagen at ${t12(at)} · start by ${t12(by)}`;
+  return `Collagen at ${t12(at)} · loading at ${t12(due)}`;
 }
 
 /** The small print after a result: which side is still to do, or that one
@@ -961,6 +994,7 @@ function editReadyTime(iso, rerender) {
           for (const e of ensureDay(iso).entries) {
             if (e.pid === first.id && e.logged && e.doneAt) e.doneAt = at.toISOString();
           }
+          setCollagenAt(iso, new Date(at.getTime() - MORNING_GAP_MIN * 60000));
         });
         closeModal();
         rerender();
@@ -1012,9 +1046,8 @@ export function bindToday(root, ctx, rerender) {
     const at = new Date(iso + 'T00:00:00');
     at.setHours(h, m, 0, 0);
     update(() => {
-      const d = ensureDay(iso);
-      tickItem(d, item, true);
-      for (const e of d.entries) if (e.pid === item.id && e.logged) e.doneAt = at.toISOString();
+      setFirstDoneAt(iso, at);
+      if (item.first) setCollagenAt(iso, new Date(at.getTime() - MORNING_GAP_MIN * 60000));
     });
     ctx.editing = null;
     ctx.pop = item.id;
