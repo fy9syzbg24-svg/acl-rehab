@@ -13,6 +13,8 @@ import { REHAB_PROGRAM, GYM_PROGRAM, PROGRAM_SOURCE, GYM_SOURCE, THERABAND, BAND
 import { exerciseById, openPicture, thumb, prescriptionLine, loadBars } from '../components.js';
 import { minutesFor, fmtMins, fmtDayTotal } from '../timing.js';
 import { runsFor } from '../logging.js';
+import { recordScheduleVersion } from '../planstreak.js';
+import { renderHistory } from './exhistory.js';
 import { startExercise } from '../player/player.js';
 
 const ALL_ITEMS = REHAB_PROGRAM.concat(GYM_PROGRAM);
@@ -133,6 +135,7 @@ function progRow(p, ctx) {
       <div class="prog-days">${dayChips(p.id)}</div>
     </div>
     ${open ? `<div class="prog-body">
+      ${renderHistory(state.data, p, todayIso())}
       ${p.notYet ? `<div class="notice" style="margin-bottom:.5rem">${esc(p.notYetNote)}</div>` : ''}
       ${p.pre ? `<div class="small" style="margin-bottom:.4rem"><strong>Before this:</strong> ${esc(p.pre)}</div>` : ''}
       ${p.note ? `<div class="small muted" style="margin-bottom:.4rem">${esc(p.note)}</div>` : ''}
@@ -240,6 +243,8 @@ export function bindProgram(root, ctx, rerender) {
       // "Every day" (never set) becomes an explicit seven, then the tap applies.
       const cur = Array.isArray(d.program.days[pid]) ? d.program.days[pid].slice() : DAYS.map((x) => x[0]);
       d.program.days[pid] = cur.includes(day) ? cur.filter((x) => x !== day) : cur.concat(day);
+      // The change applies from today; earlier days keep the plan they had.
+      recordScheduleVersion(d, todayIso());
     });
     rerender();
   }));

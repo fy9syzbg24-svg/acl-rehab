@@ -91,7 +91,9 @@ export function newEntriesFor(item, ex, { logged = false, prev = () => null, wei
 export function setLogged(rows, on, now = new Date()) {
   for (const e of rows) {
     if (on) {
-      if (!e.logged || !e.doneAt) e.doneAt = e.doneAt || now.toISOString();
+      // Finishing a partial row finishes it now: the time it was part done
+      // is not when it was done.
+      if (!e.doneAt || e.partial) e.doneAt = now.toISOString();
       e.logged = true;
       delete e.partial;
     } else {

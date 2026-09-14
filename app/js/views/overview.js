@@ -9,6 +9,8 @@ import { renderJourney, bindJourney } from './journey.js';
 import { renderMonthBoard, bindMonthBoard, shortCat } from './monthboard.js';
 import { goalGroups } from './week.js';
 import { computeInsights } from '../insights.js';
+import { milestones } from '../milestones.js';
+import { state } from '../store.js';
 
 export function renderOverview(ctx) {
   const iso = todayIso();
@@ -17,6 +19,7 @@ export function renderOverview(ctx) {
     ${renderJourney(ctx, iso)}
     ${weekBar(iso)}
     ${insightsRow(iso)}
+    ${milestoneCard(iso)}
     ${renderMonthBoard(ctx, iso)}
   </div>`;
 }
@@ -51,6 +54,24 @@ export function weekBar(iso) {
       </div>
     </div>
   </div>`;
+}
+
+const BADGE = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="9.5" r="5.5"/><path d="M8.5 14l-1.5 7 5-2.5 5 2.5-1.5-7"/></svg>';
+
+/** Earned milestones, and the nearest next one. Derived, never stored. */
+function milestoneCard(iso) {
+  const m = milestones(state.data, iso);
+  if (!m.earned.length && !m.next.length) return '';
+  const next = m.next.slice().sort((a, b) => a.left - b.left)[0];
+  return `<section class="card milestones">
+    <div class="card-body" style="padding:.6rem .8rem">
+      <div class="section-title centred" style="margin:0 0 .5rem">Milestones</div>
+      ${m.earned.length ? `<div class="badges">${m.earned.map((b) => `
+        <div class="badge-tile"><span class="badge-ico">${BADGE}</span><span>${esc(b.label)}</span></div>`).join('')}</div>`
+        : '<div class="tiny muted centred-text">None yet. They come from following your plan.</div>'}
+      ${next ? `<div class="tiny muted centred-text" style="margin-top:.45rem">Next: ${esc(next.label)}, ${next.left} to go</div>` : ''}
+    </div>
+  </section>`;
 }
 
 function insightsRow(iso) {

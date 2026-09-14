@@ -4,6 +4,7 @@ import { PLAN_MONTHS, monthForDate } from '../../data/plan.js';
 import { CASE, CLINIC_TIMELINE } from '../../data/history.js';
 import { heatmap, lineChart } from '../components.js';
 import { monthCompletion } from '../goals.js';
+import { planStreak } from '../planstreak.js';
 import { renderWeekPanel, bindWeekPanel } from './week.js';
 import { renderMeasuresPanel, bindMeasuresPanel } from './measures.js';
 import { renderMelbourne, bindMelbourne } from './melbourneview.js';
@@ -46,9 +47,12 @@ export function bindProgress(root, ctx, rerender) {
 function renderHistoryPanel(ctx) {
   const today = todayIso();
   const dates = loggedDates();
-  const streak = currentStreak(today);
-  const last30 = countIn(addDays(today, -29), today);
-  const totalSessions = dates.filter((d) => (getDay(d).entries || []).length).length;
+  // Workouts and check-ins are different things, counted apart. A workout
+  // day has something confirmed; opening a row or typing numbers is not one.
+  const streak = planStreak(state.data, today);
+  const from30 = addDays(today, -29);
+  const workout30 = dates.filter((d) => d >= from30 && (getDay(d).entries || []).some((e) => e.logged)).length;
+  const checkins30 = dates.filter((d) => d >= from30 && hasCheckin(getDay(d))).length;
 
   const painPts = dates
     .map((d) => ({ date: d, c: getDay(d).checkin || {} }))
@@ -57,9 +61,9 @@ function renderHistoryPanel(ctx) {
   return `
   <div class="stack">
     <div class="kpis">
-      <div class="kpi"><div class="v">${streak}</div><div class="k">day streak</div></div>
-      <div class="kpi"><div class="v">${last30}</div><div class="k">days logged, last 30</div></div>
-      <div class="kpi"><div class="v">${totalSessions}</div><div class="k">sessions logged</div></div>
+      <div class="kpi"><div class="v">${streak}</div><div class="k">plan streak</div></div>
+      <div class="kpi"><div class="v">${workout30}</div><div class="k">workout days, last 30</div></div>
+      <div class="kpi"><div class="v">${checkins30}</div><div class="k">knee check-ins, last 30</div></div>
     </div>
 
     <section class="card">
@@ -141,25 +145,12 @@ function renderClinicalPanel() {
 function levelFor(iso) {
   const d = getDay(iso);
   if (!d) return 0;
-  const n = (d.entries || []).length;
+  const n = (d.entries || []).filter((e) => e.logged).length;
   if (!n) return hasCheckin(d) ? 1 : 0;
   if (n >= 10) return 4;
   if (n >= 6) return 3;
   if (n >= 3) return 2;
   return 1;
-}
-
-function countIn(fromIsoStr, toIsoStr) {
-  return loggedDates().filter((d) => d >= fromIsoStr && d <= toIsoStr).length;
-}
-
-function currentStreak(today) {
-  const set = new Set(loggedDates());
-  let n = 0;
-  let cur = today;
-  if (!set.has(cur)) cur = addDays(cur, -1); // today not logged yet doesn't break it
-  while (set.has(cur)) { n++; cur = addDays(cur, -1); }
-  return n;
 }
 
 function timeline(today) {

@@ -18,7 +18,8 @@ import { shortCat } from './monthboard.js';
 import { openExercisePicker, allExercises, exerciseById, openMeasureEntry, loadBars, thumb,
          openPicture, renderDatePill, prescriptionLine, toast, openModal, closeModal } from '../components.js';
 import { minutesFor, fmtMins, fmtDayTotal } from '../timing.js';
-import { streakDays } from '../insights.js';
+import { planStreak } from '../planstreak.js';
+import { renderHistory } from './exhistory.js';
 import { renderSuppGroups, bindSuppGroups, suppScore, prnSummary } from './supplements.js';
 import { itemStatus, isDone, sidesFor, setLogged, newEntriesFor as makeEntries, runsFor } from '../logging.js';
 import { startExercise, startWorkout, resumePlayer, draftInfo, workoutQueue, readyAfter, fmtTime12 } from '../player/player.js';
@@ -100,13 +101,13 @@ function dayHead(iso, planned, extras, entries, ctx) {
   const mins = allMins.reduce((a, m) => a + (m.mins || 0), 0);
 
   const complete = total > 0 && doneN >= total;
-  const streak = streakDays(iso);
+  const streak = iso === todayIso() ? planStreak(state.data, iso) : 0;
   let sub;
   if (!total) sub = 'Nothing planned. Everything is below if you want it.';
   else if (!doneN) sub = `${total} to do · ${fmtDayTotal(allMins)}`;
   else if (complete) sub = `All ${total} done · ${fmtMins(mins)} of rehab. Nice work.`;
   else sub = `${doneN} of ${total} done · ${fmtDayTotal(leftMins)} left`;
-  if (streak >= 2) sub += ` · ${streak} days in a row`;
+  if (streak >= 2) sub += ` · plan streak ${streak}`;
 
   // The ring bursts once, on the render where the day becomes complete.
   const celebrate = complete && ctx.lastComplete !== iso;
@@ -223,7 +224,7 @@ function checkRow(item, iso, entries, ctx) {
       <span class="crow-mins ${m.src}" data-rowclick="${esc(item.id)}"
         title="${esc(minsTitle(m))}">${m.mins == null ? '·' : `${m.mins}<small>min</small>`}</span>
     </div>
-    ${editing ? boards(item, ex) + mine.map((e) => entryFields(e, ex)).join('') + logBar(item.id, item, ex) : ''}
+    ${editing ? renderHistory(state.data, item, iso) + boards(item, ex) + mine.map((e) => entryFields(e, ex)).join('') + logBar(item.id, item, ex) : ''}
   </div>`;
 }
 

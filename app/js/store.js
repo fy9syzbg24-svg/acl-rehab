@@ -10,6 +10,7 @@ import { CATEGORIES } from '../data/measurements.js';
 import { seedSupplements, seedPrnMeds } from './views/supplements.js';
 import { collectRecords, fingerprint } from './sync/records.js';
 import { stampChanges, stampAll, pendingCount } from './sync/merge.js';
+import { recordScheduleVersion } from './planstreak.js';
 import { readLocalDoc, writeLocalDoc, SERVER_MODE } from './sync/local-store.js';
 import { syncNow } from './sync/engine.js';
 import { isConfigured, getConfig } from './sync/config.js';
@@ -167,7 +168,14 @@ export async function load() {
   if (seedPrnMeds(state.data)) queueSave();
   if (seedProgramDays(state.data)) queueSave();
 
-  if (hadContent) stampAll(state.data, DEVICE_ID);
+  if (hadContent) {
+    stampAll(state.data, DEVICE_ID);
+    // Keep today's plan on record for the plan streak. A change of code (a
+    // new program item, a clinic list) shows up here too. Stamped, so the
+    // version travels; a new phone with no content yet records nothing and
+    // receives the versions by sync instead.
+    repair(() => recordScheduleVersion(state.data, todayIso()));
+  }
 
   // A fresh device with no local content (a new iPhone) is deliberately left
   // UNSTAMPED and unseeded: its records default to time 0, so the first sync
