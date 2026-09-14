@@ -878,7 +878,7 @@ function newCatEntry(exId) {
   };
 }
 
-/** Announce a personal best when a loaded entry gets marked done. */
+/** State a heaviest-yet load plainly when a loaded entry gets marked done (a fact, never praise). */
 function pbCheck(iso, list) {
   for (const e of list) {
     const l = num(e.load);
@@ -888,8 +888,8 @@ function pbCheck(iso, list) {
       .map((x) => num(x.load));
     if (prior.length && l > Math.max(...prior)) {
       const name = exerciseById(e.ex)?.name || e.ex;
-      toast(`<b>New best: ${esc(String(round(l, 1)))} ${esc(e.loadUnit || state.data.settings.weightUnit)}</b><br>
-        <span>${esc(name)}${e.side && e.side !== 'B' ? ` (${e.side === 'L' ? 'left' : 'right'})` : ''} · was ${esc(String(round(Math.max(...prior), 1)))}</span>`);
+      toast(`<b>Heaviest so far: ${esc(String(round(l, 1)))} ${esc(e.loadUnit || state.data.settings.weightUnit)}</b><br>
+        <span>${esc(name)}${e.side && e.side !== 'B' ? ` (${e.side === 'L' ? 'left' : 'right'})` : ''} · was ${esc(String(round(Math.max(...prior), 1)))}</span>`, 'info');
     }
   }
 }
@@ -1084,6 +1084,12 @@ export function bindToday(root, ctx, rerender) {
     const el = root.querySelector('.crow.flash');
     if (el) scrollToEl(el);
     ctx.flash = null;
+  }
+  if (ctx.scrollToRow) {
+    const key = ctx.scrollToRow;
+    ctx.scrollToRow = null;
+    // After the shell has put the page back where it was.
+    requestAnimationFrame(() => scrollToEl(root.querySelector(`[data-pid="${CSS.escape(key)}"]`) || root.querySelector(`[data-rowclick="${CSS.escape(key)}"]`)?.closest('.crow')));
   }
   if (ctx.scrollGoals) {
     ctx.scrollGoals = false;

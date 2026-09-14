@@ -9,16 +9,20 @@ import { renderWeekPanel, bindWeekPanel } from './week.js';
 import { renderMeasuresPanel, bindMeasuresPanel } from './measures.js';
 import { renderMelbourne, bindMelbourne } from './melbourneview.js';
 import { renderOverview, bindOverview } from './overview.js';
+import { renderSessions, bindSessions } from './sessions.js';
 
 const TABS = [['overview', 'Overview'], ['week', 'This week'], ['history', 'History'],
-              ['tests', 'Tests & VALD'], ['melbourne', 'Melbourne'], ['clinical', 'Clinical notes']];
+              ['tests', 'Tests and VALD'], ['melbourne', 'Melbourne'], ['clinical', 'Clinical notes']];
 
 export function renderProgress(ctx) {
   const tab = ctx.gtab || 'overview';
-  return `<div class="stack">
-    <div class="tabrow">
-      ${TABS.map(([k, l]) => `<button class="btn sm ${tab === k ? 'primary' : ''}" data-gtab="${k}">${l}</button>`).join('')}
-    </div>
+  // 2026-09-14 ring design: one page head and the same underline sub
+  // navigation on every device; the panels below are the existing ones.
+  return `<div class="stack progress">
+    <header class="pagehead"><h1>Progress</h1></header>
+    <nav class="subnav" aria-label="Progress sections">
+      ${TABS.map(([k, l]) => `<button class="${tab === k ? 'on' : ''}" data-gtab="${k}" ${tab === k ? 'aria-current="page"' : ''}>${l}</button>`).join('')}
+    </nav>
     ${tab === 'overview' ? renderOverview(ctx) : ''}
     ${tab === 'week' ? renderWeekPanel(ctx) : ''}
     ${tab === 'history' ? renderHistoryPanel(ctx) : ''}
@@ -33,15 +37,29 @@ export function bindProgress(root, ctx, rerender) {
   if (tab === 'melbourne') bindMelbourne(root, ctx, rerender);
   if (tab === 'overview') bindOverview(root, ctx, rerender);
   root.querySelectorAll('[data-gtab]').forEach((b) => b.addEventListener('click', () => {
+    if (ctx.gtab !== b.dataset.gtab) ctx.gview = null;
     ctx.gtab = b.dataset.gtab;
     rerender();
+    if (!b.closest('.subnav')) window.scrollTo(0, 0);
   }));
   bindWeekPanel(root, ctx, rerender);
   bindMeasuresPanel(root, ctx, rerender);
+  if (tab === 'history') {
+    bindSessions(root, ctx, rerender, { onEdit: (s) => correctOnToday(ctx, s) });
+  }
   root.querySelectorAll('.heat-cell[data-date]').forEach((c) => c.addEventListener('click', () => {
     ctx.date = c.dataset.date;
     ctx.go('today');
   }));
+}
+
+/** Open a session's own record in Today's editor, on its date. */
+function correctOnToday(ctx, s) {
+  ctx.date = s.iso;
+  ctx.editing = s.pid || s.entryId;
+  ctx.openRest = true;   // a row not planned that day sits in the fold
+  ctx.scrollToRow = s.pid || s.entryId;
+  ctx.go('today');
 }
 
 function renderHistoryPanel(ctx) {
@@ -60,6 +78,10 @@ function renderHistoryPanel(ctx) {
 
   return `
   <div class="stack">
+    <section class="ov-sec panelsec">
+      <div class="ov-head"><h2>Sessions</h2></div>
+      ${renderSessions(ctx)}
+    </section>
     <div class="kpis">
       <div class="kpi"><div class="v">${streak}</div><div class="k">plan streak</div></div>
       <div class="kpi"><div class="v">${workout30}</div><div class="k">workout days, last 30</div></div>

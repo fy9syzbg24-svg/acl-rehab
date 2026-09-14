@@ -89,23 +89,24 @@ export function computeInsights(iso) {
   const out = [];
 
   // The plan streak: days whose planned work was done. Rest days keep it.
-  const s = planStreak(state.data, iso);
-  if (s >= 2) out.push({ icon: ICON.flame, title: `Plan streak: ${s} days`, sub: 'every planned exercise done', kind: 'good' });
+  // 2026-09-14 ring design: the plan streak has its own summary on Overview,
+  // and nothing here praises more load. A heaviest set is a fact, stated
+  // plainly; green is kept for confirmed done.
 
   const pb = recentPB(iso);
   if (pb) {
     const name = EXERCISE_BY_ID[pb.ex]?.name || pb.ex;
-    out.push({ icon: ICON.star, title: `New best: ${round(pb.now, 1)} ${pb.unit}`, sub: `${name}: up from ${round(pb.was, 1)}`, kind: 'good' });
+    out.push({ icon: ICON.star, title: `Heaviest so far: ${round(pb.now, 1)} ${pb.unit}`, sub: `${name}: was ${round(pb.was, 1)}`, kind: 'info' });
   }
 
   const g = testGain(iso);
   if (g) {
-    out.push({ icon: ICON.up, title: `${MEASURE_NAMES[g.id] || g.id} climbing`, sub: `${g.leg === 'L' ? 'left' : 'right'}: ${round(g.was, 1)} → ${round(g.now, 1)}`, kind: 'good' });
+    out.push({ icon: ICON.up, title: `${MEASURE_NAMES[g.id] || g.id} climbing`, sub: `${g.leg === 'L' ? 'left' : 'right'}: ${round(g.was, 1)} → ${round(g.now, 1)}`, kind: 'info' });
   }
 
   const p = painTrend(iso);
   if (p) {
-    if (p.now < p.was) out.push({ icon: ICON.down, title: 'Pain trending down', sub: `avg ${p.was} → ${p.now} over two weeks`, kind: 'good' });
+    if (p.now < p.was) out.push({ icon: ICON.down, title: 'Pain trending down', sub: `avg ${p.was} → ${p.now} over two weeks`, kind: 'info' });
     else if (p.now > p.was + 0.5) out.push({ icon: ICON.warn, title: 'Pain creeping up', sub: `avg ${p.was} → ${p.now}. Ease off`, kind: 'warn' });
   }
 

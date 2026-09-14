@@ -3,19 +3,21 @@ import { state, update, measurementsFor, latest, best } from '../store.js';
 import { MEASURES, MEASURE_BY_ID, MEASURE_GROUPS, UNIT_LABEL } from '../../data/measurements.js';
 import { OPEN_CHAIN } from '../../data/exercises.js';
 import { openMeasureEntry, lineChart, exerciseById } from '../components.js';
+import { renderTrend, bindTrend } from '../trend.js';
+import { contentWidth } from './overview.js';
 
 export function renderMeasuresPanel(ctx) {
   const tab = ctx.mtab || 'baselines';
   return `
     <div class="panelbar">
-      <div class="tabrow">
-        ${[['baselines', 'Baselines & PRs'], ['vald', 'VALD'], ['tests', 'All tests'], ['history', 'Test history']]
+      <div class="tabrow subtabs">
+        ${[['baselines', 'Baselines and PRs'], ['vald', 'VALD'], ['tests', 'All tests'], ['history', 'Test history']]
           .map(([k, l]) => `<button class="btn sm ${tab === k ? 'primary' : ''}" data-mtab="${k}">${l}</button>`).join('')}
       </div>
       <button class="btn primary sm" data-newmeasure>+ Record a test</button>
     </div>
     ${tab === 'baselines' ? baselines() : ''}
-    ${tab === 'vald' ? valdView() : ''}
+    ${tab === 'vald' ? valdView(ctx) : ''}
     ${tab === 'tests' ? allTests() : ''}
     ${tab === 'history' ? historyView(ctx) : ''}`;
 }
@@ -154,7 +156,7 @@ function prTable() {
 }
 
 // ------------------------------------------------------------------ VALD ---
-function valdView() {
+function valdView(ctx) {
   const groups = MEASURE_GROUPS.filter((g) => g.startsWith('VALD'));
   return `
   <section class="card">
@@ -179,7 +181,7 @@ function valdView() {
     </div>
   </section>
 
-  ${valdCharts()}`;
+  ${valdCharts(ctx)}`;
 }
 
 /** Report-stated asymmetry wins over anything we would compute ourselves. */
@@ -218,16 +220,21 @@ function distinctDates(measureId) {
   return new Set(measurementsFor(measureId).map((r) => r.date)).size;
 }
 
-function valdCharts() {
+function valdCharts(ctx) {
   const withData = MEASURES.filter((m) => m.vald && distinctDates(m.id) > 1);
   if (!withData.length) {
-    return `<section class="card"><div class="card-body">
-      <div class="empty">Charts appear once a metric has two or more test dates. Right now everything has a single data point: your 24 and 31 July baselines.</div>
-    </div></section>`;
+    return `<section class="ov-sec"><div class="empty">Charts appear once a VALD metric has two or more test dates. Every VALD metric has one date so far.</div></section>`;
   }
-  return `<section class="card"><header><h2>Trends</h2></header><div class="card-body">
-    ${withData.map((m) => chartCard(m)).join('')}
-  </div></section>`;
+  ctx.trend ||= {};
+  const st = (ctx.trend.vald ||= {});
+  if (!st.measure) st.measure = withData[0].id;
+  return `<section class="ov-sec panelsec"><div class="ov-head"><h2>Trends</h2></div>
+    ${renderTrend(ctx, { key: 'vald', width: trendWidth() })}</section>`;
+}
+
+function trendWidth() {
+  const cw = contentWidth();
+  return cw >= 940 ? cw - 324 : cw;
 }
 
 // ------------------------------------------------------------- all tests ---
@@ -268,17 +275,18 @@ function historyView(ctx) {
   const focus = ctx.chartMeasure;
   const rows = state.data.measurements.slice().sort((a, b) => (a.date < b.date ? 1 : -1));
   return `
-  ${focus ? chartCardSection(focus) : ''}
+  ${focus ? testsTrend(ctx, focus) : ''}
   <section class="card">
     <header><h2>Every recorded result</h2><span class="sub">${rows.length} entries</span></header>
     <div class="card-body tight">
-      ${rows.length ? `<div class="only-narrow">${historyTimeline(rows)}</div>
+      ${rows.length ? `<div class="only-narrow">${historyTimeline(rows, ctx)}</div>
       <div class="only-wide scroll-x"><table class="tbl" style="min-width:640px">
         <thead><tr><th>Date</th><th>Test</th><th>Side</th><th class="num">Value</th><th class="num">Pct</th><th>Source / note</th><th></th></tr></thead>
         <tbody>${rows.map((r) => {
           const m = MEASURE_BY_ID[r.measure];
           const u = m?.unit === 'weight' ? (r.unit || state.data.settings.weightUnit) : UNIT_LABEL[m?.unit] || '';
-          return `<tr>
+          const hit = ctx.focusTest && ctx.focusTest.measure === r.measure && ctx.focusTest.date === r.date;
+          return `<tr class="${hit ? 'focus-row' : ''}">
             <td class="nowrap">${esc(fmtDateNum(r.date))}</td>
             <td>${esc(m?.label || r.measure)} ${r.seeded ? '<span class="seeded-dot" title="seeded from a report">●</span>' : ''}</td>
             <td>${r.leg ? `<span class="sidetag ${r.leg}">${r.leg}</span>` : '<span class="tiny muted">both</span>'}</td>
@@ -290,6 +298,17 @@ function historyView(ctx) {
         }).join('')}</tbody></table></div>` : '<div class="empty">Nothing recorded yet.</div>'}
     </div>
   </section>`;
+}
+
+function testsTrend(ctx, id) {
+  const m = MEASURE_BY_ID[id];
+  if (!m) return '';
+  ctx.trend ||= {};
+  const st = (ctx.trend.tests ||= {});
+  if (st.measure !== id) { st.measure = id; st.sel = ctx.focusTest?.measure === id ? ctx.focusTest.date : null; }
+  return `<section class="ov-sec panelsec"><div class="ov-head"><h2>${esc(m.label)}</h2>
+    <button class="btn sm ghost" data-chart="">Close</button></div>
+    ${renderTrend(ctx, { key: 'tests', width: trendWidth() })}</section>`;
 }
 
 function chartCardSection(id) {
@@ -367,7 +386,7 @@ function metricRow(m) {
   </details>`;
 }
 
-function historyTimeline(rows) {
+function historyTimeline(rows, ctx = {}) {
   const byDate = new Map();
   for (const r of rows) {
     if (!byDate.has(r.date)) byDate.set(r.date, []);
@@ -378,7 +397,8 @@ function historyTimeline(rows) {
       <div class="tline-date">${esc(fmtDateNum(date))}</div>
       ${list.map((r) => {
         const m = MEASURE_BY_ID[r.measure];
-        return `<div class="tline-row">
+        const hit = ctx.focusTest && ctx.focusTest.measure === r.measure && ctx.focusTest.date === r.date;
+        return `<div class="tline-row ${hit ? 'focus-row' : ''}">
           <span class="tline-main">${esc(m?.label || r.measure)}${r.src || r.note ? `<span class="tline-sub">${esc([r.src, r.note].filter(Boolean).join(' · '))}</span>` : ''}</span>
           <span class="mv">${r.leg ? `<b class="sidetag ${r.leg}">${r.leg}</b>` : ''}${m ? val(m, r) : esc(String(r.value))}${r.pctile != null ? ` <span class="pill">${esc(ord(r.pctile))}</span>` : ''}</span>
           <button class="btn sm ghost danger" data-delm="${esc(r.id)}" aria-label="Delete this result">Delete</button>
@@ -389,6 +409,19 @@ function historyTimeline(rows) {
 
 // ------------------------------------------------------------------ bind ---
 export function bindMeasuresPanel(root, ctx, rerender) {
+  bindTrend(root, ctx, rerender, {
+    onOpen(measureId, date) {
+      ctx.mtab = 'history';
+      ctx.chartMeasure = measureId;
+      ctx.focusTest = { measure: measureId, date };
+      rerender();
+    },
+  });
+  const focus = root.querySelector('.focus-row');
+  if (focus && ctx.focusTest && !ctx.focusTest.scrolled) {
+    ctx.focusTest.scrolled = true;
+    requestAnimationFrame(() => focus.scrollIntoView({ block: 'center' }));
+  }
   root.querySelectorAll('[data-mtab]').forEach((b) => b.addEventListener('click', () => {
     ctx.mtab = b.dataset.mtab; ctx.chartMeasure = null; rerender();
   }));
