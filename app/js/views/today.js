@@ -18,7 +18,7 @@ import { shortCat } from './monthboard.js';
 import { openExercisePicker, allExercises, exerciseById, openMeasureEntry, loadBars, thumb,
          openPicture, renderDatePill, prescriptionLine, toast, openModal, closeModal } from '../components.js';
 import { minutesFor, fmtMins, fmtDayTotal } from '../timing.js';
-import { planStreak } from '../planstreak.js';
+import { planStreak, versionFor } from '../planstreak.js';
 import { renderHistory, bindHistory } from './exhistory.js';
 import { renderSuppGroups, bindSuppGroups, suppScore, prnSummary, suppTime, onSuppTime } from './supplements.js';
 import { itemStatus, isDone, sidesFor, setLogged, newEntriesFor as makeEntries, runsFor } from '../logging.js';
@@ -97,18 +97,31 @@ export function renderToday(ctx) {
   const planned = plannedItems(iso);
   const rest = restItems(iso);
   const extras = entries.filter((e) => !e.pid);
+  const first = planned.find((p) => p.first);
+  const others = planned.filter((p) => !p.first);
 
+  // 2026-09-14 ring design. Today is the dated queue, not a dashboard: the
+  // date and title, the count and the time, one Start, one status line, the
+  // tendon loading, one quiet sentence for the recovery break, the rest of the
+  // plan in order (rows never move when ticked), then supplements, the knee
+  // check-in, a note and one quiet line about the streak.
   return `
   <div class="stack today">
-    ${renderDatePill(iso, { showDone: false })}
+    ${dayHead(iso, planned, extras, entries, ctx)}
     ${warn ? `<div class="notice ${warn.level}">${warn.html}</div>` : ''}
     ${day?.seeded ? `<div class="notice info">Seeded from ${esc(day.source || 'your clinical notes')}. Edit anything that is not right.</div>` : ''}
 
+    ${first ? `<section class="queue-group" id="first-card">
+      <div class="queue-label"><span>First up</span>${catLabel(first)}</div>
+      <div class="card listcard"><div class="checklist">${checkRow(first, iso, entries, ctx)}</div></div>
+    </section>
+    ${others.length ? recoveryLine(first, iso) : ''}` : ''}
+
     <section class="card listcard" id="session-card">
-      ${dayHead(iso, planned, extras, entries, ctx)}
       <div class="checklist">
-        ${planned.map((p, i) => checkRow(p, iso, entries, ctx) + gapAfter(planned, i, iso)).join('')}
+        ${others.map((p) => checkRow(p, iso, entries, ctx)).join('')}
         ${extras.map((e) => extraRow(e, iso, ctx)).join('')}
+        ${!planned.length ? emptyPlan(iso) : ''}
         <button class="list-add" data-act="add-ex"><span class="plus">+</span>Add something else</button>
       </div>
       ${restGroup(rest, iso, entries, ctx, planned.length ? 'Not planned today' : 'All exercises')}
@@ -122,10 +135,26 @@ export function renderToday(ctx) {
   </div>`;
 }
 
+/** The category of an item, as a label in its own colour (never colour alone). */
+function catLabel(item) {
+  const cat = CATEGORIES[exerciseById(item.ex)?.cat];
+  return cat ? `<span class="queue-cat" style="--cat:${cat.color}">${esc(shortCat(cat.label))}</span>` : '';
+}
+
+/** Nothing planned: a known rest day says so, an unknown one does not guess. */
+function emptyPlan(iso) {
+  const known = !!versionFor(state.data, iso);
+  return `<div class="queue-empty">
+    <b>${known ? 'Planned rest today' : 'No exercises planned today'}</b>
+    ${known ? '' : '<button class="btn sm" data-goto="program">Open My Program</button>'}
+  </div>`;
+}
+
 /**
- * What today IS, in one line, and what it costs. The list on its own never
- * answered "what am I meant to do today", so the day keeps its name; the
- * count and the minutes tell him what he is in for before he starts.
+ * The page head: the date (with its arrows, the picker and a way back to
+ * today), the title, what the day asks for and how far along it is, one thin
+ * segment per planned exercise, then the one Start or Resume and the status
+ * line under it.
  */
 function dayHead(iso, planned, extras, entries, ctx) {
   const plan = dayPlanFor(state.data, iso);
@@ -134,72 +163,92 @@ function dayHead(iso, planned, extras, entries, ctx) {
   const total = planned.length + extras.length;
   const allMins = planned.map((p) => rowMinutes(p));
   const leftMins = planned.filter((p) => !doneP.includes(p)).map((p) => rowMinutes(p));
-  const mins = allMins.reduce((a, m) => a + (m.mins || 0), 0);
+  const today = todayIso();
+  const title = iso === today ? 'Today' : iso === addDays(today, -1) ? 'Yesterday' : iso === addDays(today, 1) ? 'Tomorrow' : fmtDate(iso, 'dow');
 
-  const complete = total > 0 && doneN >= total;
-  const streak = iso === todayIso() ? planStreak(state.data, iso) : 0;
-  let sub;
-  if (!total) sub = 'Nothing planned. Everything is below if you want it.';
-  else if (!doneN) sub = `${total} to do · ${fmtDayTotal(allMins)}`;
-  else if (complete) sub = `All ${total} done · ${fmtMins(mins)} of rehab. Nice work.`;
-  else sub = `${doneN} of ${total} done · ${fmtDayTotal(leftMins)} left`;
-  if (streak >= 2) sub += ` · plan streak ${streak}`;
-
-  // The ring bursts once, on the render where the day becomes complete.
-  const celebrate = complete && ctx.lastComplete !== iso;
-  ctx.lastComplete = complete ? iso : null;
+  let line;
+  if (!planned.length) line = plan.name ? esc(plan.name) : 'Nothing planned';
+  else if (!doneP.length) line = `${planned.length} exercise${planned.length === 1 ? '' : 's'} · ${esc(fmtDayTotal(allMins))}`;
+  else if (doneP.length >= planned.length) line = `${planned.length} exercise${planned.length === 1 ? '' : 's'}`;
+  else line = `${planned.length - doneP.length} left · ${esc(fmtDayTotal(leftMins))}`;
+  const named = plan.name && planned.length ? `${esc(plan.name)} · ` : '';
 
   return `
-  <header class="dayhead ${complete ? 'complete' : ''} ${celebrate ? 'celebrate' : ''}">
-    ${ring(doneN, total)}
-    <div class="dayhead-main">
-      <h2>${esc(plan.name || (total ? 'Today' : 'Rest day'))}</h2>
-      <div class="dayhead-sub">${esc(sub)}${plan.clinic ? ` · ${esc(plan.sub)}` : ''}</div>
+  <header class="pagehead today-head">
+    <div class="daynav">
+      <button class="daynav-arrow" data-nav="-1" aria-label="Previous day">${ICON.left}</button>
+      <span class="daynav-date eyebrow ${iso > today ? 'future' : ''}">${esc(longDate(iso))}
+        <input type="date" data-jump value="${iso}" aria-label="Jump to a date"></span>
+      <button class="daynav-arrow" data-nav="1" aria-label="Next day">${ICON.right}</button>
+      ${iso !== today ? '<button class="btn sm daynav-today" data-nav="today" aria-label="Back to today">Today</button>' : ''}
+      <button class="icon-btn daynav-menu" data-act="menu" title="More" aria-label="More for this day">${ICON.more}</button>
     </div>
-    ${workoutButton(iso)}
-    <button class="icon-btn" data-act="menu" title="More" aria-label="More">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
-    </button>
+    <h1>${esc(title)}</h1>
+    <div class="dayline"><span>${named}${line}${plan.clinic ? ` · ${esc(plan.sub)}` : ''}</span>
+      ${planned.length ? `<span class="dayline-count">${doneP.length} of ${planned.length} done</span>` : ''}</div>
+    ${planned.length ? `<div class="segbar" role="img" aria-label="${doneP.length} of ${planned.length} planned exercises done">${planned.map((p) => `<i class="${doneP.includes(p) ? 'on' : ''}"></i>`).join('')}</div>` : ''}
   </header>
+  ${workoutButton(iso)}
   ${statusLine(iso, planned, entries)}`;
 }
 
 /**
- * One line under the header that says what Start or Resume will do: the open
- * workout and where it stopped, or what is up next, or that the day is done.
- * Always there, in the same place, so coming back after a break needs no
- * working out. Text, not a second button: the Start/Resume control is the one
- * to tap (Codex audit design idea, 2026-09-14).
+ * The one session-status slot, under the one Start. It names the open workout
+ * with its full title, side, set and when it stopped; otherwise what Start
+ * will do; otherwise that the plan is done. Text only: the button is the one
+ * place to start or resume.
  */
 function statusLine(iso, planned, entries) {
   const d = draftInfo();
   const t12 = (ms) => new Date(ms).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-  let label;
-  let text;
+  let html;
   let cls = '';
   if (d && d.phase !== 'done') {
-    label = d.phase === 'between' ? 'Up next' : d.state === 'running' ? 'Running' : 'Paused';
     cls = 'resume';
+    const label = d.phase === 'between' ? 'Up next' : d.state === 'running' ? 'Running' : 'Paused';
     const when = d.pausedAt ? `since ${t12(d.pausedAt)}` : '';
     const other = d.iso && d.iso !== iso ? fmtDate(d.iso, 'dow') : '';
-    text = [d.title, d.where, when, other].filter(Boolean).join(' · ');
-  } else {
+    html = `<b>${esc(label)}</b> · ${esc([d.title, d.where, when, other].filter(Boolean).join(' · '))}`;
+  } else if (planned.length) {
+    const first = planned.find((p) => p.first);
     const next = planned.find((p) => !p.notYet && itemStatus(p, entries).state !== 'done');
-    if (next) {
-      const m = rowMinutes(next);
-      label = 'Up next';
-      text = `${next.title || exerciseById(next.ex)?.name || next.ex}${m.mins != null ? ` · ${m.mins} min` : ''}`;
-    } else if (planned.length) {
-      label = 'Done';
+    if (!next) {
       cls = 'alldone';
-      text = 'Everything planned for today is done';
+      html = `${ICON.check}<b>Plan complete</b>`;
+    } else if (first && next === first) {
+      html = `${esc(shortTitle(first))} first`;
     } else {
-      label = 'Rest day';
-      text = 'Nothing planned';
+      const m = rowMinutes(next);
+      html = `Up next · ${esc(next.title || exerciseById(next.ex)?.name || next.ex)}${m.mins != null ? ` · ${m.mins} min` : ''}`;
     }
+  } else {
+    return '';
   }
-  return `<div class="daystatus ${cls}" aria-live="polite"><span class="ds-label">${esc(label)}</span><span class="ds-text">${esc(text)}</span></div>`;
+  return `<div class="daystatus ${cls}" aria-live="polite">${html}</div>`;
 }
+
+/** "Monday, September 14", with the year only when it is not this year. */
+function longDate(iso) {
+  const d = new Date(iso + 'T12:00:00');
+  const opts = { weekday: 'long', month: 'long', day: 'numeric' };
+  if (d.getFullYear() !== new Date().getFullYear()) opts.year = 'numeric';
+  return d.toLocaleDateString('en-US', opts);
+}
+
+/** "Tendon loading" rather than the whole prescription name, for one short line. */
+function shortTitle(item) {
+  const t = item.title || exerciseById(item.ex)?.name || item.ex;
+  return /tendon loading/i.test(t) ? 'Tendon loading' : t;
+}
+
+const ICON = {
+  left: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>',
+  right: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>',
+  more: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>',
+  play: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z"/></svg>',
+  check: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12.3l2.8 2.8L16.2 9.6"/></svg>',
+  clock: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+};
 
 /** What the minutes on a row are based on, for its tooltip and the open row. */
 export function minsTitle(m) {
@@ -211,47 +260,31 @@ export function minsTitle(m) {
 }
 
 /**
- * Start or Resume: one control in one place, its label saying which. Dimmed
- * when there is nothing left and no workout open.
+ * Start or Resume: one control in one place, its label saying which. Dimmed,
+ * never removed, when there is nothing left and no workout open.
  */
 function workoutButton(iso) {
   const d = draftInfo();
   const left = workoutQueue(state.data, iso).length;
-  const resume = !!d;
-  return `<button class="btn primary dayplay" data-act="${resume ? 'resume' : 'start'}" ${resume || left ? '' : 'disabled'}
+  const resume = !!d && d.phase !== 'done';
+  return `<button class="btn big primary startbtn" data-act="${resume ? 'resume' : 'start'}" ${resume || left ? '' : 'disabled'}
     aria-label="${resume ? `Resume ${esc(d.title || 'workout')}` : 'Start the workout'}">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z"/></svg>${resume ? 'Resume' : 'Start'}</button>`;
+    ${ICON.play}${resume ? 'Resume workout' : 'Start workout'}</button>`;
 }
 
 /**
- * The line between the morning's first job and everything else. Once the
- * tendon loading is confirmed with a time, it says when the rest may start;
- * before that, or for a row logged without a time, just the gap.
+ * The recovery break as one quiet sentence between the first job and the rest.
+ * Before the tendon loading is confirmed with a time it names the break
+ * without inventing a clock time; once it is, the actual time, tappable to
+ * correct when it was done.
  */
-function gapAfter(planned, i, iso) {
-  const p = planned[i];
-  const next = planned[i + 1];
-  if (!p?.first || !next || next.first) return '';
+function recoveryLine(first, iso) {
   const ready = readyAfter(state.data, iso);
   if (ready) {
-    return `<button class="list-sep readysep" data-act="readytime" title="Change when the tendon loading was done">
-      <span>Rest of your workout after ${esc(fmtTime12(ready))}</span></button>`;
+    return `<button class="recovery-line readysep" data-act="readytime" title="Change when the tendon loading was done">
+      ${ICON.clock}<span>Rest of your workout after ${esc(fmtTime12(ready))}</span></button>`;
   }
-  return `<div class="list-sep"><span>${esc(p.gap || '')} later</span></div>`;
-}
-
-/** Progress ring for the day: done over total, a check when full. */
-function ring(done, total) {
-  const r = 18;
-  const c = 2 * Math.PI * r;
-  const frac = total ? Math.min(1, done / total) : 0;
-  const on = frac * c;
-  return `<span class="dayring ${total && done >= total ? 'full' : ''}" aria-hidden="true">
-    <svg viewBox="0 0 46 46">
-      <circle class="bg" cx="23" cy="23" r="${r}"/>
-      <circle class="on" cx="23" cy="23" r="${r}" stroke-dasharray="${on.toFixed(1)} ${(c - on).toFixed(1)}" transform="rotate(-90 23 23)"/>
-    </svg>
-    <b>${total ? `${done}/${total}` : ''}</b></span>`;
+  return `<div class="recovery-line">${ICON.clock}<span>Rest of your workout after tendon recovery</span></div>`;
 }
 
 // ------------------------------------------------------------- the rows ----
@@ -524,11 +557,9 @@ function suppCard(iso, ctx) {
   const prn = prnSummary(sIso);
   return `
   <section class="card listcard supps">
-    <header class="dayhead slim">
-      <div class="dayhead-main">
-        <h2>Supplements</h2>
-        <div class="dayhead-sub">${score.taken} of ${score.total} taken${sIso !== iso ? ` · ${esc(fmtDate(sIso, 'dow'))}'s list until 5am` : ''}</div>
-      </div>
+    <header class="sectionhead">
+      <div><h2>Supplements</h2>
+        <div class="sectionhead-sub">${score.taken} of ${score.total} taken${sIso !== iso ? ` · ${esc(fmtDate(sIso, 'dow'))}'s list until 5am` : ''}</div></div>
       <button class="btn sm ghost" data-goto="supplements" title="Edit the list">Edit</button>
     </header>
     <div class="card-body tight">
@@ -541,9 +572,9 @@ function suppCard(iso, ctx) {
 // --------------------------------------------------------------- knees ----
 function kneeCard(c, ctx) {
   return `
-  <section class="card panel ${ctx.openKnees ? 'open' : ''}">
-    <button class="panel-head" data-panel="knees">
-      <span class="panel-title"><h2>Knees</h2>
+  <section class="card panel kneerow ${ctx.openKnees ? 'open' : ''}">
+    <button class="panel-head" data-panel="knees" aria-expanded="${!!ctx.openKnees}">
+      <span class="panel-title"><h2>Knee check-in</h2>
         <span class="sub">${kneeSummary(c)}</span></span>
       <span class="chev">⌄</span>
     </button>
@@ -576,7 +607,7 @@ function kneeSummary(c) {
   if (eff.length) bits.push(`swelling ${eff.join(', ')}`);
   else if (c.effusionL === 'Zero' || c.effusionR === 'Zero') bits.push('no swelling');
   if (c.nextDay) bits.push(`yesterday: ${c.nextDay.toLowerCase()}`);
-  return bits.length ? esc(bits.join('  ·  ')) : '<em>not logged</em>';
+  return bits.length ? esc(bits.join('  ·  ')) : 'Left and right · optional';
 }
 
 function legBlock(side, label, c) {
@@ -628,13 +659,15 @@ function noteRow(day, ctx) {
   return `<button class="rowlink ghost" data-act="note"><span class="plus">+</span><b>Add a note about today</b></button>`;
 }
 
-/** One quiet line of feedback at the very bottom: this week against the plan. */
+/** One quiet line at the very bottom: the plan streak, and this week against the plan. */
 function weekFoot(iso) {
   const groups = goalGroups(iso);
-  if (!groups.length) return '';
-  return `<button class="today-foot" data-goto="progress">
-    This week · ${groups.map((g) => `${esc(shortCat(g.t.label))} <span class="mono">${g.hit}/${g.goal}</span>`).join(' · ')} · more ›
-  </button>`;
+  const streak = iso === todayIso() ? planStreak(state.data, iso) : 0;
+  const bits = [];
+  if (streak >= 1) bits.push(`Plan streak <span class="mono">${streak}</span>`);
+  if (groups.length) bits.push(`This week · ${groups.map((g) => `${esc(shortCat(g.t.label))} <span class="mono">${g.hit}/${g.goal}</span>`).join(' · ')}`);
+  if (!bits.length) return '';
+  return `<button class="today-foot" data-goto="progress">${bits.join(' · ')} ›</button>`;
 }
 
 // -------------------------------------------------------------- fields ----
@@ -1137,7 +1170,7 @@ export function bindToday(root, ctx, rerender) {
       if (cb.checked) pbCheck(iso, d.entries.filter((e) => e.pid === pid));
     });
     if (cb.checked) testToast(recordAsTests(iso, ensureDay(iso).entries.filter((e) => e.pid === pid)));
-    ctx.editing = null;
+    // A tick never folds a row he has open to correct (ring design decision 2).
     ctx.pop = cb.checked ? pid : null;
     rerender();
   }));
@@ -1152,7 +1185,6 @@ export function bindToday(root, ctx, rerender) {
       const e = ensureDay(iso).entries.find((x) => x.id === cb.dataset.etoggle);
       testToast(e ? recordAsTests(iso, [e]) : []);
     }
-    ctx.editing = null;
     ctx.pop = cb.checked ? cb.dataset.etoggle : null;
     rerender();
   }));

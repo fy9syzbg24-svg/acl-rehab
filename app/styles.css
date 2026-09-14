@@ -1939,3 +1939,85 @@ table.tbl { font-size: .9rem; }
 @media (prefers-reduced-motion: reduce) {
   .fin-ring.play svg path, .fin-ring.play::before, .fin-ms.play .ms-badge, .ms-badge.resolve { animation: none; }
 }
+
+/* ------------------------------------------------------------ Today, ring -- */
+.today { max-width: 720px; gap: .9rem; }
+.today-head { gap: .2rem; padding-top: 0; }
+.daynav { display: flex; align-items: center; gap: .15rem; min-height: 44px; margin-left: -.55rem; }
+.daynav-arrow {
+  width: 40px; height: 44px; border: 0; background: none; color: var(--ink-2); border-radius: 12px; cursor: pointer;
+  display: inline-grid; place-items: center; flex: none;
+}
+.daynav-arrow svg, .daynav-menu svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.daynav-menu svg { fill: currentColor; stroke: none; }
+.daynav-arrow:hover { background: var(--panel-2); }
+.daynav-date { position: relative; white-space: nowrap; }
+.daynav-date.future { color: var(--warn); }
+.daynav-date input[type=date] { position: absolute; inset: -10px -6px; width: auto; height: auto; opacity: 0; border: 0; padding: 0; cursor: pointer; }
+.daynav-today { margin-left: .2rem; white-space: nowrap; flex: none; }
+.daynav-date { min-width: 0; overflow-wrap: anywhere; white-space: normal; }
+.daynav-menu { margin-left: auto; border-radius: 20px; }
+.today-head h1 { font-size: 2.3rem; margin-top: .15rem; }
+.dayline { display: flex; justify-content: space-between; align-items: baseline; gap: .8rem; font-size: 1.05rem; color: var(--ink-2); flex-wrap: wrap; }
+.dayline-count { font-variant-numeric: tabular-nums; }
+.today-head .segbar { margin-top: .8rem; gap: 5px; }
+.today-head .segbar i { height: 5px; transition: background var(--set-ms) var(--ease); }
+.startbtn { width: 100%; min-height: 58px; font-size: 1.12rem; margin-top: .2rem; }
+.startbtn svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; }
+.today .daystatus {
+  display: flex; align-items: center; justify-content: center; gap: .4rem; flex-wrap: wrap; text-align: center;
+  border: 0; padding: 0 .5rem; margin-top: -.35rem; font-size: 1rem; color: var(--ink-2); min-height: 26px;
+}
+.today .daystatus b { color: var(--ink); font-weight: 650; }
+.today .daystatus.alldone, .today .daystatus.alldone b { color: var(--good); }
+.today .daystatus svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+.queue-group { display: flex; flex-direction: column; gap: .45rem; }
+.queue-label { display: flex; justify-content: space-between; align-items: baseline; padding: 0 .1rem;
+  font-size: .82rem; font-weight: 650; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-2); }
+.queue-cat { color: var(--cat); }
+.recovery-line {
+  display: flex; align-items: center; gap: .55rem; width: 100%; padding: .1rem .4rem; min-height: 40px;
+  border: 0; background: none; font: inherit; font-size: 1rem; color: var(--ink-2); text-align: left;
+}
+.recovery-line svg { width: 22px; height: 22px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; }
+button.recovery-line { cursor: pointer; }
+button.recovery-line span { color: var(--ink); text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 4px; }
+.queue-empty { display: flex; flex-direction: column; align-items: flex-start; gap: .5rem; padding: 1rem .4rem; }
+.queue-empty b { font-size: 1.05rem; }
+
+.today .listcard { padding: .25rem .2rem; }
+.today .checklist { padding: 0 .75rem; }
+.today .crow { padding: .75rem .1rem; border-top-color: var(--line-2); }
+.today .crow-head { gap: .8rem; min-height: 52px; }
+.today input[type=checkbox].tick { width: 30px; height: 30px; border-width: 2px; border-color: var(--ink-3); }
+.today input[type=checkbox].tick:checked { border-color: var(--good); }
+.today .crow-shot { width: 66px; height: 48px; border: 0; background: #fff; border-radius: 8px; }
+.today .crow-shot img { object-fit: contain; }
+.today .crow-shot.plain { background: none; }
+.today .crow-name { font-size: 1.05rem; font-weight: 650; line-height: 1.28; }
+.today .crow-sub { font-size: .9rem; color: var(--ink-2); gap: .15rem .35rem; margin-top: .15rem; }
+.today .crow-sub::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--cat, var(--ink-3)); margin-right: .15rem; flex: none; }
+.today .crow-mins { display: flex; flex-direction: column; align-items: center; font-size: 1.3rem; font-weight: 650; color: var(--ink); min-width: 2.6em; line-height: 1.05; }
+.today .crow-mins small { font-size: .82rem; font-weight: 450; color: var(--ink-2); margin: .1rem 0 0; }
+.today .crow.done { background: var(--good-soft); box-shadow: none; border-radius: 14px; margin: .15rem -.35rem; padding-left: .45rem; padding-right: .45rem; }
+.today .crow.done .crow-name { color: var(--ink); }
+.today .crow.done .crow-mins, .today .crow.done .crow-mins small { color: var(--good); }
+.today .crow.editing { background: var(--panel-2); box-shadow: none; border-radius: 14px; margin: .2rem -.35rem; padding: .7rem .45rem; }
+.today .list-add { color: var(--ink-2); font-size: 1rem; min-height: 52px; border-top-color: var(--line-2); }
+.today .plus { border-color: var(--line); color: var(--ink-2); border-style: solid; width: 30px; height: 30px; }
+.today .fold > summary { font-size: .95rem; color: var(--ink-2); }
+.sectionhead { display: flex; align-items: center; justify-content: space-between; gap: .6rem; padding: .9rem 1rem .4rem; }
+.sectionhead h2 { font-size: 1.15rem; }
+.sectionhead-sub { font-size: .9rem; color: var(--ink-2); margin-top: .1rem; }
+.today .supprow { min-height: 48px; }
+.today .suppname { font-size: 1rem; }
+.kneerow .panel-head { min-height: 64px; padding: .7rem 1rem; }
+.kneerow .panel-title h2 { font-size: 1.05rem; }
+.kneerow .panel-title .sub { font-size: .9rem; color: var(--ink-2); }
+.today-foot { font-size: .88rem; color: var(--ink-2); padding: .2rem .5rem .8rem; }
+.today .rowlink.ghost { color: var(--ink-2); }
+@media (max-width: 380px) {
+  .today .crow-shot { width: 54px; height: 40px; }
+  .today-head h1 { font-size: 2rem; }
+}

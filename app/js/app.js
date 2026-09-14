@@ -31,6 +31,7 @@ const ctx = {
   date: todayIso(),
   go(v) {
     if (ctx.view === 'player' && v !== 'player') playerLeaving();
+    rememberScroll();
     ctx.view = v; history.replaceState(null, '', '#' + v); paint();
   },
 };
@@ -38,6 +39,25 @@ const ctx = {
 const viewEl = document.getElementById('view');
 
 let lastView = null;
+
+const scrollMemo = {};
+const scrollKey = () => `${ctx.view}|${ctx.view === 'today' ? ctx.date : ''}|${ctx.gtab || ''}`;
+function rememberScroll() {
+  if (lastView && lastView !== 'player') scrollMemo[`${lastView}|${lastView === 'today' ? ctx.date : ''}|${ctx.gtab || ''}`] = window.scrollY;
+}
+
+// A new day begins with that day's plan: an app left open on today's date
+// moves to the new date when it comes back after midnight.
+let openedOn = todayIso();
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible') return;
+  const now = todayIso();
+  if (now !== openedOn) {
+    if (ctx.date === openedOn) { ctx.date = now; ctx.editing = null; }
+    openedOn = now;
+    paint();
+  }
+});
 
 // Repaints wait while a field is in use (editguard.js); a change of tab does not.
 const paint = guardPaint(viewEl, rawPaint, () => ctx.view !== lastView);
@@ -53,7 +73,10 @@ function rawPaint() {
   document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('on', b.dataset.view === tabView));
   paintChrome();
   // Changing tab starts at the top; re-rendering in place keeps your position.
-  window.scrollTo({ top: ctx.view === lastView ? y : 0 });
+  // Coming back to a view (from the player, a chart or an editor) puts it back
+  // where it was, for the same date; a new view starts at the top.
+  const back = scrollMemo[scrollKey()];
+  window.scrollTo({ top: ctx.view === lastView ? y : (ctx.view !== 'player' && back != null ? back : 0) });
   lastView = ctx.view;
 }
 
