@@ -1350,3 +1350,19 @@ details.fold .checklist > .crow:first-child { border-top: 1px solid var(--line-2
   .prog-body { padding-left: 0; }
   .prog-n { width: 1.1em; }
 }
+
+/* ---------------------------------------------------------------------------
+   2026-09-14: completion states, the workout player, exercise history.
+   ------------------------------------------------------------------------ */
+
+/* Partly done: half the circle in the exercise's colour, never green. The
+   row's small print names the side still to do, so colour is never the only
+   signal. */
+.crow.partial input[type=checkbox].tick:not(:checked) {
+  background: conic-gradient(var(--cat, var(--ink-3)) 0 50%, var(--panel) 0);
+}
+.srcnote { color: var(--ink-3); font-size: .7rem; }
+.srcnote::before { content: '·'; margin-right: .3rem; opacity: .6; }
+/* Numbers the app filled in from last time are not results until confirmed. */
+.pfields.prefill input, .pfields.prefill select { color: var(--ink-3); font-style: italic; }
+.pfields.prefill input:focus { color: var(--ink); font-style: normal; }

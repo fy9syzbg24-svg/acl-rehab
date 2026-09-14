@@ -64,6 +64,13 @@ function syncCard() {
     </div>`;
 }
 
+/** "Sep 14, 3:30 PM": a moment, in 12-hour time. */
+function when12(isoish) {
+  const d = new Date(isoish);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+}
+
 export function renderSettings() {
   const s = state.data.settings;
   const pa = s.physiapp || {};
@@ -179,10 +186,11 @@ export function renderSettings() {
 
         ${connected ? `
         <div class="callout good small" style="margin-bottom:.6rem">
-          <strong>Connected.</strong> ${s.physiappLastSync
-            ? `Last synced ${esc(new Date(s.physiappLastSync).toLocaleString('en-AU', { dateStyle: 'medium', timeStyle: 'short' }))}.`
-            : 'Not synced yet.'}
-          ${auto ? 'It checks again on its own every time you open the app.' : 'Automatic syncing is off.'}
+          <strong>Connected.</strong>
+          ${s.physiappLastSync ? `Last checked ${esc(when12(s.physiappLastSync))}.` : 'Not checked yet.'}
+          ${s.physiappLastImport ? `Last new results ${esc(when12(s.physiappLastImport))}.` : ''}
+          ${auto ? 'It checks again on its own when you open the app on the Mac.' : 'Automatic checking is off.'}
+          ${SERVER_MODE ? '<span data-pa-live></span>' : ''}
         </div>` : ''}
 
         <details class="disc" style="margin-bottom:.6rem" ${connected ? '' : 'open'}>
@@ -224,16 +232,16 @@ export function renderSettings() {
             reading those would invent a session you never did. The sync ignores anything without a
             real recorded result behind it, whatever the form says.
             <br><br>
-            <strong>Rows come in as "both", not left/right.</strong> PhysiApp records one figure per
-            exercise with no side split, so splitting it across two rows would be a guess. Add the
-            side breakdown yourself on Today if it matters for an exercise.
+            <strong>Results come in as one row for both legs.</strong> PhysiApp records one figure per
+            exercise with no side split. The exercise counts as done, and nothing reads it as a
+            separate left and right result. Rows you opened here are left exactly as they were.
             <br><br>
-            <strong>Anything you logged here by hand is never overwritten.</strong> If a row already
-            exists for an exercise and it didn't come from PhysiApp, your numbers win and the sync
-            reports it as kept.
+            <strong>Anything you logged or changed here is never overwritten.</strong> A row you
+            ticked by hand wins. An imported row you untick, or whose numbers, load or note you
+            change, is yours from then on.
             <br><br>
-            <strong>Load, band colour, cardio and seconds stay yours.</strong> PhysiApp has no field
-            for most of them, so it can neither fill them in nor clear them.
+            <strong>Names must match exactly.</strong> If your clinician renames an exercise, it is
+            listed for you to look at instead of being filed under a guess.
           </div>
         </details>
       </div>
@@ -404,6 +412,18 @@ export function bindSettings(root, ctx, rerender) {
     rerender();
   });
 
+  // The Mac's last attempt lives in the server's memory, not the synced
+  // document, so an attempt that failed is still reported honestly.
+  const live = root.querySelector('[data-pa-live]');
+  if (live) {
+    fetch('/api/physiapp/status').then((r) => r.json()).then((st) => {
+      if (st.off) { live.textContent = 'PhysiApp is switched off on this server.'; return; }
+      if (st.lastError && st.lastAttempt) {
+        live.textContent = `The last attempt, ${when12(st.lastAttempt)}, failed: ${st.lastError}`;
+      }
+    }).catch(() => {});
+  }
+
   const status = root.querySelector('[data-pa-status]');
   root.querySelectorAll('[data-pa-sync]').forEach((btn) => {
     btn.addEventListener('click', async () => {
@@ -436,10 +456,11 @@ export function bindSettings(root, ctx, rerender) {
         const bits = [];
         if (out.added) bits.push(`${out.added} added`);
         if (out.updated) bits.push(`${out.updated} updated`);
+        if (out.unchanged) bits.push(`${out.unchanged} unchanged`);
         if (out.keptYours) bits.push(`${out.keptYours} of yours kept`);
         toast(`<b>${esc(out.message)}</b>${bits.length ? `<br><span>${esc(bits.join(' · '))}</span>` : ''}`);
-        if (out.unmapped?.length) {
-          toast(`<b>Not recognised</b><br><span>${esc(out.unmapped.join(', '))}</span>`, 'warn');
+        if (out.review?.length) {
+          toast(`<b>Needs a look: not in your program by that name</b><br><span>${esc(out.review.map((r) => `${r.name || 'unnamed'} (${r.date})`).join(', '))}</span>`, 'warn');
         }
         // The server wrote straight to the file, so this tab's copy is stale.
         await load();

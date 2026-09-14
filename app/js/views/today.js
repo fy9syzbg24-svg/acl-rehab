@@ -20,6 +20,7 @@ import { openExercisePicker, allExercises, exerciseById, openMeasureEntry, loadB
 import { minutesFor, fmtMins } from '../timing.js';
 import { streakDays } from '../insights.js';
 import { renderSuppGroups, bindSuppGroups, suppScore, prnSummary } from './supplements.js';
+import { itemStatus, isDone, sidesFor, setLogged, newEntriesFor as makeEntries } from '../logging.js';
 
 const EFFUSION = ['', 'Zero', 'Trace', '1+', '2+', '3+'];
 const ALL_ITEMS = REHAB_PROGRAM.concat(GYM_PROGRAM);
@@ -44,9 +45,9 @@ function rowMinutes(item, ex = exerciseById(item.ex)) {
   return minutesFor(item, ex, state.data, last);
 }
 
-/** Green means logged: ticked, or confirmed with the Log it button. */
-function isLogged(mine) {
-  return mine.length > 0 && mine.every((e) => e.logged);
+/** Green means every required side confirmed. See itemStatus in logging.js. */
+function isLogged(item, entries) {
+  return isDone(item, entries);
 }
 
 export function renderToday(ctx) {
@@ -90,7 +91,7 @@ export function renderToday(ctx) {
  */
 function dayHead(iso, planned, extras, entries, ctx) {
   const plan = dayPlanFor(state.data, iso);
-  const doneP = planned.filter((p) => isLogged(entries.filter((e) => e.pid === p.id)));
+  const doneP = planned.filter((p) => isLogged(p, entries));
   const doneN = doneP.length + extras.filter((e) => e.logged).length;
   const total = planned.length + extras.length;
   const mins = planned.reduce((a, p) => a + rowMinutes(p).mins, 0);
@@ -158,27 +159,32 @@ function catStyle(ex) {
 function checkRow(item, iso, entries, ctx) {
   const ex = exerciseById(item.ex);
   const mine = entries.filter((e) => e.pid === item.id);
+  const status = itemStatus(item, entries);
   const started = mine.length > 0;
-  const done = isLogged(mine);
+  const done = status.state === 'done';
+  const partial = status.state === 'partial';
+  // Only confirmed rows are results. Scaffolding from opening the row keeps
+  // showing the prescription, so a prefilled number never reads as done.
+  const confirmed = mine.filter((e) => e.logged);
   const editing = started && ctx.editing === item.id;
   const band = state.data.program.band[item.id] ?? item.band ?? '';
   const name = item.title || ex?.name || item.ex;
   // A logged cardio row shows the minutes it actually took.
-  const logged = started && ex?.cardio ? num(mine[0].time) : null;
+  const logged = confirmed.length && ex?.cardio ? num(confirmed[0].time) : null;
   const m = logged ? { mins: Math.round(logged), src: 'logged' } : rowMinutes(item, ex);
 
   return `
-  <div class="crow ${done ? 'done' : ''} ${started && !done ? 'started' : ''} ${editing ? 'editing' : ''} ${ctx.pop === item.id ? 'pop' : ''}" data-pid="${esc(item.id)}"${catStyle(ex)}>
+  <div class="crow ${done ? 'done' : ''} ${partial ? 'partial' : ''} ${started && !done && !partial ? 'started' : ''} ${editing ? 'editing' : ''} ${ctx.pop === item.id ? 'pop' : ''}" data-pid="${esc(item.id)}"${catStyle(ex)}>
     <div class="crow-head">
-      <input type="checkbox" class="tick" data-ptoggle="${esc(item.id)}" ${done ? 'checked' : ''} aria-label="Done: ${esc(name)}">
+      <input type="checkbox" class="tick" data-ptoggle="${esc(item.id)}" ${done ? 'checked' : ''} aria-label="Done: ${esc(name)}${partial ? ', partly done' : ''}">
       ${item.thumb
         ? `<button class="crow-shot" data-bigpic="${esc(item.id)}" title="Show it bigger"><img src="${esc(item.thumb)}" alt="" decoding="async"></button>`
         : `<span class="crow-shot plain">${thumb(item.ex, 34)}</span>`}
       <div class="crow-main" data-rowclick="${esc(item.id)}">
         <span class="crow-name">${esc(name)}</span>
-        <span class="crow-sub">${started ? entryChips(mine) : prescriptionLine(item, band)}</span>
-        ${item.notYet && !started ? `<span class="crow-note warn">${esc(item.notYetNote)}</span>` : ''}
-        ${item.pre && !started ? `<span class="crow-note">${esc(item.preShort || item.pre)}</span>` : ''}
+        <span class="crow-sub">${confirmed.length ? entryChips(confirmed) + statusNote(status) : prescriptionLine(item, band)}</span>
+        ${item.notYet && !confirmed.length ? `<span class="crow-note warn">${esc(item.notYetNote)}</span>` : ''}
+        ${item.pre && !confirmed.length ? `<span class="crow-note">${esc(item.preShort || item.pre)}</span>` : ''}
       </div>
       <span class="crow-mins ${m.src}" data-rowclick="${esc(item.id)}"
         title="${m.src === 'yours' ? 'Your number' : m.src === 'logged' ? 'What you logged' : 'Estimated from the prescription. Open the row to change it.'}">${m.mins}<small>min</small></span>
@@ -210,7 +216,7 @@ function extraRow(e, iso, ctx) {
 /** The folded group under the list. Open state lives on ctx so a tick does not close it. */
 function restGroup(rows, iso, entries, ctx, label) {
   if (!rows.length) return '';
-  const done = rows.filter((p) => isLogged(entries.filter((e) => e.pid === p.id))).length;
+  const done = rows.filter((p) => isLogged(p, entries)).length;
   return `
   <details class="fold" data-rest="openRest" ${ctx.openRest ? 'open' : ''}>
     <summary>${esc(label)} · ${rows.length}${done ? ` <span class="good">${done} done</span>` : ''}</summary>
@@ -258,6 +264,20 @@ function boards(item, ex) {
   return `<div class="boards">${html}</div>`;
 }
 
+/** The small print after a result: which side is still to do, or that one
+ *  figure covers both legs. Secondary, never the headline. */
+function statusNote(status) {
+  const bits = [];
+  if (status.state === 'partial') {
+    bits.push(status.missing?.length
+      ? `${status.missing.map((s) => (s === 'L' ? 'left' : s === 'R' ? 'right' : 'both')).join(' and ')} still to do`
+      : 'partly done');
+  }
+  if (status.unsplit) bits.push('one figure for both legs');
+  if (status.imported) bits.push('PhysiApp');
+  return bits.length ? `<span class="srcnote">${esc(bits.join(' · '))}</span>` : '';
+}
+
 /** One-line readout of what was entered, for a started or done row. */
 function entryChips(mine) {
   if (!mine.length) return '';
@@ -269,6 +289,7 @@ function entryChips(mine) {
     if (num(e.load)) bits.push(`${round(num(e.load), 2)} ${e.loadUnit || state.data.settings.weightUnit}`);
     if (num(e.time)) bits.push(`${round(num(e.time), 2)} min`);
     if (num(e.secs)) bits.push(`${round(num(e.secs), 1)} s`);
+    else if (num(e.hold)) bits.push(`hold ${round(num(e.hold), 1)} s`);
     if (num(e.secsL) != null || num(e.secsR) != null) bits.push(`L ${e.secsL ?? '·'} · R ${e.secsR ?? '·'} s`);
     if (num(e.testL) != null || num(e.testR) != null) bits.push(`best L ${e.testL ?? '·'} · R ${e.testR ?? '·'}`);
     if (num(e.resistance)) bits.push(`level ${e.resistance}`);
@@ -592,7 +613,7 @@ function entryFields(e, ex) {
 
   if (ex?.cardio) {
     return `
-    <div class="pfields" data-entry="${esc(e.id)}">
+    <div class="pfields ${e.logged ? '' : 'prefill'}" data-entry="${esc(e.id)}">
       ${side}
       <label class="fld">Minutes<input type="number" step="any" min="0" data-f="time" value="${e.time ?? ''}"></label>
       <label class="fld">Level 1 to 20<input type="number" step="1" min="1" max="20" data-f="resistance" value="${e.resistance ?? ''}"></label>
@@ -603,7 +624,7 @@ function entryFields(e, ex) {
   }
 
   return `
-  <div class="pfields" data-entry="${esc(e.id)}">
+  <div class="pfields ${e.logged ? '' : 'prefill'}" data-entry="${esc(e.id)}" ${e.logged ? '' : 'title="Filled in from last time. Not logged until you confirm it."'}>
     ${side}
     <label class="fld">Sets<input type="number" step="1" min="0" data-f="sets" value="${e.sets ?? ''}"></label>
     ${repsFields(e)}
@@ -640,30 +661,30 @@ function alreadyLogged(day, exId, side) {
   return (day.entries || []).some((e) => e.ex === exId && (e.side || 'B') === (side || 'B'));
 }
 
-function sidesFor(item) {
-  if (item.sides === 'each') return ['L', 'R'];
-  if (item.sides === 'left') return ['L'];
-  if (item.sides === 'right') return ['R'];
-  return ['B'];
+function newEntriesFor(item, ex, logged = false) {
+  return makeEntries(item, ex, {
+    logged,
+    prev: (side) => lastEntry(item.ex, side),
+    weightUnit: state.data.settings.weightUnit,
+    band: state.data.program.band[item.id] || '',
+  });
 }
 
-function newEntriesFor(item, ex, logged = false) {
-  return sidesFor(item).map((side) => {
-    const prev = lastEntry(item.ex, side);
-    return {
-      id: uid(),
-      pid: item.id,
-      ex: item.ex,
-      logged,
-      side,
-      sets: prev?.sets ?? item.sets ?? null,
-      reps: prev?.reps ?? item.reps ?? null,
-      load: prev?.load ?? null,
-      loadUnit: prev?.loadUnit || state.data.settings.weightUnit,
-      time: prev?.time ?? null,
-      band: ex?.usesBand ? (state.data.program.band[item.id] || prev?.band || item.band || '') : undefined,
-    };
-  });
+/**
+ * Tick a program item done. Rows he already has are confirmed; a required
+ * side with no row gets one, unless an unsplit result already covers it.
+ */
+function tickItem(d, item, on) {
+  const mine = d.entries.filter((e) => e.pid === item.id);
+  if (!on) { setLogged(mine, false); return; }
+  if (!mine.length) { d.entries.push(...newEntriesFor(item, exerciseById(item.ex), true)); return; }
+  const coversAll = mine.some((e) => (e.side || 'B') === 'B');
+  if (!coversAll) {
+    const fresh = newEntriesFor(item, exerciseById(item.ex), true)
+      .filter((row) => !mine.some((e) => (e.side || 'B') === row.side));
+    d.entries.push(...fresh);
+  }
+  setLogged(mine, true);
 }
 
 function newCatEntry(exId) {
@@ -757,9 +778,10 @@ function openDayMenu(iso, ctx, rerender) {
             const d = ensureDay(iso);
             for (const e of last.entries) {
               const mine = d.entries.filter((x) => x.pid === e.pid && (x.side || 'B') === (e.side || 'B'));
-              if (mine.length) { for (const x of mine) { x.logged = true; marked.push(x); } continue; }
-              const { id, seeded, via, paSnap, ...rest } = e;
-              const row = { id: uid(), ...rest, logged: true };
+              if (mine.length) { setLogged(mine, true); marked.push(...mine); continue; }
+              const { id, seeded, via, paSnap, doneAt, timing, runId, partial, ...rest } = e;
+              const row = { id: uid(), ...rest };
+              setLogged([row], true);
               d.entries.push(row);
               marked.push(row);
             }
@@ -774,9 +796,7 @@ function openDayMenu(iso, ctx, rerender) {
             const d = ensureDay(iso);
             for (const item of (planned.length ? planned : ALL_ITEMS)) {
               if (item.notYet) continue;
-              const mine = d.entries.filter((e) => e.pid === item.id);
-              if (mine.length) { for (const e of mine) e.logged = true; continue; }
-              d.entries.push(...newEntriesFor(item, exerciseById(item.ex), true));
+              tickItem(d, item, true);
             }
           });
         }
@@ -788,7 +808,7 @@ function openDayMenu(iso, ctx, rerender) {
           update(() => {
             const d = ensureDay(iso);
             for (const e of state.data.days[prev].entries) {
-              const { id, seeded, via, paSnap, ...rest } = e;
+              const { id, seeded, via, paSnap, doneAt, timing, runId, partial, ...rest } = e;
               if (rest.pid && d.entries.some((x) => x.pid === rest.pid)) continue;
               if (alreadyLogged(d, rest.ex, rest.side)) continue;
               d.entries.push({ id: uid(), ...rest, logged: false });
@@ -910,9 +930,7 @@ export function bindToday(root, ctx, rerender) {
     if (!item) return;
     update(() => {
       const d = ensureDay(iso);
-      const mine = d.entries.filter((e) => e.pid === pid);
-      if (!mine.length) d.entries.push(...newEntriesFor(item, exerciseById(item.ex), true));
-      else for (const e of mine) e.logged = cb.checked;
+      tickItem(d, item, cb.checked);
       if (cb.checked) pbCheck(iso, d.entries.filter((e) => e.pid === pid));
     });
     if (cb.checked) testToast(recordAsTests(iso, ensureDay(iso).entries.filter((e) => e.pid === pid)));
@@ -925,7 +943,7 @@ export function bindToday(root, ctx, rerender) {
   root.querySelectorAll('[data-etoggle]').forEach((cb) => cb.addEventListener('change', () => {
     update(() => {
       const e = ensureDay(iso).entries.find((x) => x.id === cb.dataset.etoggle);
-      if (e) e.logged = cb.checked;
+      if (e) setLogged([e], cb.checked);
     });
     if (cb.checked) {
       const e = ensureDay(iso).entries.find((x) => x.id === cb.dataset.etoggle);
@@ -960,7 +978,7 @@ export function bindToday(root, ctx, rerender) {
     update(() => {
       for (const e of ensureDay(iso).entries) {
         if (catEx ? (e.ex === catEx && !e.pid) : (e.pid === key || e.id === key)) {
-          e.logged = true;
+          setLogged([e], true);
           marked.push(e);
         }
       }
@@ -1025,8 +1043,10 @@ export function bindToday(root, ctx, rerender) {
     update(() => {
       const d = ensureDay(iso);
       const mine = d.entries.filter((e) => e.ex === exId && !e.pid);
-      if (mine.length) { for (const e of mine) e.logged = cb.checked; return; }
-      d.entries.push({ ...newCatEntry(exId), logged: cb.checked });
+      if (mine.length) { setLogged(mine, cb.checked); return; }
+      const row = newCatEntry(exId);
+      setLogged([row], cb.checked);
+      d.entries.push(row);
     });
     ctx.editing = null;
     ctx.openGoals = true;

@@ -31,3 +31,6 @@ app/dev-engine.js
 
 # The time estimate tests, same class as the other dev-only harness files.
 app/dev-timing.js
+
+# Every dev-only test module (dev-logging.js, dev-player.js, ...).
+app/dev-*.js

@@ -29,6 +29,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import physiapp  # noqa: E402  (local module, must follow the path insert)
+import pa_import  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent
 APP_DIR = ROOT / "app"
@@ -122,37 +123,15 @@ def _pa_drop_session() -> None:
     _pa_session = _pa_session_for = None
 
 
-# Fields PhysiApp is the authority on. Anything else on an entry, load, band,
-# secs, notes you typed, is yours and never written by a sync.
-PA_FIELDS = ("reps", "sets", "hold")
+# The merge rules live in pa_import.py, pure and tested. This file only
+# fetches, locks and saves.
 
+# What the last attempt did, for an honest status line. Memory only: a check
+# is Mac state, and writing it into the synced document would push a change to
+# every device after every look at PhysiApp.
+_pa_status = {"lastAttempt": None, "lastError": None, "lastErrorKind": None}
 
-def _pa_apply(entry: dict, rec: dict) -> None:
-    """Write one PhysiApp result onto an entry, and remember what they said."""
-    entry["logged"] = True
-    entry["via"] = "physiapp"
-    for k in PA_FIELDS:
-        if rec.get(k) is not None:
-            entry[k] = rec[k]
-    if rec.get("weight"):
-        entry["load"] = rec["weight"]
-        entry["loadUnit"] = rec.get("weightUnit") or "lb"
-    if rec.get("feedback"):
-        entry["notes"] = rec["feedback"]
-    entry["paSnap"] = {k: entry.get(k) for k in PA_FIELDS}
-
-
-def _pa_edited(entry: dict) -> bool:
-    """True if you changed a synced row by hand since it last came across.
-
-    Without this, every re-sync would quietly undo your correction. The
-    snapshot is what PhysiApp last reported; if the row no longer matches it,
-    the difference is yours and wins.
-    """
-    snap = entry.get("paSnap")
-    if not isinstance(snap, dict):
-        return False
-    return any(entry.get(k) != snap.get(k) for k in PA_FIELDS)
+PHYSIAPP_OFF = False
 
 
 def physiapp_sync(payload) -> dict:
@@ -196,113 +175,75 @@ def physiapp_sync(payload) -> dict:
             except ValueError:
                 pass
 
+    _pa_status["lastAttempt"] = datetime.now().isoformat(timespec="seconds")
     try:
         session = _pa_get_session(creds)
-    except physiapp.PhysiAppError:
+    except physiapp.PhysiAppError as exc:
         _pa_drop_session()
+        _pa_status["lastError"] = str(exc)
+        _pa_status["lastErrorKind"] = getattr(exc, "kind", "network")
         raise
 
     items = {i["id"]: i for i in load_program_items()}
     dates = physiapp.date_range(days, payload.get("date"))
-    added = updated = kept = filled = 0
-    unmapped: list = []
-    per_day: dict = {}
 
     # ---- phase 1: the network walk, unlocked --------------------------
     harvest: dict = {}
     saw_program = False
-    for date in dates:
-        try:
-            got = physiapp.fetch_day(session, date)
-        except physiapp.PhysiAppError:
-            # A cached session can expire mid-sync. Sign in once more and
-            # carry on; if that fails too, the error is real.
-            _pa_drop_session()
-            session = _pa_get_session(creds)
-            got = physiapp.fetch_day(session, date)
-        saw_program = saw_program or got["hasProgram"]
-        if got["records"]:
-            harvest[date] = got["records"]
+    try:
+        for date in dates:
+            try:
+                got = physiapp.fetch_day(session, date)
+            except physiapp.PhysiAppError:
+                # A cached session can expire mid-sync. Sign in once more and
+                # carry on; if that fails too, the error is real.
+                _pa_drop_session()
+                session = _pa_get_session(creds)
+                got = physiapp.fetch_day(session, date)
+            saw_program = saw_program or got["hasProgram"]
+            if got["records"]:
+                harvest[date] = got["records"]
 
-    if not saw_program:
-        # Every date came back with no tiles at all. One empty date is normal
-        # (before the program started); all of them means we are no longer
-        # reading their page correctly, and silence would be worse than noise.
-        raise physiapp.PhysiAppError(
-            "PhysiApp showed no program at all between %s and %s, their page layout may have changed."
-            % (_pretty(dates[0]), _pretty(dates[-1])), "markup")
+        if not saw_program:
+            # Every date came back with no tiles at all. One empty date is normal
+            # (before the program started); all of them means we are no longer
+            # reading their page correctly, and silence would be worse than noise.
+            raise physiapp.PhysiAppError(
+                "PhysiApp showed no program at all between %s and %s, their page layout may have changed."
+                % (_pretty(dates[0]), _pretty(dates[-1])), "markup")
+    except physiapp.PhysiAppError as exc:
+        _pa_status["lastError"] = str(exc)
+        _pa_status["lastErrorKind"] = getattr(exc, "kind", "network")
+        raise
 
     # ---- phase 2: merge and save, locked and quick --------------------
     with _lock:
         data = read_data()  # re-read: the app may have saved while we fetched
         settings = data.setdefault("settings", {})
-        for date, found in harvest.items():
-            day = data.setdefault("days", {}).setdefault(
-                date, {"checkin": {}, "checklist": {}, "notes": "", "entries": []})
-            day.setdefault("entries", [])
-            names = []
-            for rec in found:
-                pid = rec.get("pid")
-                item = items.get(pid)
-                if not item:
-                    unmapped.append(rec.get("name") or "index %s" % rec.get("index"))
-                    continue
-                names.append(item["id"])
-                mine = [e for e in day["entries"] if e.get("pid") == pid]
-                theirs = [e for e in mine if e.get("via") == "physiapp"]
-                manual = [e for e in mine if e.get("via") != "physiapp"]
-
-                if any(e.get("logged") for e in manual):
-                    # You ticked this off here yourself. Yours stands.
-                    kept += 1
-                    continue
-                if manual:
-                    # Unlogged rows: scaffolding the app creates when you open
-                    # an exercise, not a claim about what you did. Letting them
-                    # block a real PhysiApp result left the exercise showing as
-                    # not done when you had in fact done it. Fill them instead.
-                    # Both sides get the same figure. PhysiApp does not split
-                    # left from right.
-                    for e in manual:
-                        _pa_apply(e, rec)
-                    filled += len(manual)
-                    continue
-                if theirs:
-                    # There can be more than one, a filled left/right pair.
-                    # Each is judged on its own: an edited row is yours and
-                    # stands, the rest track PhysiApp.
-                    for e in theirs:
-                        if _pa_edited(e):
-                            # You corrected this after it synced. Leave it , 
-                            # an auto-sync on every open must never undo that.
-                            kept += 1
-                        else:
-                            _pa_apply(e, rec)
-                            updated += 1
-                else:
-                    entry = {"id": _uid(), "pid": pid, "ex": item["ex"], "side": "B"}
-                    _pa_apply(entry, rec)
-                    day["entries"].append(entry)
-                    added += 1
-            if names:
-                per_day[date] = len(names)
-
-        settings["physiappLastSync"] = datetime.now().isoformat(timespec="seconds")
+        out = pa_import.merge(data, harvest, items, int(time.time() * 1000))
+        now = datetime.now().isoformat(timespec="seconds")
+        settings["physiappLastSync"] = now
+        if out["added"] or out["updated"]:
+            settings["physiappLastImport"] = now
         write_data(data)
+    _pa_status["lastError"] = _pa_status["lastErrorKind"] = None
 
-    touched = added + updated + filled
+    new = out["added"] + out["updated"]
     span = _pretty(dates[0]) if days == 1 else "%s to %s" % (_pretty(dates[0]), _pretty(dates[-1]))
-    if touched:
-        msg = "Brought in %d exercise%s from PhysiApp (%s)" % (
-            touched, "" if touched == 1 else "s", span)
-    elif kept:
-        msg = "Nothing new: %s already logged here by hand (%s)" % (
-            "it was" if kept == 1 else "they were", span)
+    if new:
+        msg = "Brought in %d exercise%s from PhysiApp (%s)" % (new, "" if new == 1 else "s", span)
+    elif out["review"]:
+        msg = "%d PhysiApp exercise%s need%s a look: the name did not match your program (%s)" % (
+            len(out["review"]), "" if len(out["review"]) == 1 else "s",
+            "s" if len(out["review"]) == 1 else "", span)
+    elif out["keptYours"] or out["unchanged"]:
+        msg = "Checked PhysiApp: nothing new (%s)" % span
     else:
         msg = "PhysiApp has nothing ticked off for %s" % span
-    return {"ok": True, "message": msg, "dates": dates, "added": added,
-            "updated": updated, "filled": filled, "keptYours": kept, "perDay": per_day,
-            "unmapped": unmapped, "syncedAt": settings["physiappLastSync"]}
+    return {"ok": True, "message": msg, "dates": dates, "added": out["added"],
+            "updated": out["updated"], "unchanged": out["unchanged"],
+            "keptYours": out["keptYours"], "perDay": out["perDay"],
+            "review": out["review"], "syncedAt": settings["physiappLastSync"]}
 
 
 class DataUnreadable(Exception):
@@ -408,6 +349,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
             port = self.server.server_address[1]
             self._json(200, {"lan": ("http://%s:%s" % (ip, port)) if ip else None, "port": port})
             return
+        if self.path.split("?")[0] == "/api/physiapp/status":
+            self._json(200, dict(_pa_status, off=PHYSIAPP_OFF))
+            return
         if self.path.split("?")[0] == "/api/data":
             with _lock:
                 try:
@@ -437,6 +381,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def do_POST(self):  # noqa: N802
         if self.path.split("?")[0] != "/api/physiapp/sync":
             self._json(404, {"error": "unknown endpoint"})
+            return
+        if PHYSIAPP_OFF:
+            # A test copy: never sign in to their site, whatever the data says.
+            self._json(200, {"ok": True, "skipped": "off", "message": ""})
             return
         try:
             length = int(self.headers.get("Content-Length") or 0)
@@ -535,10 +483,15 @@ def main() -> int:
     ap.add_argument("--port", type=int, default=8757)
     ap.add_argument("--no-browser", action="store_true")
     ap.add_argument("--data", type=Path, help="use a different data file (for testing)")
+    ap.add_argument("--no-physiapp", action="store_true",
+                    help="refuse PhysiApp imports (test copies must never reach their site)")
     args = ap.parse_args()
 
     if args.data:
         use_data_file(args.data)
+    if args.no_physiapp:
+        global PHYSIAPP_OFF
+        PHYSIAPP_OFF = True
 
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     if not APP_DIR.is_dir():

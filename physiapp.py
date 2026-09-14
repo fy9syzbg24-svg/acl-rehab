@@ -66,13 +66,11 @@ NAME_TO_PID = {
     "wall squats with hip adduction (vmo)": "pa16",
 }
 
-# Fallback only, if the clinician renames an exercise. Their tile order is not our
-# numbering: index 12 is the jump-prep progression, which we call pa15.
-INDEX_TO_PID = {
-    0: "pa01", 1: "pa02", 2: "pa03", 3: "pa04", 4: "pa05", 5: "pa06",
-    6: "pa07", 7: "pa08", 8: "pa09", 9: "pa10", 10: "pa11", 11: "pa12",
-    12: "pa15", 13: "pa13", 14: "pa14", 15: "pa16",
-}
+# There is deliberately no positional fallback. Their tile order is not our
+# numbering (index 12 was the jump-prep progression, our pa15), and a renamed
+# or reordered exercise filed by position lands its result on the wrong row
+# without a word. An unmatched name comes back as pid None and the import
+# reports it for review instead.
 
 
 class PhysiAppError(Exception):
@@ -232,12 +230,11 @@ def parse_exercise(page: str) -> dict:
     return out
 
 
-def pid_for(name: str | None, index: int) -> str | None:
+def pid_for(name: str | None, index: int | None = None) -> str | None:
+    """Exact name match only. `index` is kept for the caller's report."""
     if name:
-        hit = NAME_TO_PID.get(name.strip().lower())
-        if hit:
-            return hit
-    return INDEX_TO_PID.get(index)
+        return NAME_TO_PID.get(name.strip().lower())
+    return None
 
 
 # ---------------------------------------------------------------------
