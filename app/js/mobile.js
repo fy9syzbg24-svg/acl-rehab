@@ -22,7 +22,7 @@ import { capture, restore, scrollTop, edgeCues } from './paintkeep.js';
 import { morphView, markOneShots } from './morph.js';
 import { pageEnter } from './motion.js';
 import { chipState } from './status.js';
-import { todayIso, postOp, applyStoredTheme, applyTheme, THEME_KEY } from './util.js';
+import { todayIso, currentDayIso, postOp, applyStoredTheme, applyTheme, THEME_KEY } from './util.js';
 import { renderToday, bindToday } from './views/today.js';
 import { renderProgram, bindProgram } from './views/program.js';
 import { renderPlan, bindPlan } from './views/planview.js';
@@ -112,11 +112,18 @@ const paint = guardPaint(viewEl, rawPaint, () => ctx.view !== lastView);
 // with what an in-place patch left on screen.
 if (new URLSearchParams(location.search).has('probe')) window.__rehabProbe = { ctx, VIEWS, viewEl };
 
+// Supplements run to 5am (currentDayIso), so midnight is not a new day there.
+const dayKey = () => (ctx.view === 'supplements' ? currentDayIso() : `${todayIso()}|${currentDayIso()}`);
+let paintedDay = '';
+
 function rawPaint(opts = {}) {
   // A small change (a tick, a time, a fold's count) is patched into the page
   // that is already there, when the view asks for it and the patch needs no new
   // control (Fable B2, morph.js). Anything else repaints in full below.
-  if (opts.soft && ctx.view === lastView && VIEWS[ctx.view]) {
+  // Only on the same day as the last full paint: after midnight (or 5am for
+  // supplements) the controls on the page still hold the old day, so a patch
+  // could show the new day while a tap still writes to the old one.
+  if (opts.soft && ctx.view === lastView && VIEWS[ctx.view] && dayKey() === paintedDay) {
     flushEdits();
     if (morphView(viewEl, VIEWS[ctx.view][0](ctx))) { edgeCues(viewEl); return; }
   }
@@ -127,6 +134,7 @@ function rawPaint(opts = {}) {
   flushEdits();   // a typed value is committed before its field is replaced
   viewEl.innerHTML = render(ctx);
   bind?.(viewEl, ctx, paint);
+  paintedDay = dayKey();
   markOneShots(viewEl);   // a patch right after a repaint keeps a tick's pop
   restore(viewEl, keep);
   // The player belongs to the tab it was opened from.

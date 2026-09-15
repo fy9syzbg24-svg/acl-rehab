@@ -204,7 +204,7 @@ export function renderSuppGroups(iso, ctx, { edit = false } = {}) {
     // it, so the row he just ticked (and its time) does not jump away.
     // Superseded 2026-09-15 by his pick: finishing a group lets it settle
     // closed after a moment (settleIfDone), unless he is still using it.
-    const open = ctx.suppOpen?.[key] ?? true;
+    const open = groupOpen(ctx, key, iso);
     return `
       <section class="suppgroup ${done ? 'done' : ''}">
         <button class="suppgrouphead" data-suppgroup="${key}" aria-expanded="${open}">
@@ -252,6 +252,17 @@ function suppRow(s, iso, ticks, ctx, edit) {
 
 const settleTimers = new Map();   // group key -> the pending settle
 
+/**
+ * Whether a group is open. A group he folds stays folded; a group that settled
+ * closed on its own stays closed for that day only, so the next morning's
+ * list is open again.
+ */
+function groupOpen(ctx, key, iso) {
+  const shutOn = ctx.suppShutOn?.[key];
+  if (shutOn && shutOn !== iso) return true;
+  return ctx.suppOpen?.[key] ?? true;
+}
+
 /** Tick and fold handlers for the shared rows. */
 export function bindSuppGroups(root, iso, ctx, rerender) {
   // A group folds and unfolds in place (Fable B5); while reordering, the
@@ -260,6 +271,8 @@ export function bindSuppGroups(root, iso, ctx, rerender) {
     const k = b.dataset.suppgroup;
     ctx.suppOpen = { ...(ctx.suppOpen || {}) };
     ctx.suppOpen[k] = open;
+    ctx.suppShutOn = { ...(ctx.suppShutOn || {}) };
+    if (ms > 180) ctx.suppShutOn[k] = iso; else delete ctx.suppShutOn[k];
     const sec = b.closest('.suppgroup');
     const edit = !!sec?.querySelector('.supplist.editing') || !!(ctx.suppEdit && b.closest('.supps-page'));
     if (!sec || edit) { rerender(); return; }
@@ -276,11 +289,11 @@ export function bindSuppGroups(root, iso, ctx, rerender) {
     const body = sec.querySelector(':scope > .fold-body');
     if (!body || !patchHead(sec, tpl, '.fold-body')) { rerender(); return; }
     if (ms > 180) body.classList.add('settling');
-    foldAway(body, ms, () => { if (!(ctx.suppOpen?.[k] ?? true)) body.remove(); });
+    foldAway(body, ms, () => { if (!groupOpen(ctx, k, iso)) body.remove(); });
   };
   root.querySelectorAll('[data-suppgroup]').forEach((b) => b.addEventListener('click', () => {
     clearTimeout(settleTimers.get(b.dataset.suppgroup));
-    setGroup(b, !(ctx.suppOpen?.[b.dataset.suppgroup] ?? true));
+    setGroup(b, !groupOpen(ctx, b.dataset.suppgroup, iso));
   }));
 
   /**
@@ -304,7 +317,7 @@ export function bindSuppGroups(root, iso, ctx, rerender) {
     sec.addEventListener('pointerdown', cancel, { once: true, capture: true });
     settleTimers.set(k, setTimeout(() => {
       sec.removeEventListener('pointerdown', cancel, { capture: true });
-      if (!sec.isConnected || !head.querySelector('.sg-count.good') || (ctx.suppOpen?.[k] ?? true) === false) return;
+      if (!sec.isConnected || !head.querySelector('.sg-count.good') || !groupOpen(ctx, k, iso)) return;
       if (sec.contains(document.activeElement) && document.activeElement.matches('input[type=time]')) return;   // the time wheel is open
       setGroup(head, false, 380);
     }, 1400));

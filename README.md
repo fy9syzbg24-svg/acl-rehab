@@ -580,6 +580,8 @@ records, backend outages and interrupted writes.
 
 `python3 tools/test_pa_import.py`: 41 assertions on the PhysiApp import rules. `python3 tools/test_server_guards.py`: 12.
 `python3 tools/test_offline_update.py`: 37. The dev suites are local files (`app/dev-*.js`, not in this repository).
+`python3 tools/qa_crawl.py` (add `--desktop` for the Mac page) presses every kind of control on every screen; see
+"His five animations, and the bug crawl".
 
 Test against a COPY, never the live file: `python3 tools/make_test_copy.py`
 writes `data/test-copy/` (PhysiApp sign-in removed, songs linked), and the
@@ -956,3 +958,35 @@ transform animates in that mode.
 Photo zoom: the zoomed picture is centred with auto margins, not grid centring, so both halves can be scrolled to
 (a centred picture wider than its box spilled its left half where no scroll reaches). Zooming by tapping keeps the
 tapped spot under the finger.
+
+## His five animations, and the bug crawl (2026-09-15)
+
+His words: "I love the animations. If anything, I want more animations. And fluid movement." A missing animation is
+a bug; never take motion out to fix speed. The five he picked:
+
+| Where | What moves | Code |
+|---|---|---|
+| Plan Complete | the day ring fills segment by segment (`--i`, `--fill-step`), the check lands after the last one (`--fill-end`), then the milestone badge drops in with a bounce (`--land-at`) | `dayring.js` (`celebrate`, returns `fillEnd`), `player.js`, `styles.css` `drfill`, `badgeland` |
+| Today | the count, the minutes and the ring's number roll to their new value on a tick (`roll`, 360 ms) | `patchToday` in `today.js` |
+| Tabs | a new page, or a new Progress panel, fades up 8 px (opacity only in light motion) | `pageEnter` in `motion.js`, called by both shells |
+| Player | Set done pulses the ring and sends a green ring out; rest, get ready or switch turning back into work sweeps once round the dial | `dialMoments` in `player.js` (`P.pulseSet` is set by the tap) |
+| Supplements | the last tick in a group slides All taken in, and 1.4 s later the group settles closed (380 ms) unless he touched it | `settleIfDone` in `supplements.js` |
+
+`roll` and `settling` are in morph.js's MOTION list so a patch never strips them mid-move.
+
+Rules the audit added:
+
+- **A soft paint only happens on the same day as the last full paint** (`dayKey` in both shells). After midnight the
+  handlers on the page still hold yesterday, so a patch could show the new day while a tap still wrote to the old
+  one. Supplements run to 5am (`currentDayIso`), so on that screen only the 5am change counts, and a tick after
+  midnight keeps its animation.
+- **A group that settled closed on its own stays closed for that supplement day only** (`ctx.suppShutOn`,
+  `groupOpen`); the next morning's list is open. A group he folds by hand stays folded as before.
+- **The set pulse is for the tap**: `readDraft` clears `pulseSet`, so a reload never replays it.
+
+`tools/qa_crawl.py` presses one control of every kind on every screen (19 phone screens including an open row, the
+knee check-in, a rest fold, an open Program row, supplement editing, the running player and photo zoom), each from a
+fresh load, and reports errors, drift, stuck motion classes, a locked page and dialogs that will not close.
+Destructive controls are skipped and `confirm()` answers No; it still ticks things, so snapshot the test copy first.
+First run: 184 phone controls, 182 on the Mac page. The only flags were Settings' Show (the access code hides again
+on a redraw, on purpose) and Test sound (a note set by the tap).

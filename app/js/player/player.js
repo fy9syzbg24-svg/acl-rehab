@@ -55,6 +55,7 @@ function readDraft() {
     const d = JSON.parse(raw);
     if (!d || d.v !== 1) return null;
     d.finishing = false;   // a reload mid-save retries from the review screen
+    d.pulseSet = false;    // the set dot pulses for the tap, never for a reload
     // A draft left running (a crash, a reload, an update) comes back
     // interrupted. The time since it was last saved is not credited.
     if (d.run?.state === 'running') {
