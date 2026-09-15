@@ -185,8 +185,12 @@ export function applyTheme(pref) {
 
   const dark = pref === 'dark'
     || (pref === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-  const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute('content', dark ? '#10151A' : '#F3F5F6');
+  // Two metas, one per system scheme (Fable C7). Automatic leaves each on its
+  // own colour; a chosen theme sets both, so the chrome matches the page.
+  for (const meta of document.querySelectorAll('meta[name="theme-color"]')) {
+    const own = /dark/.test(meta.getAttribute('media') || '') ? '#10151A' : '#F3F5F6';
+    meta.setAttribute('content', pref === 'auto' ? own : dark ? '#10151A' : '#F3F5F6');
+  }
   return dark;
 }
 

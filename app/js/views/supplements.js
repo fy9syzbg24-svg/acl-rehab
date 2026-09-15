@@ -420,11 +420,11 @@ function renderPrn(ctx, iso) {
             </span>
             <span class="prnactions">
               <button class="btn sm ${st.clear ? 'primary' : ''}" data-prn-dose="${esc(m.id)}">Log</button>
-              ${ctx.suppEdit ? `<span class="suppdel" data-prndel="${esc(m.id)}" role="button" aria-label="Remove">✕</span>` : ''}
+              ${ctx.suppEdit ? `<button class="suppdel" data-prndel="${esc(m.id)}" aria-label="Remove ${esc(m.name)}">✕</button>` : ''}
             </span>
             ${onThisDate.length ? `<span class="prndoses">
-              ${onThisDate.map((x) => `<span class="dosechip" data-dosedel="${esc(x.id)}" title="Tap to remove">
-                <b>${esc(hhmm(new Date(x.at)))}</b>${x.dose ? ` · ${esc(x.dose)}` : ''}</span>`).join('')}
+              ${onThisDate.map((x) => `<button class="dosechip" data-dosedel="${esc(x.id)}" aria-label="Remove the ${esc(m.name)} dose at ${esc(hhmm(new Date(x.at)))}">
+                <b>${esc(hhmm(new Date(x.at)))}</b>${x.dose ? ` · ${esc(x.dose)}` : ''}</button>`).join('')}
               ${onThisDate.length > 1 ? `<span class="dosetotal tiny muted">${esc(totalFor(onThisDate))}</span>` : ''}
             </span>` : ''}
           </div>

@@ -220,7 +220,7 @@ function statusLine(iso, planned, entries, ctx = {}) {
   const d = draftInfo();
   // Said once, for the visit after the player left with nothing logged (A1).
   if (ctx.todayNotice && ctx.todayNotice.iso === iso && !(d && d.phase !== 'done')) {
-    return `<div class="daystatus notice" aria-live="polite">${esc(ctx.todayNotice.text)}</div>`;
+    return `<div class="daystatus notice">${esc(ctx.todayNotice.text)}</div>`;
   }
   const t12 = (ms) => new Date(ms).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
   let html;
@@ -246,7 +246,7 @@ function statusLine(iso, planned, entries, ctx = {}) {
   } else {
     return '';
   }
-  return `<div class="daystatus ${cls}" aria-live="polite">${html}</div>`;
+  return `<div class="daystatus ${cls}">${html}</div>`;
 }
 
 /** "Monday, September 14", with the year only when it is not this year. */
@@ -596,7 +596,7 @@ function goalsGroup(iso, entries, ctx) {
       const list = showAll || !month.n ? all : all.filter((x) => !x.months || x.months.includes(month.n));
       return `
       <div class="goalgroup ${g.met ? 'met' : ''} ${open ? 'open' : ''}" style="--c:${g.colour}">
-        <button class="goalhead" data-goalgroup="${esc(g.t.id)}">
+        <button class="goalhead" data-goalgroup="${esc(g.t.id)}" aria-expanded="${open}">
           <span class="goalname">${esc(g.label)}</span>
           <span class="pips">${Array.from({ length: g.goal }, (_, i) => `<i class="${i < g.hit ? 'on' : ''}"></i>`).join('')}</span>
           <span class="tiny mono nowrap ${g.met ? 'metx' : ''}">${g.met ? 'done' : `${g.left} to go`}</span>
@@ -612,10 +612,10 @@ function goalsGroup(iso, entries, ctx) {
               <div class="crow-head">
                 <input type="checkbox" class="tick" data-cattoggle="${esc(ex.id)}" ${done ? 'checked' : ''} aria-label="Done: ${esc(ex.name)}">
                 <span class="crow-shot plain">${thumb(ex.id, 34)}</span>
-                <div class="crow-main" data-catclick="${esc(ex.id)}">
+                <button class="crow-main" data-catclick="${esc(ex.id)}" aria-expanded="${editing}">
                   <span class="crow-name">${esc(ex.name)}</span>
                   <span class="crow-sub">${started ? entryChips(mine) : (ex.clinic ? '<span class="muted">clinic</span>' : '')}</span>
-                </div>
+                </button>
               </div>
               ${editing ? mine.map((e) => entryFields(e, ex)).join('') : ''}
             </div>`;
@@ -1232,11 +1232,27 @@ function patchToday(page, iso, ctx, keys, { rows = true, rest = true } = {}) {
   return true;
 }
 
+/**
+ * The status line is announced from one live region that is never repainted
+ * (Fable D2), and only when its words change: a region inside the view was
+ * replaced on every tick, so VoiceOver read the line again each time.
+ */
+let lastStatusSaid = null;
+function sayStatus(page) {
+  const live = document.getElementById('today-live');
+  const text = page?.querySelector?.('.daystatus')?.textContent.replace(/\s+/g, ' ').trim() || '';
+  if (!live || text === lastStatusSaid) return;
+  const first = lastStatusSaid === null;
+  lastStatusSaid = text;
+  if (!first) live.textContent = text;   // not on opening the app, only on a change
+}
+
 function tickPatch(page, iso, ctx, key, rerender) {
   if (!patchToday(page, iso, ctx, [key], { rest: false })) { rerender({ soft: true }); return; }
   requestAnimationFrame(() => setTimeout(() => {
     if (!page.isConnected || (ctx.date || todayIso()) !== iso) return;
     if (!patchToday(page, iso, ctx, [], { rows: false })) rerender({ soft: true });
+    sayStatus(page);
   }, 0));
 }
 
@@ -1636,4 +1652,5 @@ export function bindToday(root, ctx, rerender) {
 
   // The supplement rows share their handlers with the Supplements tab.
   bindSuppGroups(root, suppIsoFor(iso), ctx, rerender);
+  if (root.querySelector?.(':scope > .today')) sayStatus(root.querySelector(':scope > .today'));
 }

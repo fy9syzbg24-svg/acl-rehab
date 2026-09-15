@@ -1721,27 +1721,10 @@ export function bindPlayer(root, ctx, rerender) {
     });
     P.celebrate = null;
   }
-  watchDock(player);
   syncEffects();
   paintWake();
 }
 
-/**
- * The dock's real height, reserved under the scrolling content (F12), so the
- * sound switches and the last line can always scroll clear of the transport,
- * at any text size. The keyboard is left to the browser.
- */
-let dockObserver = null;
-function watchDock(player) {
-  dockObserver?.disconnect();
-  dockObserver = null;
-  const dock = player?.querySelector('[data-p-dock]');
-  if (!dock || typeof ResizeObserver === 'undefined') return;
-  dockObserver = new ResizeObserver(() => {
-    player.style.setProperty('--dock-h', `${Math.ceil(dock.getBoundingClientRect().height)}px`);
-  });
-  dockObserver.observe(dock);
-}
 
 // -------------------------------------------------------------- close ----
 function closePlayer(ctx, rerender) {

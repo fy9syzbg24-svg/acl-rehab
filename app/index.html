@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#F3F5F6">
+<meta name="theme-color" content="#F3F5F6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#10151A" media="(prefers-color-scheme: dark)">
 <title>Rehab tracker</title>
 <link rel="stylesheet" href="styles.css">
 <link rel="icon" href="icons/icon-192.png">
@@ -18,7 +19,7 @@
         <span id="postop-strip" class="postop"></span>
       </div>
     </div>
-    <h1 class="apptitle" id="app-title">Rehab tracker</h1>
+    <div class="apptitle" id="app-title">Rehab tracker</div>
     <div class="topbar-right">
       <span id="save-state" class="save-state"></span>
       <button class="msync" id="sync-btn" title="Sync now" aria-label="Sync now">
@@ -44,6 +45,8 @@
 
 <div id="modal-root"></div>
 <div id="live-root" class="sr-only" aria-live="polite"></div>
+<!-- Today's status line, said once per change and outside the repainted view (Fable D2). -->
+<div id="today-live" class="sr-only" aria-live="polite"></div>
 
 <script type="module" src="js/app.js"></script>
 </body>

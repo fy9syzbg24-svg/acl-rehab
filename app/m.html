@@ -6,7 +6,9 @@
      the home indicator, and what makes env(safe-area-inset-*) return real
      numbers instead of zero. -->
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-<meta name="theme-color" content="#F3F5F6">
+<meta name="theme-color" content="#F3F5F6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#10151A" media="(prefers-color-scheme: dark)">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <!-- 2026-09-15: "default", not "black-translucent". Under a translucent status
      bar, iOS 26 paints a Liquid Glass blur that spilled over the app name on
@@ -18,6 +20,10 @@
 <title>Rehab tracker</title>
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+<!-- The launch screen on his iPhone 15 Pro (Fable C7). iOS reads these when the
+     app is added to the Home Screen, so they show from the next install on. -->
+<link rel="apple-touch-startup-image" href="./icons/startup-iphone-15-pro-light.png" media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait) and (prefers-color-scheme: light)">
+<link rel="apple-touch-startup-image" href="./icons/startup-iphone-15-pro-dark.png" media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait) and (prefers-color-scheme: dark)">
 <link rel="stylesheet" href="./styles.css">
 <link rel="stylesheet" href="./mobile.css">
 </head>
@@ -34,7 +40,7 @@
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg><span id="nav-back-label">Today</span>
     </button>
     <div class="mtitle-wrap">
-      <h1 class="app-title" id="app-title">Rehab</h1>
+      <div class="app-title" id="app-title">Rehab</div>
       <span class="mpostop" id="postop-strip"></span>
     </div>
     <button class="micon" id="nav-settings" aria-label="Settings">
@@ -75,6 +81,8 @@
 
 <div id="modal-root"></div>
 <div id="live-root" class="sr-only" aria-live="polite"></div>
+<!-- Today's status line, said once per change and outside the repainted view (Fable D2). -->
+<div id="today-live" class="sr-only" aria-live="polite"></div>
 
 <script type="module" src="./js/mobile.js"></script>
 </body>

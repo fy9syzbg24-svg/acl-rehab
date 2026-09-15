@@ -33,7 +33,7 @@
   --bad: #A42228;
   --bad-soft: #FBE9EA;
   --left: #176AC6;
-  --right: #AE500D;
+  --right: #A04A0C;   /* one step darker for small text: 5.08:1 on --panel-2, was 4.47 (Fable D3) */
   --recovery-ring: #53606B;
 
   --cat-strength: #6038B8;
@@ -1007,6 +1007,7 @@ ol.steps li { font-size: .82rem; margin: .18rem 0; }
 .prnstatus { grid-area: status; display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; }
 .prnactions { grid-area: actions; display: flex; align-items: center; gap: .35rem; }
 .prndoses { grid-area: doses; display: flex; gap: .3rem; flex-wrap: wrap; align-items: center; margin-top: .1rem; }
+.dosechip { min-height: 44px; display: inline-flex; align-items: center; gap: .25rem; padding: 0 .8rem; border: 1px solid var(--line); border-radius: 22px; background: var(--panel); color: var(--ink); font: inherit; font-size: .85rem; cursor: pointer; }
 .dosechip b { font-weight: 700; }
 .dosetotal { font-family: var(--mono); }
 
@@ -2237,6 +2238,13 @@ details.row-disc[open] .disc-chev { transform: rotate(90deg); }
 .ov-sec.journeysec .card { border: 0; background: none; }
 .ov-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: .4rem .6rem; margin-bottom: .7rem; }
 .ov-head h2 { font-size: 1.3rem; font-weight: 720; min-width: 0; }
+/* The quiet line under a section title (Fable C5), in place of the old card sub. */
+.ov-sub { flex-basis: 100%; font-size: .9rem; color: var(--ink-2); margin-top: -.45rem; }
+.tsrc { display: block; font-size: .8rem; color: var(--ink-2); font-weight: 450; }
+.weekhead { padding-block: .6rem; }
+.weekmonth { font-size: .9rem; color: var(--ink-2); font-weight: 600; }
+/* A day cell in This week's grid is a finger target (Fable C5, C1). */
+.daycell { width: 44px; height: 44px; border-radius: 10px; }
 .ov-count { font-size: .85rem; font-weight: 650; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-2); }
 .ov-back { margin: -.3rem 0 -.4rem -.4rem; }
 .eyebrow { font-size: .8rem; font-weight: 650; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-2); }
@@ -2446,7 +2454,7 @@ button.ov-card:active { transform: scale(.99); transition-duration: var(--press-
 /* Plan days calendar (F33): dated plan states, not record volume */
 .plancal .pc-sub { font-size: .92rem; color: var(--ink-2); margin: -.3rem 0 .8rem; }
 .pc-grid { display: flex; flex-direction: column; gap: 4px; }
-.pc-row { display: grid; grid-template-columns: 3.4rem repeat(7, minmax(0, 44px)); gap: 4px; align-items: center; }
+.pc-row { display: grid; grid-template-columns: 3.4rem repeat(7, minmax(0, 1fr)); gap: 4px; align-items: center; }   /* the cells fill the row (Fable C1) */
 .pc-head span { text-align: center; font-size: .8rem; font-weight: 600; color: var(--ink-2); }
 .pc-wk { font-size: .82rem; color: var(--ink-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .pc-cell { aspect-ratio: 1; width: 100%; min-height: 36px; border-radius: 10px; border: 1.5px solid var(--line); background: var(--panel);
@@ -2469,7 +2477,7 @@ button.pc-cell { min-height: 44px; }
 .tr-val b.picked { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 4px; }
 .tr-val b + span, .tr-val span + b { margin-top: .1rem; }
 .tr-split { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; margin-top: .6rem; }
-@container (min-width: 900px) { .tr-split { grid-template-columns: minmax(0, 1fr) var(--panel-w); } }
+@container (min-width: 56.25rem) { .tr-split { grid-template-columns: minmax(0, 1fr) var(--panel-w); } }
 .tr-plot { border-radius: 12px; outline-offset: 3px; }
 .tr-enter { animation: bodyfade var(--open-ms) var(--ease) both; }
 .tr-svg { display: block; width: 100%; height: auto; overflow: visible; }
@@ -2549,14 +2557,15 @@ tr.focus-row td:first-child { box-shadow: inset 3px 0 0 var(--ink); }
 .sess-empty b { color: var(--ink); font-size: 1.02rem; font-weight: 650; }
 .sess-more { display: flex; align-items: center; justify-content: space-between; gap: .8rem; flex-wrap: wrap; padding: .8rem .2rem 0; }
 .sess-count { font-size: .9rem; color: var(--ink-2); font-variant-numeric: tabular-nums; }
-@container (min-width: 900px) {
+/* In rem, so larger text switches to the stacked rows sooner (matrix, 200%). */
+@container (min-width: 56.25rem) {
   .sess-split { grid-template-columns: minmax(0, 1fr) var(--panel-w); }
   .sess-panel { display: block; }
   .sess-panel .sess-detail { position: sticky; top: 5rem; }
   .sess-inline { display: none; }
 }
 /* narrow: labelled rows, the whole exercise name, never truncated */
-@container (max-width: 620px) {
+@container (max-width: 38.75rem) {
   .sess-table thead { display: none; }
   body .sess table.sess-table, .sess-table tbody { display: block; }
   .sess-row { display: grid; grid-template-columns: auto 1fr; gap: .15rem .8rem; padding: .7rem .2rem; border-bottom: 1px solid var(--line-2); }

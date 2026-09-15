@@ -100,6 +100,6 @@ print("  Medical context, dates and the clinician program: memory `project-acl-r
 print("  (never in this repo -- it is the PUBLIC shell). PhysiApp sync is MAC-ONLY (CORS).")
 print("  Ring design (2026-09-14): tokens in styles.css, trend.js, sessions.js, milestones.js; program.seen is synced. See README, Ring design.")
 print("  Revision 3 (2026-09-14 late, aa962b2): turquoise actions, green = done/synced, playback audio + mix switch, paintkeep.js. README, Revision 3; REVISION-3-2026-09-14.local.md.")
-print("  Tests: tools/make_test_copy.py, then /dev-tests.html on the TEST server, port 8767 (all of dev-*.js incl. dev-rev3.js and dev-audit.js; no Node), tools/test_pa_import.py (41), tools/test_server_guards.py, tools/test_offline_update.py.")
+print("  Tests: tools/make_test_copy.py, then /dev-tests.html on the TEST server, port 8767 (355 checks: all of dev-*.js incl. dev-rev3.js, dev-audit.js, dev-morph.js; no Node), tools/test_pa_import.py (41), tools/test_server_guards.py (12), tools/test_offline_update.py (37), tools/test_fable_a.py, tools/perf_motion.py, tools/qa_matrix.py, tools/qa_taborder.py.")
 print("  Player handover: PLAYER-2026-09-14.local.md. Reps are his pace; completion is itemStatus in logging.js.")
 print("=" * 72)

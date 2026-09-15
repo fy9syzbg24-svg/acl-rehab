@@ -117,7 +117,7 @@ body.mobile {
 /* .msync / .msync-dot live in styles.css now, the desktop shows the same
    chip. Only the touch sizing is mobile's, kept slim so the title's centre
    column gets the width the name needs. */
-body.mobile .msync { min-height: 40px; padding: 0 .8rem; font-size: .82rem; }
+body.mobile .msync { min-height: 44px; padding: 0 .8rem; font-size: .82rem; }   /* 44, F22 (Fable C1: this file loads last, so 40 won) */
 
 .micon {
   flex: none; width: 44px; height: 44px; border-radius: 22px;
@@ -184,7 +184,7 @@ body.mobile textarea { min-height: 80px; }
 body.mobile .btn {
   min-height: 44px; padding: .5rem .85rem; font-size: .85rem; border-radius: 11px;
 }
-body.mobile .btn.sm { min-height: 38px; font-size: .78rem; }
+body.mobile .btn.sm { min-height: 44px; font-size: .78rem; }   /* 44, F22 (Fable C1) */
 body.mobile input[type=checkbox] { width: 24px; height: 24px; }
 
 /* Segmented controls / sub-tabs scroll instead of wrapping into a wall. */
@@ -205,11 +205,19 @@ body.mobile .editcue { opacity: 1 !important; }
 /* The week navigation reads as a centred summary, like the date pill on
    Today: it is information, not a control fighting for the left edge. */
 body.mobile .weeknav { flex-direction: column; align-items: center; gap: .35rem; }
+/* History's three filters as one row of chips on a phone (Fable C5): the
+   choice in each reads as its label, which screen readers still get. */
+@media (max-width: 620px) {
+  body.mobile .sess-tools { position: relative; flex-wrap: nowrap; overflow-x: auto; gap: .4rem; margin-inline: -.2rem; padding: 0 .2rem .2rem; scrollbar-width: none; }
+  body.mobile .sess-tools .fld, body.mobile .sess-tools .fld.wide { flex: none; min-width: 0; width: auto; }
+  body.mobile .sess-tools .fld-k { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  body.mobile .sess-tools select { width: auto; min-height: 44px; border-radius: 22px; padding: 0 2rem 0 .9rem; font-size: .92rem; max-width: 60vw; }
+}
 
 /* Compact numeric inputs: type stays 16px (or iOS zooms on focus), but the
    box is a value you can edit, not a full-height form field. */
-body.mobile .in-num { min-height: 38px; width: 64px; }
-body.mobile .sel-sm { min-height: 38px; }
+body.mobile .in-num { min-height: 44px; width: 64px; }   /* 44 on touch (Fable C1) */
+body.mobile .sel-sm { min-height: 44px; }
 
 /* Modals from components.js sit above the chrome and clear the safe areas. */
 body.mobile #modal-root .modal,
@@ -343,7 +351,7 @@ html, body.mobile { overscroll-behavior-y: contain; }
 .msync.armed .msync-dot { background: var(--accent); }
 
 /* day-set chips need a thumb-sized target */
-body.mobile .daychip { width: 32px; height: 32px; font-size: .8rem; }
+body.mobile .daychip { width: 44px; height: 44px; font-size: .9rem; }   /* 44, F22 (Fable C1) */
 
 /* the checklist circle, and the compact minutes box, sized for a finger */
 body.mobile input[type=checkbox].tick { width: 28px; height: 28px; min-height: 0; padding: 0; }
@@ -410,3 +418,82 @@ body.mobile .player .btn.big { min-height: 54px; font-size: 1.05rem; font-weight
    the dock is measured, so the page reserves its real height. */
 body.mobile .player .p-link.btn { font-size: .98rem; min-height: 44px; white-space: normal; line-height: 1.15; text-align: center; }
 @media (max-width: 360px) { body.mobile .player .p-link.btn { font-size: .88rem; gap: .25rem; padding-inline: .2rem; } }
+/* Previous, Skip rest and Next each on one line from 375 px (Fable C2): a
+   little less padding and gap buys the room; narrower, they still wrap (L06). */
+@media (min-width: 375px) {
+  body.mobile .player .p-row2 .p-link.btn { padding-inline: .25rem; gap: .3rem; }
+  body.mobile .player .p-row2 .p-link.btn > span { white-space: nowrap; }
+}
+
+/* ------------------------------------------ player, landscape (Fable C3) --- */
+/* A phone on its side (and an iPad in landscape): the step pictures on the
+   left, the phase and the dial on the right, the transport in one row. The
+   ring is on screen without scrolling. Nothing is removed and every control
+   keeps its place in the order; only the arrangement changes. */
+@media (orientation: landscape) and (max-height: 500px), (orientation: landscape) and (min-width: 1024px) {
+  body.mobile .player { max-width: 1000px; }
+  body.mobile .player .p-content {
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 1.2rem; align-items: start;
+  }
+  body.mobile .player .p-swipe { grid-column: 1; grid-row: 1 / span 6; }
+  body.mobile .player .p-content > :not(.p-swipe) { grid-column: 2; }
+  body.mobile .player .p-content > .p-phaserow { margin-top: .2rem; }
+  body.mobile .player .p-actions { flex-direction: row; align-items: center; gap: .6rem; }
+  body.mobile .player .p-actions > .p-row1 { flex: 1.3 1 0; }
+  body.mobile .player .p-actions > .p-row2 { flex: 1 1 0; }
+}
+@media (orientation: landscape) and (max-height: 500px) {
+  body.mobile .player .p-title { min-height: 0; font-size: 20px; }
+  body.mobile .player .p-img { height: clamp(110px, 36svh, 170px); }
+  body.mobile .player .p-dial { min-height: 172px; padding: 6px; }
+  body.mobile .player .btn.big { min-height: 46px; }
+  body.mobile .player .p-eyebrow { min-height: 32px; }
+}
+/* With the side rail (900 px and wider) the player's own Back sits in its
+   eyebrow, so the header keeps the app name and does not draw a second Back
+   over it (seen at 1194x834, Fable C3 matrix). */
+@media (min-width: 900px) {
+  body.mobile .mback { display: none; }
+}
+
+/* --------------------------------------- the timer to spec (Fable C4) --- */
+/* On a phone 390 px or wider the ring is 200 px: the stroke (11), the bezel
+   and the face scale with it (the drawing is a 160 unit viewBox), and the
+   digits reach the kit's 48 px. Below 390, and on a phone on its side, the
+   160 px ring stays. Digit sizes are measured clear of the inner ring with
+   10 percent added for the iPhone's wider digits (FABLE-BUILD handover). */
+@media (min-width: 390px) and (min-height: 501px) {
+  body.mobile .player .p-ring { width: 200px; height: 200px; }
+  body.mobile .player .p-dial__bezel { width: 200px; }
+  body.mobile .player .p-dial { min-height: 228px; }
+  body.mobile .player .p-center { inset: 27px; }
+  body.mobile .player .p-num { font-size: 48px; }
+  body.mobile .player .p-num.long { font-size: 36px; }
+  body.mobile .player .p-num.reps { font-size: 50px; }
+  body.mobile .player .p-num.words { font-size: 22px; }
+  body.mobile .player .p-cap { font-size: .86rem; max-width: 108px; }
+}
+
+/* ---------------------------------- touch targets found by the matrix --- */
+/* 393 px, Fable C1 exit check: the week arrows, the clinical notes' "more"
+   and the Plan days cells. On a narrow phone the week's date goes above its
+   seven cells, so each cell gets a full 44 px. */
+body.mobile .icon-btn { width: 44px; height: 44px; }
+body.mobile details.exh-more > summary { min-height: 44px; display: flex; align-items: center; }
+@media (max-width: 440px) {
+  body.mobile .pc-row { grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; }
+  body.mobile .ov-sec.plancal { padding-inline: 12px; }
+  body.mobile .pc-row .pc-wk { grid-column: 1 / -1; margin-top: .35rem; }
+  body.mobile .pc-head .pc-wk { display: none; }
+}
+body.mobile .weeknav .dp-today { white-space: nowrap; }
+/* 320 px, found by the matrix: the picture button beside a row keeps a 44 px
+   hit height, and the week arrows never shrink below it. */
+@media (max-width: 380px) { body.mobile .today .crow-shot { height: 44px; } }
+body.mobile .datenav .icon-btn { flex: none; }
+/* At large text the week's arrows, dates and This week wrap instead of
+   running off the side (matrix, 200% simulation). */
+body.mobile .weeknav .datenav { flex-wrap: wrap; justify-content: center; row-gap: .35rem; }
+body.mobile .weekmonth { text-align: center; }
+body.mobile .ov-sec .row.between { flex-wrap: wrap; column-gap: .6rem; }
+body.mobile .ov-sec .tiny, body.mobile .ov-sec .small { overflow-wrap: anywhere; }

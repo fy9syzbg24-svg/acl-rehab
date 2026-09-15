@@ -570,7 +570,7 @@ is a test asserting no unregistered top-level keys; keep it passing.
 
 ## Tests
 
-Open `/dev-tests.html` against a running server. 277 assertions (262 before the ring design): the merge
+Open `/dev-tests.html` against a running server. 355 checks on 2026-09-15 (277 at the ring design, 262 before it): the merge
 rules and the sync engine (`dev-merge.js`, `dev-engine.js`), the timing model
 (`dev-timing.js`), completion and run saving (`dev-logging.js`), the player's
 state machine with fake clocks (`dev-player.js`) and the plan streak
@@ -578,7 +578,8 @@ state machine with fake clocks (`dev-player.js`) and the plan streak
 conflicts, deletions propagating, stale devices failing to resurrect deleted
 records, backend outages and interrupted writes.
 
-`python3 tools/test_pa_import.py`: 41 assertions on the PhysiApp import rules.
+`python3 tools/test_pa_import.py`: 41 assertions on the PhysiApp import rules. `python3 tools/test_server_guards.py`: 12.
+`python3 tools/test_offline_update.py`: 37. The dev suites are local files (`app/dev-*.js`, not in this repository).
 
 Test against a COPY, never the live file: `python3 tools/make_test_copy.py`
 writes `data/test-copy/` (PhysiApp sign-in removed, songs linked), and the
@@ -893,3 +894,46 @@ Status bar, 2026-09-15: `m.html` now uses `apple-mobile-web-app-status-bar-style
 fixed solid strip under the status bar (`.sb-fill`, still present and harmless) did not stop it. iOS reads this tag
 only when the app is added to the Home Screen: an existing install keeps the old look until it is deleted and added
 again, which also clears that device's local copy and sync sign-in, so sync first and have the token ready.
+
+## Patching in place, and measuring motion (2026-09-15)
+
+A second audit held every moving part to measurements (headless Chrome at 393x852, DPR 3, touch, CPU 1x, 4x and
+6x). Record with the numbers: `FABLE-BUILD-2026-09-15.local.md` (gitignored).
+
+**Views still render HTML strings, but small changes no longer replace the view.** `app/js/morph.js` walks the
+page beside freshly rendered markup and changes only what differs: attributes, text, a checkbox's state. A picture
+keeps its node (no second decode), a field in use keeps what was typed, a `<details>` keeps its open state, and a
+data attribute the page set while binding (`data-focus-key`, `data-bound`, `data-cues`) is kept. It gives up, and
+the caller repaints in full, when a control would have to be created or removed or when an element's `data-*`
+would change, because a handler may have read those when it was bound. The shells take `rerender({ soft: true })`
+for that. **Never use it for a change that handlers closed over** (Today's date is one: date changes repaint).
+
+`app/js/fold.js` opens and closes bodies in place: a one-row grid from 0fr to 1fr, drawn shut for one frame and then
+let grow, with no layout read in the tap. Today's rows, Program's rows, the knee check-in, the supplement groups,
+the folds under Today's list and History's detail row use it. Opening a row renders that row alone.
+
+A tick patches the ticked row in the tap and the rest (count, ring, Start, status line, recovery line, fold
+summaries, foot) once that frame has been drawn. A supplement tick does the same. The emit no longer re-applies the
+theme unless it changed (setting `data-theme` again restyled the whole page after every save), and the header's fit
+is measured at the next frame.
+
+**Reduce Motion**: one block, last in `styles.css`, turns every animation and transition off; the JS folds and the
+dialog fade check it too.
+
+Tools: `tools/perf_motion.py` (every interaction at 1x, 4x, 6x: whole-view repaints, tap cost, longest frame,
+per-frame shift, image decodes, long tasks, and "drift", what a full repaint would still change after a patch;
+`reduced` checks `document.getAnimations()` under Reduce Motion), `tools/qa_matrix.py` (320, 393, 852x393, 834,
+1194, 1280 in both themes and at a 200% root font-size simulation: sideways scrolling, targets under 44 px, unnamed
+controls, h1 count, console errors), `tools/qa_taborder.py` (Tab reaches every control in order),
+`tools/test_fable_a.py` (the data-safety reproductions). `app/dev-morph.js` tests morph and fold in the browser page.
+
+**Layout decisions recorded**: the player keeps two lines for its title on a phone and two for the ring caption, so
+nothing under them moves; on a phone 390 px or wider the ring is 200 px with 48 px digits (36 px for m:ss past 9:59,
+the largest that clears the inner ring with 10% added for iPhone digits); a phone on its side shows the pictures
+left and the dial right with the transport in one row. The header's app name is not a heading (one h1 per page).
+**Settings groups stay instant** (they are forms opened rarely; only the chevron turns), everything on Today,
+Program, Supplements and History folds. The week matrix is not built below 760 px.
+
+**Fringe Planner caches**: it shares this origin, and its worker deletes caches that are not its own, which can
+include this app's offline copy when it updates. The fix belongs in the Fringe Planner; until then, after a Fringe
+Planner update run Settings, Force update the app once while online to put the files back.

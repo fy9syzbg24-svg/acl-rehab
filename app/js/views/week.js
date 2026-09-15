@@ -83,9 +83,11 @@ export function renderWeekPanel(ctx) {
     const goal = targetValue(t);
     const hit = hitsFor(t, days);
     const p = pct(hit, goal);
+    // Revision 3 surfaces (Fable C5): where the number comes from is a quiet
+    // line, not a pill.
     return `<div class="targetrow">
       <span class="small tlabel">${esc(t.label)}
-        ${t.src === 'plan' ? '<span class="pill">from plan</span>' : '<span class="pill" title="I set this starting number. Change it freely">my default</span>'}
+        <span class="tsrc">${t.src === 'plan' ? 'From the plan' : 'A starting number; change it freely'}</span>
       </span>
       <span class="tcount">
         <strong class="mono small">${hit} /</strong>
@@ -102,37 +104,35 @@ export function renderWeekPanel(ctx) {
   });
 
   return `
-    <div class="card"><div class="card-body" style="padding:.6rem .9rem">
-      <div class="row between weeknav">
+    <section class="ov-sec weekhead"><div class="row between weeknav">
         <div class="datenav">
-          <button class="icon-btn" data-wnav="-7">‹</button>
+          <button class="icon-btn" data-wnav="-7" aria-label="Previous week">‹</button>
           <span class="d">${esc(fmtDate(ws, 'short'))} to ${esc(fmtDate(addDays(ws, 6), 'short'))}</span>
-          <button class="icon-btn" data-wnav="7">›</button>
+          <button class="icon-btn" data-wnav="7" aria-label="Next week">›</button>
           ${(() => {
             // One control in one place, exactly like the "today" pill on Today:
             // always rendered, dimmed and inert when you are already here. It
             // used to swap between an accent pill and a borderless button that
             // read as plain text, same words, two different objects.
             const isNow = ws === weekStart(todayIso());
-            return `<button class="dp-today ${isNow ? 'is-today' : ''}" data-wnav="now"
-              ${isNow ? 'disabled aria-disabled="true"' : ''}>this week</button>`;
+            return `<button class="btn sm dp-today ${isNow ? 'is-today' : ''}" data-wnav="now"
+              ${isNow ? 'disabled aria-disabled="true"' : ''}>This week</button>`;
           })()}
         </div>
-        ${month ? `<span class="pill accent">${esc(month.name)} · ${esc(month.monthLabel)}</span>` : ''}
-      </div>
-    </div></div>
+        ${month ? `<span class="weekmonth">${esc(month.name)} · ${esc(month.monthLabel)}</span>` : ''}
+    </div></section>
 
     <div class="grid2">
-      <section class="card">
-        <header><h2>Weekly targets</h2><span class="sub">edit any number to suit</span></header>
-        <div class="card-body">
+      <section class="ov-sec">
+        <div class="ov-head"><h2>Weekly targets</h2><span class="ov-sub">Edit any number to suit</span></div>
+        <div>
           ${targets.length ? rows : '<div class="empty">No targets for this week: it sits outside the plan window.</div>'}
         </div>
       </section>
 
-      <section class="card">
-        <header><h2>Knee response</h2><span class="sub">pain and effusion across the week</span></header>
-        <div class="card-body">
+      <section class="ov-sec">
+        <div class="ov-head"><h2>Knee response</h2><span class="ov-sub">Pain and effusion across the week</span></div>
+        <div>
           <table class="tbl">
             <thead><tr><th>Day</th><th class="num">Pain L</th><th class="num">Pain R</th><th>Effusion</th></tr></thead>
             <tbody>
@@ -150,9 +150,9 @@ export function renderWeekPanel(ctx) {
 
     ${exerciseGrid(ws, days)}
 
-    <section class="card">
-      <header><h2>What you did</h2><span class="sub">tap a day to open it</span></header>
-      <div class="card-body scroll-x">
+    <section class="ov-sec">
+      <div class="ov-head"><h2>What you did</h2><span class="ov-sub">Tap a day to open it</span></div>
+      <div class="scroll-x">
         <table class="tbl" style="min-width:640px">
           <thead><tr><th>Day</th><th>Categories</th><th class="num">Exercises</th><th class="num">Load volume</th><th>Notes</th></tr></thead>
           <tbody>
@@ -229,12 +229,9 @@ function exerciseGrid(ws, days) {
   };
 
   return `
-  <section class="card">
-    <header>
-      <h2>Exercise by exercise</h2>
-      <span class="sub">which days you did each one</span>
-    </header>
-    <div class="card-body tight">
+  <section class="ov-sec">
+    <div class="ov-head"><h2>Exercise by exercise</h2><span class="ov-sub">Which days you did each one</span></div>
+    <div>
       <div class="tiny muted" style="margin:.3rem 0 .2rem">Targets are each exercise's own days this week. Type over any number to set your own; hover one to see where it came from.</div>
       ${section('Rehab program', REHAB_PROGRAM)}
       ${section('Gym', GYM_PROGRAM)}

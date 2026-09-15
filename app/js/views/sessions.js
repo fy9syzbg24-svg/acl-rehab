@@ -165,13 +165,13 @@ export function renderSessions(ctx, { limit = null } = {}) {
   return `
   <div class="sess">
     <div class="sess-tools">
-      <label class="fld">Sort<select data-hist="sort">
+      <label class="fld"><span class="fld-k">Sort</span><select data-hist="sort">
         <option value="new" ${h.sort === 'new' ? 'selected' : ''}>Newest first</option>
         <option value="old" ${h.sort === 'old' ? 'selected' : ''}>Oldest first</option>
         <option value="name" ${h.sort === 'name' ? 'selected' : ''}>Exercise name</option></select></label>
-      <label class="fld">Source<select data-hist="src">
+      <label class="fld"><span class="fld-k">Source</span><select data-hist="src">
         ${['all', 'Player', 'Recorded in app', 'PhysiApp'].map((v) => `<option value="${v}" ${h.src === v ? 'selected' : ''}>${v === 'all' ? 'Every source' : v}</option>`).join('')}</select></label>
-      <label class="fld wide">Exercise<select data-hist="ex">
+      <label class="fld wide"><span class="fld-k">Exercise</span><select data-hist="ex">
         <option value="all">Every exercise</option>
         ${exOptions.map(([k, n]) => `<option value="${esc(k)}" ${h.ex === k ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></label>
     </div>

@@ -303,7 +303,7 @@ NET = r"""
 OPEN_REPS = r"""
   const s = (ms) => new Promise(r => setTimeout(r, ms));
   const key = [...document.querySelectorAll('.today .crow-main[data-rowclick]')]
-    .map(b => b.dataset.rowclick).find(k => /^pa0[1-3]$/.test(k) && !document.querySelector(`input.tick[data-ptoggle="${k}"]`)?.checked);
+    .map(b => b.dataset.rowclick).find(k => /^pa(0[1-35-79]|1[0-5])$/.test(k) && !document.querySelector(`input.tick[data-ptoggle="${k}"]`)?.checked);
   if (!key) return null;
   document.querySelector(`[data-rowclick="${key}"]`).click(); await s(600);
   document.querySelector(`#row-${key} [data-timer]`)?.click(); await s(1200);

@@ -100,9 +100,9 @@ function renderHistoryPanel(ctx) {
     ${planCalendar(today, ctx)}
 
     <div class="grid2">
-      <section class="card">
-        <header><h2>Pain trend</h2><span class="sub">0 to 10, per knee</span></header>
-        <div class="card-body">
+      <section class="ov-sec">
+        <div class="ov-head"><h2>Pain trend</h2><span class="ov-sub">0 to 10, per knee</span></div>
+        <div>
           ${painPts.length ? lineChart([
             { label: 'Left', cls: 'lineL', color: 'left', points: painPts.filter((p) => num(p.c.painL) != null).map((p) => ({ date: p.date, value: num(p.c.painL) })) },
             { label: 'Right', cls: 'lineR', color: 'right', points: painPts.filter((p) => num(p.c.painR) != null).map((p) => ({ date: p.date, value: num(p.c.painR) })) },
@@ -111,14 +111,14 @@ function renderHistoryPanel(ctx) {
         </div>
       </section>
 
-      <section class="card">
-        <header><h2>Month completion</h2><span class="sub">measurable goals vs focus items</span></header>
-        <div class="card-body">
+      <section class="ov-sec">
+        <div class="ov-head"><h2>Month completion</h2><span class="ov-sub">Measurable goals and focus items</span></div>
+        <div>
           ${PLAN_MONTHS.map((m) => {
             const c = monthCompletion(m);
             const now = monthForDate(todayIso())?.id === m.id;
             return `<div style="margin-bottom:.55rem">
-              <div class="row between tiny"><span>${esc(m.name)} · ${esc(m.monthLabel)} ${now ? '<span class="pill accent">now</span>' : ''}</span>
+              <div class="row between tiny"><span>${esc(m.name)} · ${esc(m.monthLabel)}${now ? ' · <b>Now</b>' : ''}</span>
                 <span class="mono">${c.goalScore}% goals · ${c.focusDone}/${c.focusTotal} focus</span></div>
               <div class="bar"><i style="--p:${c.goalScore / 100}"></i></div>
             </div>`;
@@ -127,9 +127,9 @@ function renderHistoryPanel(ctx) {
       </section>
     </div>
 
-    <section class="card">
-      <header><h2>Where you are</h2><span class="sub">post-op timeline</span></header>
-      <div class="card-body">
+    <section class="ov-sec">
+      <div class="ov-head"><h2>Where you are</h2><span class="ov-sub">Post-op timeline</span></div>
+      <div>
         ${timeline(today)}
       </div>
     </section>
@@ -172,9 +172,9 @@ function recentDays(today) {
     </div>`);
   }
   if (!rows.length) return '';
-  return `<section class="card">
-    <header><h2>Recent days</h2><span class="sub">workouts and check-ins, last three weeks</span></header>
-    <div class="card-body"><div class="tline">${rows.join('')}</div></div>
+  return `<section class="ov-sec">
+    <div class="ov-head"><h2>Recent days</h2><span class="ov-sub">Workouts and check-ins, last three weeks</span></div>
+    <div class="tline">${rows.join('')}</div>
   </section>`;
 }
 
