@@ -1731,7 +1731,6 @@ table.tbl { font-size: .9rem; }
 .p-wake[data-state="off"], .p-wake[data-state="unavailable"] { opacity: .55; }
 .p-wake-note:empty { display: none; }
 .p-content { display: flex; flex-direction: column; }
-.p-content.p-enter { animation: pfade var(--phase-ms) var(--ease) both; }
 @keyframes pfade { from { opacity: 0; } to { opacity: 1; } }
 .p-title { font-size: clamp(22px, 6.6vw, 26px); font-weight: 760; line-height: 1.15; letter-spacing: -.015em; overflow-wrap: anywhere; margin-top: .1rem; }
 /* Two lines are kept for the title on a phone (Fable B7): swiping, the arrows
@@ -1853,11 +1852,14 @@ table.tbl { font-size: .9rem; }
 .p-pick-dots { display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; min-width: 0; }
 .p-pick-dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--track); }
 .p-pick-dots i.on { width: 18px; border-radius: 3px; background: var(--accent); }
-.p-content.p-enter.from-right { animation: pslide-r var(--phase-ms) var(--ease) both; }
-.p-content.p-enter.from-left { animation: pslide-l var(--phase-ms) var(--ease) both; }
-@keyframes pslide-r { from { opacity: 0; transform: translateX(24px); } }
-@keyframes pslide-l { from { opacity: 0; transform: translateX(-24px); } }
-@media (prefers-reduced-motion: reduce) { .p-content.p-enter.from-right, .p-content.p-enter.from-left { animation: none; } }
+/* Changing exercise (playSlide in player.js): the one being left sits in the
+   same cell, on top, while the new one slides in. */
+.p-stage { display: grid; }
+.p-stage > .p-content { grid-area: 1 / 1; min-width: 0; }
+.p-stage > .p-leaving { pointer-events: none; }
+.p-sliding { overflow-x: clip; }
+/* the dock's ground reaches both screen edges, so the sliding page never shows beside it */
+.p-sliding .player .p-actions { box-shadow: 0 0 0 100vmax var(--bg); clip-path: inset(0 -100vmax); }
 .player .p-beat { position: absolute; top: 4px; right: 4px; width: 9px; height: 9px; border-radius: 50%; background: color-mix(in srgb, var(--cat) 30%, transparent); }
 .player .p-beat.on { animation: beat var(--beat, .5s) ease-out infinite; }
 @keyframes beat { 0% { background: var(--cat); } 40% { background: color-mix(in srgb, var(--cat) 30%, transparent); } }
@@ -1927,7 +1929,7 @@ table.tbl { font-size: .9rem; }
   .player .p-img { height: clamp(130px, 19svh, 200px); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .p-logged.fresh svg path, .p-logged.fresh > span, .p-content.p-enter, .p-seg.just, .p-iseg.just, .player .p-beat.on { animation: none; }
+  .p-logged.fresh svg path, .p-logged.fresh > span, .p-seg.just, .p-iseg.just, .player .p-beat.on { animation: none; }
   .p-tool svg, .p-adj svg { transition: none; }
 }
 @media (forced-colors: active) {
@@ -2229,7 +2231,6 @@ button.recovery-line span { color: var(--ink); text-decoration: underline; text-
 .crow-body.liteout > .crow-body-clip, .fold-body.liteout > .fold-clip { animation: bodyfadeout 100ms linear both; }
 @keyframes bodyfadeout { to { opacity: 0; } }
 /* and changing exercise fades instead of sliding */
-.lite-motion .p-content.p-enter.from-right, .lite-motion .p-content.p-enter.from-left { animation-name: pfade; }
 
 /* Folds that open in place (2026-09-15, Fable B5): the knee check-in, the
    supplement groups and the two folds under the list. The same 0fr to 1fr grid

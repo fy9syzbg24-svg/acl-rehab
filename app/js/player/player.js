@@ -510,6 +510,57 @@ RING.ri = RING.r - 12;
 RING.ci = 2 * Math.PI * RING.ri;
 
 let lastContentKey = null;   // which run the screen last showed
+let pendingSlide = null;     // the exercise being left, until the new one is on screen
+
+/**
+ * Changing exercise slides (2026-09-15, his note: the old fade was so subtle he
+ * never noticed it). The redraw only detaches the exercise being left; it is
+ * put back in the same grid cell as the new one (`.p-stage`), on top, and slides
+ * out while the new one slides in from the side it came from. Finishing and
+ * carrying on, the arrows and a swipe forward come in from the right, going back
+ * from the left. Nothing is copied or measured, the pictures stay decoded, and
+ * only transform and opacity move; a crossfade at 30 frames; nothing under
+ * Reduce Motion.
+ */
+function captureLeaving(dir) {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return null;
+  const old = document.querySelector('.player[data-player] .p-stage > .p-content');
+  return old ? { dir, old } : null;   // opened from Today: the page fade covers it
+}
+
+function playSlide(player) {
+  const s = pendingSlide;
+  pendingSlide = null;
+  const stage = player?.querySelector('.p-stage');
+  const content = stage?.querySelector(':scope > .p-content');
+  if (!s || !content) return;
+  const lite = liteMotion();
+  const view = player.parentElement;
+  const old = s.old;
+  old.classList.add('p-leaving');
+  old.setAttribute('aria-hidden', 'true');
+  old.inert = true;
+  old.querySelectorAll('[id]').forEach((el) => el.removeAttribute('id'));
+  stage.appendChild(old);   // after the new one: on top, and never the first match for a query
+  if (!lite) view?.classList.add('p-sliding');
+  const out = old.animate(lite
+    ? [{ opacity: 1 }, { opacity: 0 }]
+    : [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: `translateX(${-s.dir * 56}px)` }],
+  { duration: lite ? 140 : 260, easing: 'cubic-bezier(.4, 0, .9, .6)', fill: 'forwards' });
+  const drop = () => old.remove();
+  out.finished.then(drop, drop);
+  setTimeout(drop, 600);
+  const inn = content.animate(lite
+    ? [{ opacity: 0 }, { opacity: 1 }]
+    : [
+      { opacity: 0, transform: `translateX(${s.dir * 72}px)` },
+      { opacity: 1, offset: 0.55 },
+      { opacity: 1, transform: 'none' },
+    ],
+  { duration: lite ? 220 : 460, delay: lite ? 0 : 40, easing: 'cubic-bezier(.16, 1, .3, 1)', fill: 'backwards' });
+  const done = () => view?.classList.remove('p-sliding');
+  inn.finished.then(done, done);
+}
 
 const stepKey = (run) => `${run.runId}:${run.i}:${run.state}`;
 
@@ -532,6 +583,7 @@ export function renderPlayer(ctx) {
   lastContentKey = run.runId;
   const swipeDir = P.swipeDir || 0;
   P.swipeDir = 0;
+  if (enter) pendingSlide = captureLeaving(swipeDir < 0 ? -1 : 1);
   const cat = CATEGORIES[ex?.cat]?.color || 'var(--ink-2)';
   const catEnd = ex?.cat === 'strength' ? 'var(--cat-strength-end)' : cat;
 
@@ -542,7 +594,7 @@ export function renderPlayer(ctx) {
       <span class="p-count" data-slot="count">${countLine(run)}</span>
       <span class="p-wake" data-p-wake data-state="${wakeState}" role="img" aria-label="${esc(wakeText())}">${I.wake}<span class="p-wake-note">${wakeState === 'lost' ? 'Screen may lock' : ''}</span></span>
     </div>
-    <div class="p-content ${enter ? `p-enter ${swipeDir > 0 ? 'from-right' : swipeDir < 0 ? 'from-left' : ''}` : ''}">
+    <div class="p-stage"><div class="p-content">
       <div class="p-swipe" data-p-swipe>
       <h2 class="p-title">${esc(title)}</h2>
       ${swipeButtons(run)}
@@ -566,7 +618,7 @@ export function renderPlayer(ctx) {
       <div class="p-next" data-slot="next">${esc(nextLine(run))}</div>
       <div class="p-now" data-slot="now">${nowPlaying(run)}</div>
       <div class="p-sound" role="group" aria-label="Sound" data-slot="tools">${soundTools(run)}</div>
-    </div>
+    </div></div>
     <div class="p-actions" data-p-dock>
       <div class="p-row1">
         <button class="btn big p-pause" data-p="pause" data-step="${stepKey(run)}">${pauseLabel(run)}</button>
@@ -1561,6 +1613,7 @@ export function bindPlayer(root, ctx, rerender) {
   currentRerender = () => { if (ctx.view === 'player') rerender(); };
   currentCtx = ctx;
   const player = root.querySelector('[data-player]');
+  playSlide(player);
   const run = P?.run;
   // Load his song ahead of the tap that starts it: iOS allows the first play
   // only inside that tap, so the file has to be ready by then.
