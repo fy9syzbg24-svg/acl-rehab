@@ -7,16 +7,30 @@
 // Nothing here reads layout. The body goes in already shut, is drawn shut for
 // one frame, and the next frame lets it grow: the tap itself costs no forced
 // layout, which is what made the old open cost 45 ms at 6x CPU.
+//
+// When the page is drawn at 30 frames a second (Low Power Mode, motion.js)
+// growing and folding would step, so the body appears or goes at once and
+// only fades.
 
 import { parse, morph } from './morph.js';
+import { liteMotion } from './motion.js';
 
 export const reducedMotion = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 const DONE_PAD = 40;   // ms after the transition before the classes come off
 
+const LITE_IN_MS = 160;
+const LITE_OUT_MS = 100;
+
 /** Grow a body that was just put in the page. */
 export function growIn(body, ms, onDone) {
   if (!body || reducedMotion()) { onDone?.(); return; }
+  if (liteMotion()) {
+    // 30 frames a second (Low Power Mode): in place at once, faded in.
+    body.classList.add('litein');
+    setTimeout(() => { body.classList.remove('litein'); onDone?.(); }, LITE_IN_MS + DONE_PAD);
+    return;
+  }
   body.classList.add('shut', 'animating', 'fading');
   requestAnimationFrame(() => requestAnimationFrame(() => {
     body.classList.remove('shut');
@@ -27,6 +41,11 @@ export function growIn(body, ms, onDone) {
 /** Fold a body away, then call done (which takes it out of the page). */
 export function foldAway(body, ms, done) {
   if (!body || reducedMotion()) { done(); return; }
+  if (liteMotion()) {
+    body.classList.add('liteout');
+    setTimeout(done, LITE_OUT_MS + 10);
+    return;
+  }
   body.classList.remove('fading');
   body.classList.add('animating', 'closing');
   requestAnimationFrame(() => body.classList.add('shut'));

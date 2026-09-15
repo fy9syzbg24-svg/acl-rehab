@@ -937,3 +937,22 @@ Program, Supplements and History folds. The week matrix is not built below 760 p
 **Fringe Planner caches**: it shares this origin, and its worker deletes caches that are not its own, which can
 include this app's offline copy when it updates. The fix belongs in the Fringe Planner; until then, after a Fringe
 Planner update run Settings, Force update the app once while online to put the files back.
+
+## Light motion at 30 frames a second (2026-09-15)
+
+His report: in Low Power Mode the animations were choppy again. Safari draws page animation at 60 Hz at most (its
+"Prefer Page Rendering Updates near 60fps" setting is on by default; scrolling is the system's and stays at the
+screen's rate), and in Low Power Mode iOS drops page animation, CSS and requestAnimationFrame alike, to 30 frames a
+second (WebKit bugs 168837 and 169138). A page cannot raise that or see Low Power Mode.
+
+`app/js/motion.js` watches the frames instead: a few frame gaps a moment after the app opens or comes back, and while
+a finger is down. When they run about 33 ms apart the page takes `lite-motion`: rows, folds, the knee check-in and
+History's detail appear in place and fade (160 ms in, 100 ms out) instead of growing, the row outline does not ease,
+and changing exercise in the player fades instead of sliding. At 60 frames the full motion is back by itself. Reduce
+Motion still turns everything off. Programmatic scrolls use the system's smooth scroll. Force a mode for testing with
+`localStorage['rehab.motion'] = 'lite' | 'full'`; `tools/perf_motion.py lite` checks that nothing but opacity and
+transform animates in that mode.
+
+Photo zoom: the zoomed picture is centred with auto margins, not grid centring, so both halves can be scrolled to
+(a centred picture wider than its box spilled its left half where no scroll reaches). Zooming by tapping keeps the
+tapped spot under the finger.

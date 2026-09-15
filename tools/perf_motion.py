@@ -500,7 +500,66 @@ def reduced_motion_check(c, h):
     return out
 
 
+def lite_motion_check(c, h):
+    """Light motion (motion.js, forced with localStorage 'rehab.motion'): while the
+    page runs at 30 frames a second, nothing may animate layout. Samples every
+    running animation through each fold, row and exercise change and reports any
+    property other than opacity and transform."""
+    WATCH = r"""
+      window.__props = new Set();
+      const grab = () => { for (const a of document.getAnimations()) {
+        if (a.transitionProperty) window.__props.add(a.transitionProperty);
+        else for (const k of (a.effect?.getKeyframes?.() || [])) for (const p of Object.keys(k)) if (!['offset', 'easing', 'composite', 'computedOffset'].includes(p)) window.__props.add(p);
+      } if (window.__watch) requestAnimationFrame(grab); };
+      window.__watch = true; requestAnimationFrame(grab); return 1;
+    """
+    STOP = "window.__watch = false; return [...window.__props];"
+    out = {}
+    def run(name, prep, act):
+        prep()
+        h.js("try { localStorage.setItem('rehab.motion', 'lite'); } catch {} return 1")
+        h.js(WATCH)
+        act()
+        time.sleep(0.6)
+        out[name] = h.js(STOP)
+    def today():
+        goto(h, "#today")
+    key = None
+    def open_row():
+        nonlocal key
+        key = h.js(f"return {ROW}.dataset.rowclick")
+        h.touch_tap(*h.tap_point(f"document.querySelector('[data-rowclick=\"{key}\"]')"))
+    run("row open", today, open_row)
+    run("row close", lambda: None, lambda: h.touch_tap(*h.tap_point(f"document.querySelector('[data-rowclick=\"{key}\"]')")))
+    run("knee open", today, lambda: h.touch_tap(*h.tap_point("document.querySelector('[data-panel=\"knees\"]')")))
+    run("knee close", lambda: None, lambda: h.touch_tap(*h.tap_point("document.querySelector('[data-panel=\"knees\"]')")))
+    run("supplement group", today, lambda: h.touch_tap(*h.tap_point("document.querySelector('.supps .suppgrouphead')")))
+    run("fold under the list", today, lambda: h.touch_tap(*h.tap_point("document.querySelector('details[data-rest=\"openRest\"] > summary')")))
+    run("program row", lambda: goto(h, "#program"), lambda: h.touch_tap(*h.tap_point("[...document.querySelectorAll('button.prog-main[data-popen]')][2]")))
+    def hist():
+        goto(h, "#progress")
+        h.js("document.querySelector('[data-gtab=\"history\"]').click(); await new Promise(r => setTimeout(r, 500)); return 1")
+    run("history select", hist, lambda: h.touch_tap(*h.tap_point("document.querySelectorAll('.sess:not(.compact) .sess-row')[1]")))
+    run("exercise change", lambda: _open_player(h), lambda: h.js("document.querySelector('[data-p=\"ex-next\"]').click(); return 1"))
+    _close_player(h)
+    h.js("try { localStorage.removeItem('rehab.motion'); } catch {} return 1")
+    return out
+
+
 def main():
+    if len(sys.argv) > 1 and sys.argv[1] == "lite":
+        with cdp.Chrome(tempfile.mkdtemp(prefix="rehab-perf-"), headless=True) as c:
+            c.assert_is_ours()
+            c.call("Emulation.setDeviceMetricsOverride", width=393, height=852, deviceScaleFactor=3, mobile=True)
+            c.call("Emulation.setTouchEmulationEnabled", enabled=True, maxTouchPoints=5)
+            c.call("Page.enable")
+            c.call("Page.addScriptToEvaluateOnNewDocument", source="window.confirm = () => true; window.alert = () => {};")
+            r = lite_motion_check(c, Harness(c))
+        bad = {k: [p for p in v if p not in ("opacity", "transform")] for k, v in r.items()}
+        for k, v in r.items():
+            print(f"{k:22s} {', '.join(v) or 'nothing animated'}")
+        print("light motion:", "PASS" if not any(bad.values()) else f"FAIL {bad}")
+        return
     if len(sys.argv) > 1 and sys.argv[1] == "reduced":
         with cdp.Chrome(tempfile.mkdtemp(prefix="rehab-perf-"), headless=True) as c:
             c.assert_is_ours()

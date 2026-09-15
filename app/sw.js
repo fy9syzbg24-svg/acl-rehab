@@ -68,6 +68,7 @@ const SHELL_ASSETS = [
   './js/milestones.js',
   './js/mobile.js',
   './js/morph.js',
+  './js/motion.js',
   './js/paintkeep.js',
   './js/planstreak.js',
   './js/player/audio.js',

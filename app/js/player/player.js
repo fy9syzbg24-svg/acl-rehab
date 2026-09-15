@@ -1825,7 +1825,23 @@ function openZoom(ctx, rerender) {
   };
   release = holdFocus(back, close);
   const zoomBtn = back.querySelector('[data-z="zoom"]');
-  const zoom = () => { const on = img.classList.toggle('big'); zoomBtn.setAttribute('aria-pressed', String(on)); };
+  const box = back.querySelector('.p-zoom-scroll');
+  // Zooming in keeps the spot he tapped under his finger (the Zoom button
+  // zooms on the middle); both halves can then be scrolled to.
+  const zoom = (ev) => {
+    const r = img.getBoundingClientRect();
+    const fx = ev?.clientX != null && ev.target === img ? (ev.clientX - r.left) / r.width : 0.5;
+    const fy = ev?.clientY != null && ev.target === img ? (ev.clientY - r.top) / r.height : 0.5;
+    const on = img.classList.toggle('big');
+    zoomBtn.setAttribute('aria-pressed', String(on));
+    if (!on) return;
+    const b = box.getBoundingClientRect();
+    const n = img.getBoundingClientRect();
+    const keepX = ev?.clientX != null && ev.target === img ? ev.clientX - b.left : b.width / 2;
+    const keepY = ev?.clientY != null && ev.target === img ? ev.clientY - b.top : b.height / 2;
+    box.scrollLeft = Math.max(0, n.left - b.left + box.scrollLeft + fx * n.width - keepX);
+    box.scrollTop = Math.max(0, n.top - b.top + box.scrollTop + fy * n.height - keepY);
+  };
   requestAnimationFrame(() => back.querySelector('[data-z="close"]')?.focus());
   img.addEventListener('click', zoom);
   zoomBtn.addEventListener('click', zoom);

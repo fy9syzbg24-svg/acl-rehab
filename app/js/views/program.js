@@ -17,6 +17,7 @@ import { recordScheduleVersion } from '../planstreak.js';
 import { renderHistory, bindHistory } from './exhistory.js';
 import { startExercise } from '../player/player.js';
 import { growIn, foldAway, insertBody } from '../fold.js';
+import { liteMotion } from '../motion.js';
 
 // The week matrix only shows in a container 760px wide or more (styles.css);
 // narrower, it is not built at all (Fable B9: 25 rows of 7 buttons each, drawn
@@ -238,7 +239,7 @@ function closeProgRow(row, pid, ctx, clear = true) {
   row.querySelector(`[data-popen="${CSS.escape(pid)}"]`)?.setAttribute('aria-expanded', 'false');
   if (clear && ctx.popen === pid) ctx.popen = null;
   if (!body) { row.classList.remove('open'); return; }
-  row.classList.add('closing');
+  if (!liteMotion()) row.classList.add('closing');
   foldAway(body, 240, () => { body.remove(); row.classList.remove('open', 'closing'); });
 }
 
@@ -302,8 +303,10 @@ export function bindProgram(root, ctx, rerender) {
     const body = row && item && insertBody(row, progRow(item, ctx), '.crow-body');
     if (!body) { rerender(); return; }
     bindProgram(body, ctx, rerender);
-    row.classList.add('just-open');
-    setTimeout(() => row.classList.remove('just-open'), 320);
+    if (!liteMotion()) {
+      row.classList.add('just-open');
+      setTimeout(() => row.classList.remove('just-open'), 320);
+    }
     growIn(body, 280);
     if (other) closeProgRow(other, was, ctx, false);
   }));

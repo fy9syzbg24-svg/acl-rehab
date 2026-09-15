@@ -25,6 +25,7 @@ import { renderSuppGroups, bindSuppGroups, suppScore, prnSummary, suppTime, onSu
 import { itemStatus, isDone, sidesFor, setLogged, newEntriesFor as makeEntries, runsFor } from '../logging.js';
 import { startExercise, startWorkout, resumePlayer, draftInfo, workoutQueue, readyAfter, fmtTime12 } from '../player/player.js';
 import { growIn, foldAway, insertBody, patchHead } from '../fold.js';
+import { liteMotion } from '../motion.js';
 import { parse, morph } from '../morph.js';
 
 const EFFUSION = ['', 'Zero', 'Trace', '1+', '2+', '3+'];
@@ -992,6 +993,14 @@ function scrollWindowTo(top, ms = 320) {
   const dist = Math.max(0, top) - start;
   if (Math.abs(dist) < 2) return;
   if (document.visibilityState !== 'visible') { window.scrollTo(0, Math.max(0, top)); return; }
+  // The phone's own smooth scroll where there is one: it is drawn by the
+  // system at the screen's rate, while a scroll stepped from animation frames
+  // drops to 30 frames in Low Power Mode.
+  if ('scrollBehavior' in document.documentElement.style) {
+    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    window.scrollTo({ top: Math.max(0, top), behavior: reduce ? 'auto' : 'smooth' });
+    return;
+  }
   const t0 = performance.now();
   const step = (now) => {
     const k = Math.min(1, (now - t0) / ms);
@@ -1275,8 +1284,10 @@ function openRow(row, key, item, iso, ctx, rerender) {
   const body = insertBody(row, html, '.crow-body');
   if (!body) return false;
   bindToday(body, ctx, rerender);
-  row.classList.add('just-open');                // outline and chevron ease in
-  setTimeout(() => row.classList.remove('just-open'), PANEL_OPEN_MS + 40);
+  if (!liteMotion()) {
+    row.classList.add('just-open');              // outline and chevron ease in
+    setTimeout(() => row.classList.remove('just-open'), PANEL_OPEN_MS + 40);
+  }
   growIn(body, PANEL_OPEN_MS);
   return true;
 }
@@ -1291,7 +1302,9 @@ function closeRow(row, key, ctx, clear = true) {
   row.querySelector(':scope > .crow-head [data-rowclick]')?.setAttribute('aria-expanded', 'false');
   if (clear && ctx.editing === key) ctx.editing = null;
   if (!body) { row.classList.remove('open', 'editing'); return; }
-  row.classList.add('closing');
+  // The outline eases back with the fold; at 30 frames (light motion) the
+  // body only fades, and the row is plain again in one step.
+  if (!liteMotion()) row.classList.add('closing');
   foldAway(body, PANEL_CLOSE_MS, () => {
     body.remove();
     row.classList.remove('open', 'editing', 'closing');
@@ -1485,8 +1498,10 @@ export function bindToday(root, ctx, rerender) {
     const body = [...root.querySelectorAll('.crow.open .crow-body')].find((b) => b.id === `row-${key}`);
     if (body) {
       const row = body.closest('.crow');
-      row?.classList.add('just-open');
-      setTimeout(() => row?.classList.remove('just-open'), 320);
+      if (!liteMotion()) {
+        row?.classList.add('just-open');
+        setTimeout(() => row?.classList.remove('just-open'), 320);
+      }
       growIn(body, PANEL_OPEN_MS);
     }
   }
