@@ -814,3 +814,42 @@ the row chips, which writes a dated schedule version from today.
 
 **Tests** are now 277 on `/dev-tests.html` (milestone rules added to
 `dev-streak.js`, the `program.seen` regression in `dev-merge.js`).
+
+## Revision 3, turquoise (2026-09-14, late)
+
+ChatGPT's revision 3 kit (findings F01 to F51, record `REVISION-3-2026-09-14.local.md`,
+gitignored). It refines the ring design above and supersedes it where they differ;
+nothing above is removed.
+
+**Colour contract, superseding "no gradients" and "actions are neutral":** turquoise
+(`--accent`, `--action-fill`, `--accent-soft`) marks the main action and anything
+enabled or selected; green only confirms done, and Synced; blue left, orange right;
+category tokens on rings and labels; `--bad` for errors a person can act on. The
+primary button is a restrained two stop turquoise. The journey ribbon on Progress
+and Plan uses the full spectrum (`--journey-spectrum`), the one scoped exception,
+colouring the calendar, never a forecast. Dial and ribbon art live in `app/img/dial/`
+and the service worker precaches whatever the stylesheets reference
+(`tools/gen_shell.py`, `css_assets`).
+
+**Audio:** workout sound uses the `playback` session so it plays with Silent on;
+Settings > Workout sound has a per device "Let other music keep playing"
+(`rehab.audio.mix`), which mixes with Spotify instead. Songs cycle shuffled with
+Skip; music continues across exercises.
+
+**Repaints keep state** (`paintkeep.js`): `details[data-key]` stay open or closed,
+`[data-focus-key]` keeps focus, sub tab strips keep their scroll. Any new disclosure
+that a remote sync can repaint needs a stable `data-key`. Typed fields are staged
+(`store.stageEdit`) and flushed on blur, hide or the next update, instead of stamping
+the whole document per keystroke.
+
+**Charts** (`trend.js`): weights convert to the Settings unit in the view only, every
+same day result is its own point and listed in the panel, the three ranges are
+always there, a caller can limit the measures (`measures`), the default is the newest
+per leg test. VALD compares left and right only from the same date and report.
+
+**History** pages in 50s with "Showing N of M", keeps its filters on an empty result,
+and says "Entered here" for ticks and typed records. **Plan days** replaced the
+activity heatmap: each date against the plan recorded for it. Markers say Met or
+Target not met; no calendar pace judgement.
+
+**Touch targets:** 44px after the cascade on touch devices. Tests: `dev-rev3.js`.
