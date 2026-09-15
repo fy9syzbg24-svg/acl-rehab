@@ -1000,3 +1000,22 @@ fresh load, and reports errors, drift, stuck motion classes, a locked page and d
 Destructive controls are skipped and `confirm()` answers No; it still ticks things, so snapshot the test copy first.
 First run: 184 phone controls, 182 on the Mac page. The only flags were Settings' Show (the access code hides again
 on a redraw, on purpose) and Test sound (a note set by the tap).
+
+## The tendon loading runs as one timer (2026-09-15)
+
+His ask: "30 seconds, then two minutes, then 30 seconds, then two minutes ... Just have that go as one continuous
+thing, not making me hit next and have the countdown happen and clock visually reset at the beginning and end of
+each set."
+
+Two changes:
+
+- **A bug, for every timed exercise.** Since the in-place step patch of aa962b2, a step that ended on its own patched
+  the screen but never restarted the clock loop, so a hold sat at 0:00 until Next was pressed. The loop now calls
+  `syncEffects()` before `refresh()`, exactly as a tap does (`act`). Rule: a step that ends by itself restarts the
+  clock, the cues and the music.
+- **`continuous: true` on a programme item** (the tendon loading has it). In the player (`isFlow`, `flowLeft`): the big
+  number is the whole exercise counting down (8:05 with the get ready) and never resets, the arc is the whole
+  exercise, the line under the number says Get ready, Hold or Rest with the seconds left in it (`data-p-stepclock`),
+  and each switch between hold and rest is one tone (`scheduleSwitch` in audio.js) instead of the 3, 2, 1. The
+  countdown plays only before the very end. Steps, logging, estimates and the six hour line are unchanged.
+

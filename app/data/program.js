@@ -238,6 +238,9 @@ export const REHAB_PROGRAM = [
     n: 18, id: 'tl18', timer: 'hold', freq: 7, ex: 'tendon_load_iso_squat', title: 'Tendon loading mini squat, 20 degrees', typed: true, sides: 'both',
     img: 'img/program/ex-18.png', thumb: 'img/program/ex-18-thumb.png',
     sets: 4, reps: 1, hold: '30s', rest: '2 min',
+    // One timer for the whole thing (his ask, 2026-09-15): holds and rests run
+    // on without a tap, one clock counts the exercise down (player.js isFlow).
+    continuous: true,
     // First thing in the morning, then nothing else for six hours (his
     // clinician's instruction). Today lists it first and draws the gap.
     first: true, gap: '6 hours',

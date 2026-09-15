@@ -129,6 +129,12 @@ export function scheduleCues(remaining) {
   if (remaining > 0.05) tone(t0 + remaining, 523, 0.32, 0.3);
 }
 
+/** One tone as a step ends, no countdown: the switch inside a continuous exercise. */
+export function scheduleSwitch(remaining) {
+  if (!ctx || remaining == null || remaining <= 0.05) return;
+  tone(ctx.currentTime + remaining, 660, 0.22, 0.3);
+}
+
 /** Two quick tones, for the sound check. */
 export function soundCheck() {
   if (!unlockAudio() || !ctx) return false;

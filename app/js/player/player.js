@@ -308,7 +308,11 @@ function syncEffects() {
   const now = performance.now();
   const st = E.step(run);
   const rem = E.remainingSec(run, now);
-  if (cuesOn() && rem != null) A.scheduleCues(rem);
+  if (cuesOn() && rem != null) {
+    // A continuous exercise hears one tone at each switch and the countdown only before its end.
+    if (isFlow(run) && run.i < run.steps.length - 1) A.scheduleSwitch(rem);
+    else A.scheduleCues(rem);
+  }
   if (st?.kind === 'work' && run.pace && metronomeOn(run.pid) && rem != null) A.startMetronome(run.pace, rem);
   // His song plays through the work bouts and waits, where it stopped,
   // through rest and pause. With Keep playing on it carries on through rest,
@@ -820,7 +824,38 @@ function currentReps(run) {
 }
 
 /** Arc fraction for a timed step: the time remaining, from 12 o'clock. */
+/**
+ * The tendon loading is one exercise to him, so it runs as one timer (his ask,
+ * 2026-09-15): "30 seconds, then two minutes, then 30 seconds ... one
+ * continuous thing". The big number is the whole exercise counting down and
+ * never resets, the arc is the whole exercise, the line under the number says
+ * hold or rest and the seconds left in it, and a switch between them is one
+ * tone instead of a countdown. The 3, 2, 1 plays only before the very end.
+ * Programme items opt in with `continuous: true`.
+ */
+const isFlow = (run) => !!ITEM[run?.pid]?.continuous;
+function flowLeft(run, now) {
+  const rem = E.remainingSec(run, now);
+  if (rem == null) return null;
+  let t = rem;
+  for (let j = run.i + 1; j < run.steps.length; j++) {
+    if (run.steps[j].secs == null) return null;
+    t += run.steps[j].secs;
+  }
+  return t;
+}
+function flowTotal(run) {
+  let t = 0;
+  for (const st of run.steps) { if (st.secs == null) return null; t += st.secs; }
+  return t;
+}
+
 function arcDash(run, st, now) {
+  if (isFlow(run)) {
+    const left = flowLeft(run, now);
+    const total = flowTotal(run);
+    return left == null || !total ? null : Math.max(0, Math.min(1, left / total));
+  }
   const rem = E.remainingSec(run, now);
   if (rem == null || !st?.secs) return null;
   return Math.max(0, Math.min(1, rem / st.secs));
@@ -877,7 +912,7 @@ function ringSvg(run, st, now) {
     // cannot animate from the work gradient to the rest colour, so the change
     // is a crossfade. Only when the step changed, never on a repaint.
     const stepNow = `${run.runId}:${run.i}`;
-    const enter = P.arcStep !== undefined && P.arcStep !== stepNow;
+    const enter = !isFlow(run) && P.arcStep !== undefined && P.arcStep !== stepNow;
     P.arcStep = stepNow;
     if (frac != null) {
       body += `<circle class="p-arc ${enter ? 'enter' : ''}" data-p-arc cx="${mid}" cy="${mid}" r="${r}" stroke-width="${stroke}"
@@ -923,6 +958,13 @@ function ringCenter(run, st, now) {
       <div class="p-cap"><span class="mono" data-p-elapsed>${fmtClock(E.elapsedMs(run, now) / 1000)}</span> so far</div>`;
   }
   const rem = E.remainingSec(run, now);
+  if (isFlow(run)) {
+    const left = flowLeft(run, now);
+    const word = st.kind === 'ready' ? 'Get ready' : st.kind === 'rest' ? 'Rest' : st.kind === 'switch' ? 'Switch' : 'Hold';
+    const whole = fmtClock(left);
+    return `<div class="p-num ${whole.length > 4 ? 'long' : ''}" data-p-clock>${whole}</div>
+      <div class="p-cap">${word} <span class="mono" data-p-stepclock>${fmtClock(rem)}</span></div>`;
+  }
   let cap = `of ${esc(secsWords(st.secs))}`;
   if (st.kind === 'ready') cap = P.session && run.state === 'running' ? 'Starts by itself' : 'Get ready';
   if (st.kind === 'switch') cap = `Now the ${st.side === 'L' ? 'left' : 'right'} leg`;
@@ -935,9 +977,14 @@ function paintClock(now) {
   const run = P?.run;
   if (!run) return;
   const rem = E.remainingSec(run, now);
-  const txt = fmtClock(rem);
+  const txt = fmtClock(isFlow(run) ? flowLeft(run, now) : rem);
   for (const el of document.querySelectorAll('[data-p-clock]')) {
     if (el.textContent !== txt) { el.textContent = txt; el.classList.toggle('long', txt.length > 4); }
+  }
+  const part = document.querySelector('[data-p-stepclock]');
+  if (part) {
+    const t = fmtClock(rem);
+    if (part.textContent !== t) part.textContent = t;
   }
   const el = document.querySelector('[data-p-elapsed]');
   if (el) {
