@@ -1757,10 +1757,32 @@ table.tbl { font-size: .9rem; }
 @keyframes segin { from { stroke: var(--track); } }
 .p-mark { fill: var(--cat, var(--ink)); }
 .p-center { position: absolute; inset: 22px; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 0 4px; }
-.p-num { font-size: 46px; line-height: 1; font-weight: 750; font-variant-numeric: tabular-nums; letter-spacing: -.02em; color: var(--ink); }
-.p-num.reps { font-size: 44px; }
-.p-num.words { font-size: 20px; }
-.p-cap { margin-top: .25rem; font-size: .8rem; color: var(--ink-2); line-height: 1.2; max-width: 104px; }
+/* The numeral must clear the inner ring. The clear circle inside it is about
+   98px across at this size, and his iPhone's font set 0:05 at 46px about 100px
+   wide, so the digits ran into the ring (2026-09-14). Measured with 10% added
+   for the iPhone's wider digits: 32px leaves about 5px clear for 0:05, 26px
+   the same for 10:00. */
+.p-num { font-size: 32px; line-height: 1; font-weight: 750; font-variant-numeric: tabular-nums; letter-spacing: -.02em; color: var(--ink); }
+.p-num.long { font-size: 26px; }
+.p-num.reps { font-size: 40px; }
+.p-num.words { font-size: 18px; }
+.p-cap { margin-top: .3rem; font-size: .78rem; color: var(--ink-2); line-height: 1.2; max-width: 84px; }
+
+/* choose the exercise: swipe the title and pictures, or these arrows */
+.p-swipe { touch-action: pan-y; }
+.p-pick { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin: .1rem -.5rem 0; }
+.p-pick-btn { width: 44px; height: 44px; border: 0; background: none; color: var(--accent); border-radius: 22px; display: grid; place-items: center; cursor: pointer; }
+.p-pick-btn svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.p-pick-btn:disabled { color: var(--ink-3); opacity: .35; cursor: default; }
+.p-pick-btn:not(:disabled):active { background: var(--accent-soft); }
+.p-pick-dots { display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; min-width: 0; }
+.p-pick-dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--track); }
+.p-pick-dots i.on { width: 18px; border-radius: 3px; background: var(--accent); }
+.p-content.p-enter.from-right { animation: pslide-r var(--phase-ms) var(--ease) both; }
+.p-content.p-enter.from-left { animation: pslide-l var(--phase-ms) var(--ease) both; }
+@keyframes pslide-r { from { opacity: 0; transform: translateX(24px); } }
+@keyframes pslide-l { from { opacity: 0; transform: translateX(-24px); } }
+@media (prefers-reduced-motion: reduce) { .p-content.p-enter.from-right, .p-content.p-enter.from-left { animation: none; } }
 .player .p-beat { position: absolute; top: 4px; right: 4px; width: 9px; height: 9px; border-radius: 50%; background: color-mix(in srgb, var(--cat) 30%, transparent); }
 .player .p-beat.on { animation: beat var(--beat, .5s) ease-out infinite; }
 @keyframes beat { 0% { background: var(--cat); } 40% { background: color-mix(in srgb, var(--cat) 30%, transparent); } }

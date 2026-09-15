@@ -479,6 +479,8 @@ const I = {
   loop: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 3l3 3-3 3"/><path d="M4 11V9a3 3 0 0 1 3-3h13"/><path d="M7 21l-3-3 3-3"/><path d="M20 13v2a3 3 0 0 1-3 3H4"/></svg>',
   song: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5.5l10-2V16"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/></svg>',
   zoom: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M10 20H4v-6M20 4l-6.5 6.5M4 20l6.5-6.5"/></svg>',
+  left: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>',
+  right: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>',
   close: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>',
   list: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 6.5h10M10 12h10M10 17.5h10"/><path d="M3.5 6.5l1.5 1.5 2.5-2.5M3.5 12l1.5 1.5 2.5-2.5M3.5 17.5l1.5 1.5 2.5-2.5"/></svg>',
   minus: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12h12"/></svg>',
@@ -526,6 +528,8 @@ export function renderPlayer(ctx) {
   const title = item.title || ex?.name || item.ex;
   const enter = lastContentKey !== null && lastContentKey !== run.runId;
   lastContentKey = run.runId;
+  const swipeDir = P.swipeDir || 0;
+  P.swipeDir = 0;
   const cat = CATEGORIES[ex?.cat]?.color || 'var(--ink-2)';
   const catEnd = ex?.cat === 'strength' ? 'var(--cat-strength-end)' : cat;
 
@@ -536,8 +540,10 @@ export function renderPlayer(ctx) {
       <span class="p-count" data-slot="count">${countLine(run)}</span>
       <span class="p-wake" data-p-wake data-state="${wakeState}" role="img" aria-label="${esc(wakeText())}">${I.wake}<span class="p-wake-note">${wakeState === 'lost' ? 'Screen may lock' : ''}</span></span>
     </div>
-    <div class="p-content ${enter ? 'p-enter' : ''}">
+    <div class="p-content ${enter ? `p-enter ${swipeDir > 0 ? 'from-right' : swipeDir < 0 ? 'from-left' : ''}` : ''}">
+      <div class="p-swipe" data-p-swipe>
       <h2 class="p-title">${esc(title)}</h2>
+      ${swipeButtons(run)}
       <div class="p-status" data-slot="status">${statusLine(run)}</div>
       ${item.img
         ? `<button class="p-img" data-p="zoom" aria-label="Show the step pictures larger">
@@ -545,6 +551,7 @@ export function renderPlayer(ctx) {
             <span class="p-expand">${I.zoom}</span></button>
            ${item.photoNote ? `<div class="p-photonote">${esc(item.photoNote)}</div>` : ''}`
         : `<div class="p-img plain">${thumb(item.ex, 90)}</div>`}
+      </div>
       <div class="p-phaserow" data-slot="phase">${phaseRow(run)}</div>
       <div class="p-dial">
         <span class="p-dial__bezel" aria-hidden="true"></span>
@@ -800,7 +807,8 @@ function ringCenter(run, st, now) {
   if (st.kind === 'ready') cap = P.session && run.state === 'running' ? 'Starts by itself' : 'Get ready';
   if (st.kind === 'switch') cap = `Now the ${st.side === 'L' ? 'left' : 'right'} leg`;
   if (st.kind === 'work' && run.mode === 'cardio') cap = `of ${esc(fmtMins(Math.round(st.secs / 60)))}${st.target === 'last' ? ', same as last time' : ''}`;
-  return `<div class="p-num" data-p-clock>${fmtClock(rem)}</div><div class="p-cap">${cap}</div>`;
+  const clock = fmtClock(rem);
+  return `<div class="p-num ${clock.length > 4 ? 'long' : ''}" data-p-clock>${clock}</div><div class="p-cap">${cap}</div>`;
 }
 
 function paintClock(now) {
@@ -809,7 +817,7 @@ function paintClock(now) {
   const rem = E.remainingSec(run, now);
   const txt = fmtClock(rem);
   for (const el of document.querySelectorAll('[data-p-clock]')) {
-    if (el.textContent !== txt) el.textContent = txt;
+    if (el.textContent !== txt) { el.textContent = txt; el.classList.toggle('long', txt.length > 4); }
   }
   const el = document.querySelector('[data-p-elapsed]');
   if (el) {
@@ -1355,6 +1363,106 @@ function moveOn(s) {
   writeDraft();
 }
 
+// ------------------------------------------------- choose the exercise ----
+// Swipe the title and pictures to change exercise without leaving the player
+// (his ask, 2026-09-14 late). Left is the next exercise in today's list, right
+// the previous one; anything already done is passed over. Sets already
+// confirmed on the one being left are saved first, the same way finishing
+// saves them (fewer than prescribed reads as done but short, and he corrects
+// it on Today). A run with nothing confirmed is simply dropped. The chosen
+// exercise opens on its get ready without starting, so choosing never starts
+// a clock, and the workout carries on from there in the list's order.
+
+/** Today's exercises he can move between, in Today's order. */
+function exerciseChoices(iso, currentPid) {
+  const entries = getDay(iso)?.entries || [];
+  return plannedItems(state.data, iso)
+    .filter((p) => !p.notYet && (p.id === currentPid || itemStatus(p, entries).state !== 'done'))
+    .map((p) => p.id);
+}
+
+function swipeButtons(run) {
+  const list = exerciseChoices(run.iso, run.pid);
+  const i = list.indexOf(run.pid);
+  const name = (pid) => { const it = ITEM[pid]; return it ? (it.title || exerciseById(it.ex)?.name || it.ex) : ''; };
+  const prev = list[i - 1];
+  const next = list[i + 1];
+  return `<div class="p-pick" aria-label="Change exercise">
+    <button class="p-pick-btn" data-p="ex-prev" ${prev ? '' : 'disabled'} aria-label="${prev ? `Previous exercise: ${esc(name(prev))}` : 'No earlier exercise'}">${I.left}</button>
+    <span class="p-pick-dots" aria-hidden="true">${list.length > 1 ? list.map((pid) => `<i class="${pid === run.pid ? 'on' : ''}"></i>`).join('') : ''}</span>
+    <button class="p-pick-btn" data-p="ex-next" ${next ? '' : 'disabled'} aria-label="${next ? `Next exercise: ${esc(name(next))}` : 'No later exercise'}">${I.right}</button>
+  </div>`;
+}
+
+async function switchExercise(ctx, dir) {
+  if (!P?.run || P.finishing || P.phase !== 'run' || saving) return;
+  const run = P.run;
+  const iso = run.iso;
+  const list = exerciseChoices(iso, run.pid);
+  const pid = list[list.indexOf(run.pid) + dir];
+  if (!pid) return;
+  const item = ITEM[run.pid];
+  if (E.summary(run).anyDone) {
+    P.finishing = true;
+    stopClock();
+    const saved = saveCurrent();
+    if (saved === true) {
+      const ok = await flushSave();
+      if (!ok) {
+        P.finishing = false;
+        announce('Not saved yet. Your workout is kept here.');
+        toast('<b>Not saved yet</b><br><span>Stayed on this exercise so nothing is lost.</span>', 'warn', { key: 'player-save' });
+        currentRerender?.();
+        return;
+      }
+      announce(`Logged ${item.title || item.ex}`);
+      showReceipt(item.title || item.ex);
+    }
+    P.finishing = false;
+  }
+  stopEffects();
+  // The list from here on, with the chosen one in hand. The tendon loading
+  // leads the day; it is only in the list while it is still to do.
+  const queue = exerciseChoices(iso, pid);
+  P.session = { queue, pos: Math.max(0, queue.indexOf(pid)), iso };
+  P.run = newRun(pid, iso);
+  P.base = rowsFingerprint(getDay(iso), pid);
+  P.songSha = null;
+  P.songPos = 0;
+  P.repsAdjust = null;
+  P.swipeDir = dir;
+  writeDraft();
+  const it = ITEM[pid];
+  announce(`${it.title || exerciseById(it.ex)?.name || it.ex}, ${P.session.pos + 1} of ${queue.length}`);
+  currentRerender?.();
+}
+
+function bindSwipe(zone, ctx) {
+  if (!zone) return;
+  let start = null;
+  zone.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    start = { x: e.clientX, y: e.clientY, t: Date.now(), id: e.pointerId };
+  });
+  const end = (e) => {
+    if (!start || e.pointerId !== start.id) return;
+    const dx = e.clientX - start.x;
+    const dy = e.clientY - start.y;
+    const quick = Date.now() - start.t < 800;
+    start = null;
+    if (quick && Math.abs(dx) > 56 && Math.abs(dx) > Math.abs(dy) * 1.6) {
+      // A swipe is not a tap: the picture must not open as well.
+      zone.dataset.swiped = String(Date.now());
+      switchExercise(ctx, dx < 0 ? 1 : -1);
+    }
+  };
+  zone.addEventListener('pointerup', end);
+  zone.addEventListener('pointercancel', () => { start = null; });
+  zone.addEventListener('click', (e) => {
+    if (zone.dataset.swiped && Date.now() - Number(zone.dataset.swiped) < 500) { e.stopPropagation(); e.preventDefault(); }
+  }, true);
+}
+
 // --------------------------------------------------------------- bind ----
 // One delegated listener on the player, so patched slots never lose their
 // handlers. Transport taps carry the step they were drawn for (F09): a tap
@@ -1386,10 +1494,12 @@ export function bindPlayer(root, ctx, rerender) {
     refresh();
   };
 
+  bindSwipe(player?.querySelector('[data-p-swipe]'), ctx);
   player?.addEventListener('click', (ev) => {
     const b = ev.target.closest('[data-p]');
     if (!b || b.disabled || !player.contains(b)) return;
     const k = b.dataset.p;
+    if (k === 'ex-next' || k === 'ex-prev') { switchExercise(ctx, k === 'ex-next' ? 1 : -1); return; }
     if (TRANSPORT.has(k) || k === 'reps-' || k === 'reps+') {
       if (!P?.run || (b.dataset.step && b.dataset.step !== stepKey(P.run))) return;
       const now = Date.now();
