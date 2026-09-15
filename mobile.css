@@ -1,0 +1,499 @@
+/* iPhone 15 Pro chrome and touch adaptations.
+   Loaded only by m.html, after styles.css, so the desktop app is untouched.
+
+   This file does NOT restyle the app's content: the phone renders the real
+   desktop views, and styles.css already handles them responsively. What is
+   here is the shell (fixed header, bottom tab bar, one scrolling region) plus
+   the adjustments a finger and iOS need:
+     - every tap target >= 44px
+     - inputs at 16px minimum, or Safari zooms the page on focus
+     - safe-area insets for the Dynamic Island and home indicator
+     - nothing that depends on :hover
+*/
+
+:root {
+  --mtop-h: 54px;
+  --mtab-h: 50px;
+  --safe-t: env(safe-area-inset-top, 0px);
+
+  /* The BOTTOM inset is only ours to reserve when the app owns the whole
+     screen. In Safari the browser's own toolbar already covers the home
+     indicator, so padding by the inset as well left a dead strip under the tab
+     bar: visible in portrait, and not in landscape where the inset is much
+     smaller. Hence: zero by default, the real inset only in standalone. */
+  --safe-b: 0px;
+}
+
+/* In standalone, reserve almost none of the 34pt inset.
+   Reserving all of it put a finger-wide dead band under the buttons. Only
+   SWIPES from the very bottom edge are captured by the home-indicator
+   gesture: taps still register, so 6-8pt is enough clearance and the bar
+   sits effectively at the bottom of the screen. */
+@media (display-mode: standalone) {
+  :root { --safe-b: max(calc(env(safe-area-inset-bottom, 0px) - 26px), 6px); }
+}
+@media (display-mode: fullscreen) {
+  :root { --safe-b: max(calc(env(safe-area-inset-bottom, 0px) - 26px), 6px); }
+}
+/* Belt and braces: mobile.js also sets this class from navigator.standalone,
+   which older iOS reports more reliably than the display-mode query. */
+body.mobile.standalone { --safe-b: max(calc(env(safe-area-inset-bottom, 0px) - 26px), 6px); }
+
+/* Let the DOCUMENT scroll.
+   The previous shell pinned the body and scrolled an inner box instead. That
+   fought iOS on two fronts: Safari only collapses its toolbars when the
+   document itself scrolls (so they never went away), and asking iOS to lay out
+   a full-screen fixed box is not the structure it expects, which is where the
+   dead band at the bottom came from. Normal document flow with a sticky header
+   and a fixed tab bar is the conventional arrangement, and iOS handles the
+   safe areas itself. */
+body.mobile {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+  overflow-x: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ------------------------------------------------- status bar backing --- */
+/* Safari 26 (iOS 26) paints a Liquid Glass blur under the status bar of a home
+   screen app whenever it cannot sample a solid colour at the top edge, and the
+   blur spills down over the header: his app name looked smeared (2026-09-14,
+   twice). It samples position: fixed or sticky elements with a background-color
+   within a few px of the top. The sticky header is not stuck at the top of a
+   page, so this fixed strip gives it that solid colour on every screen and at
+   every scroll position. The sure fix, status-bar-style "default", only takes
+   effect after reinstalling the home screen app, which would cost this device's
+   local copy and sync sign-in, so it is the fallback, not the first try. */
+.sb-fill {
+  position: fixed; top: 0; left: 0; right: 0; height: max(var(--safe-t), 1px); z-index: 41;
+  background-color: var(--bg); pointer-events: none;
+}
+
+/* --------------------------------------------------------------- top bar --- */
+.mtop {
+  position: sticky; top: 0; z-index: 40;
+  padding-top: var(--safe-t);
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+}
+/* The name sits big and dead centre, the same way the desktop shows it, the
+   sync chip and the gear flank it in equal side columns, so it is centred on
+   the SCREEN, not merely between two differently-sized neighbours.
+
+   Placement is by CLASS, not by source order. During a deploy the CDN can
+   briefly serve mixed generations, and a cache built in that window holds
+   them for good: order-placed grid items then land in the wrong columns
+   (the app name once lost its last letter exactly this way).
+   Explicit columns render the same header whichever HTML the cache holds. */
+.mtop-in {
+  min-height: var(--mtop-h);
+  display: grid; grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center; gap: .5rem; padding: .3rem var(--gutter);
+}
+/* 2026-09-14 ring design: the name on the left, the save chip and Settings on
+   the right, the way the mockups place the chip. Still placed by class. */
+.mtop-in > .msync { grid-row: 1; grid-column: 2; justify-self: end; }
+.mtitle-wrap { grid-row: 1; grid-column: 1; }
+.mback { grid-row: 1; grid-column: 1; justify-self: start; }
+.mtop-in > .micon { grid-row: 1; grid-column: 3; justify-self: end; }
+.mtitle-wrap {
+  min-width: 0;
+  display: flex; flex-direction: column; justify-content: center; text-align: left;
+}
+.app-title {
+  margin: 0; font-size: 1.05rem; font-weight: 720; letter-spacing: -.01em; line-height: 1.2; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.mpostop { font-size: .66rem; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* two rows when one cannot hold the name or Back beside the chip (L02, L05) */
+.mtop.stack .mtop-in { grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto; row-gap: .25rem; }
+.mtop.stack .mtitle-wrap, .mtop.stack .mback { grid-column: 1 / -1; grid-row: 1; }
+.mtop.stack .mtop-in > .msync { grid-column: 1; grid-row: 2; justify-self: end; }
+.mtop.stack .mtop-in > .micon { grid-column: 2; grid-row: 2; }
+.mtop.stack .app-title, .mtop.stack .mpostop { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: break-word; }
+.mpostop b { color: var(--ink-2); font-weight: 600; }
+
+/* .msync / .msync-dot live in styles.css now, the desktop shows the same
+   chip. Only the touch sizing is mobile's, kept slim so the title's centre
+   column gets the width the name needs. */
+body.mobile .msync { min-height: 44px; padding: 0 .8rem; font-size: .82rem; }   /* 44, F22 (Fable C1: this file loads last, so 40 won) */
+
+.micon {
+  flex: none; width: 44px; height: 44px; border-radius: 22px;
+  display: inline-grid; place-items: center;
+  border: 1px solid var(--line); background: var(--panel); color: var(--ink);
+}
+.micon svg {
+  width: 19px; height: 19px; fill: none;
+  stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+}
+.micon.on { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+
+/* ------------------------------------------------------------- content --- */
+/* In normal flow now. The sticky header sits above it; the fixed tab bar
+   overlays the bottom, so reserve its height as padding. */
+.mview {
+  padding: .7rem var(--gutter) calc(var(--mtab-h) + var(--safe-b) + 1.2rem);
+  max-width: none;                   /* override .view's desktop centring */
+  margin: 0;
+}
+
+/* ---------------------------------------------------------------- tabs --- */
+.mtabs {
+  position: fixed; inset: auto 0 0 0; z-index: 40;
+  display: grid; grid-template-columns: repeat(5, 1fr);
+  padding-bottom: var(--safe-b);
+  /* Nearly opaque on purpose: at 94% over a dark page the reserved strip below
+     the buttons looked like empty background rather than part of the bar. */
+  background: var(--panel);
+  border-top: 1px solid var(--line);
+}
+.mtabs button {
+  height: var(--mtab-h);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+  border: 0; background: none; color: var(--ink-2);
+  font: inherit; font-size: 11px; font-weight: 560;
+  padding: 0 2px;
+}
+.mtabs button svg {
+  width: 21px; height: 21px; fill: none;
+  stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+}
+.mtabs button.on { font-weight: 700; }
+.mtabs button:active { background: var(--line-2); }
+
+/* ------------------------------------------- touch adaptations for content --- */
+body.mobile .card { border-radius: 14px; }
+body.mobile .card-body { padding: .8rem; }
+body.mobile .card > header { padding: .65rem .8rem; }
+
+/* 16px is the threshold below which iOS Safari zooms the page on focus. */
+body.mobile input,
+body.mobile select,
+body.mobile textarea {
+  font-size: 16px;
+  min-height: 44px;
+  border-radius: 10px;
+}
+body.mobile .fld input,
+body.mobile .fld select { padding: .5rem .6rem; }
+body.mobile textarea { min-height: 80px; }
+
+/* Buttons and checkboxes need a finger-sized target. */
+body.mobile .btn {
+  min-height: 44px; padding: .5rem .85rem; font-size: .85rem; border-radius: 11px;
+}
+body.mobile .btn.sm { min-height: 44px; font-size: .78rem; }   /* 44, F22 (Fable C1) */
+body.mobile input[type=checkbox] { width: 24px; height: 24px; }
+
+/* Segmented controls / sub-tabs scroll instead of wrapping into a wall. */
+body.mobile .tabrow {
+  display: flex; gap: .3rem; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none;
+  -webkit-overflow-scrolling: touch; padding-bottom: .2rem;
+}
+body.mobile .tabrow::-webkit-scrollbar { display: none; }
+body.mobile .tabrow button { flex: none; min-height: 40px; }
+
+/* Wide content scrolls inside its own box rather than the page. */
+body.mobile table { display: block; overflow-x: auto; white-space: nowrap; }
+body.mobile .scrollx { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+/* Nothing may rely on hover on a touch screen. */
+body.mobile .editcue { opacity: 1 !important; }
+
+/* The week navigation reads as a centred summary, like the date pill on
+   Today: it is information, not a control fighting for the left edge. */
+body.mobile .weeknav { flex-direction: column; align-items: center; gap: .35rem; }
+/* History's three filters as one row of chips on a phone (Fable C5): the
+   choice in each reads as its label, which screen readers still get. */
+@media (max-width: 620px) {
+  body.mobile .sess-tools { position: relative; flex-wrap: nowrap; overflow-x: auto; gap: .4rem; margin-inline: -.2rem; padding: 0 .2rem .2rem; scrollbar-width: none; }
+  body.mobile .sess-tools .fld, body.mobile .sess-tools .fld.wide { flex: none; min-width: 0; width: auto; }
+  body.mobile .sess-tools .fld-k { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  body.mobile .sess-tools select { width: auto; min-height: 44px; border-radius: 22px; padding: 0 2rem 0 .9rem; font-size: .92rem; max-width: 60vw; }
+}
+
+/* Compact numeric inputs: type stays 16px (or iOS zooms on focus), but the
+   box is a value you can edit, not a full-height form field. */
+body.mobile .in-num { min-height: 44px; width: 64px; }   /* 44 on touch (Fable C1) */
+body.mobile .sel-sm { min-height: 44px; }
+
+/* Modals from components.js sit above the chrome and clear the safe areas. */
+body.mobile #modal-root .modal,
+body.mobile #modal-root .sheet {
+  max-height: calc(100dvh - var(--safe-t) - 1.5rem);
+  margin-bottom: var(--safe-b);
+}
+
+/* Toasts must clear the tab bar. */
+/* The ROOT is the positioned box; the rule used to target .toast, which is not
+   positioned, so a toast sat behind the tab bar (seen 2026-09-14, "Logged"). */
+body.mobile #toast-root {
+  bottom: calc(var(--mtab-h) + var(--safe-b) + .7rem);
+  left: .7rem; right: .7rem; align-items: stretch;
+  pointer-events: none;   /* it sits over the player's buttons: taps go through */
+}
+body.mobile .toast { max-width: none; }
+
+
+/* ------------------------------------------------------------- iPad --- */
+/* An 11-inch iPad Pro is 834pt wide in portrait, 1194 landscape, far past
+   the desktop breakpoints in styles.css, so the CONTENT already lays out in
+   its roomy multi-column form. What needs adjusting is only the chrome:
+   centre the reading column, and stop the five tabs stretching across a
+   metre of glass. */
+@media (min-width: 700px) {
+  :root { --mtop-h: 58px; --mtab-h: 56px; }
+
+  .mview {
+    padding: 1rem 1.25rem 2rem;
+  }
+  /* the app's own .view max-width takes over inside; just don't fight it */
+  .mview > * { max-width: 1080px; margin-left: auto; margin-right: auto; }
+
+  .mtabs {
+    /* a centred island rather than a full-width strip */
+    display: flex; justify-content: center; gap: .25rem;
+    padding-left: max(1rem, env(safe-area-inset-left));
+    padding-right: max(1rem, env(safe-area-inset-right));
+  }
+  .mtabs button {
+    flex: 0 1 150px;
+    flex-direction: row; gap: .45rem;
+    font-size: .78rem;
+  }
+  .mtabs button svg { width: 19px; height: 19px; }
+
+  .app-title { font-size: 1.35rem; }
+  .mpostop { font-size: .72rem; }
+
+  /* Touch targets stay finger-sized, but the iPad has room for denser forms
+     than a phone, so let the desktop grids breathe again. */
+  body.mobile .card-body { padding: 1rem; }
+}
+
+/* Landscape on a phone: the chrome must give height back to the content, but
+   a landscape phone has width to spare, so keep the labels and put them
+   BESIDE the icon rather than dropping them. Bare icons left the bar
+   unreadable, which is what iOS itself avoids by switching to this layout. */
+@media (orientation: landscape) and (max-height: 500px) {
+  :root { --mtop-h: 44px; --mtab-h: 46px; }
+  .mtabs button {
+    flex-direction: row; gap: .4rem;
+    font-size: .72rem;
+  }
+  .mtabs button svg { width: 19px; height: 19px; }
+  .app-title { font-size: .95rem; }
+  .mview { padding-top: .5rem; }
+}
+
+/* --------------------------------------------- phone density (Today) --- */
+/* The top of Today was three tall cards before any content: timeline, week
+   cadence, month board. Each is squeezed here rather than removed, so nothing
+   is lost: it just stops costing a screen and a half before you can log.
+
+   Scoped to PHONE widths on purpose. These squeezes once applied to the whole
+   mobile shell, so the iPad got phone spacing with desktop content, the
+   journey's per-month counts (hidden on a phone, shown on an iPad) sat right
+   on top of the phase labels. Above 640px the desktop spacing in styles.css
+   is correct as-is. */
+@media (max-width: 640px) {
+  /* 1. the six-month timeline. Top padding has to CONTAIN the month labels;
+     they are positioned above the road, so trimming it clipped them off
+     through the top of the card. */
+  body.mobile .journey { padding: 1.6rem 1.4rem .4rem; }
+  body.mobile .jphases { height: 10px; margin-top: .35rem; }
+  body.mobile .jnode .jname { font-size: .7rem; }
+
+  /* 2. the week cadence, three across, tighter chips */
+  body.mobile .weekcats.centred { display: grid; grid-template-columns: repeat(3, 1fr); gap: .3rem; }
+  body.mobile .weekcat.tappable { padding: .3rem .35rem; gap: .18rem; }
+  body.mobile .weekcat.tappable .wclabel { font-size: .6rem; }
+  body.mobile .weekcat.tappable .wchead { flex-direction: column; align-items: flex-start; gap: 0; }
+  body.mobile .weekcat.tappable .pips i { height: 5px; }
+  /* months with many targets go four-up rather than running down the screen */
+  body.mobile .weekcats.centred:has(> :nth-child(7)) { grid-template-columns: repeat(4, 1fr); }
+
+  /* 3. date pill */
+  body.mobile .datepill-wrap { gap: .35rem; }
+  body.mobile .dp-date { font-size: .92rem; }
+  body.mobile .dp-done { display: none; }   /* "Completed today" already counts it */
+}
+
+/* date centring now lives in styles.css so it applies at every width */
+
+/* ------------------------------------------------- pull down to sync ----- */
+/* An installed iOS web app has its OWN pull-to-refresh, and it RELOADS, which
+   would throw away the tab you were on and where you had scrolled to. `contain`
+   stops iOS acting on the overscroll, so the gesture is ours to use (mobile.js).
+   The document still scrolls exactly as before, so Safari still collapses its
+   toolbars: the thing the shell is shaped around. */
+html, body.mobile { overscroll-behavior-y: contain; }
+
+/* Only the CONTENT moves. The header is sticky and the tab bar fixed, and both
+   sit outside #view, so neither follows the pull. The spring back is a
+   transform transition: compositor work, no repaint. */
+.mview.mspring { transition: transform .3s cubic-bezier(.22, 1, .36, 1); }
+@media (prefers-reduced-motion: reduce) {
+  .mview.mspring { transition: none; }
+}
+
+/* Pulled far enough to count: the sync chip lights up while your finger is
+   still down, so you know letting go will sync before you commit to it. It is
+   the same blue the chip already uses while syncing, so the armed state reads
+   as the start of that action rather than as a new colour to learn. */
+.msync.armed {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.msync.armed .msync-dot { background: var(--accent); }
+
+/* day-set chips need a thumb-sized target */
+body.mobile .daychip { width: 44px; height: 44px; font-size: .9rem; }   /* 44, F22 (Fable C1) */
+
+/* the checklist circle, and the compact minutes box, sized for a finger */
+body.mobile input[type=checkbox].tick { width: 28px; height: 28px; min-height: 0; padding: 0; }
+body.mobile .dayring, body.mobile .dayring svg { width: 44px; height: 44px; }
+body.mobile .crow-head { gap: .6rem; }
+body.mobile .crow-shot { width: 56px; height: 32px; }
+body.mobile .crow-shot.plain .thumb { width: 56px !important; height: 32px !important; }
+body.mobile .dayfilter { gap: .2rem; }
+body.mobile .dayfilter button { padding: .35rem 0; min-height: 50px; border-radius: 9px; }
+body.mobile .dayfilter button .fd { font-size: .58rem; letter-spacing: .02em; }
+body.mobile .dayfilter button .fn { font-size: .98rem; }
+
+/* The player's action area sits above the fixed tab bar. */
+
+
+
+/* 2026-09-14 ring design: the rail on an iPad in landscape (styles.css draws
+   it), so the shell here only has to move the header and content across. */
+@media (min-width: 900px) {
+  body.mobile { --mtab-h: 0px; }
+  body.mobile .mtop, body.mobile .mview { margin-left: var(--rail-w); }
+  body.mobile #nav-settings { display: none; }
+  body.mobile .mview { padding-bottom: 2rem; }
+  body.mobile #toast-root { left: calc(var(--rail-w) + 1rem); }
+}
+
+/* 2026-09-14 revision 3: in the player on a phone, Back takes the name's
+   place in the header row (in the layout, not laid over it), and the
+   player's own line (workout 3 of 6, the day, the wake lock) sits first in the
+   content. The header is opaque, so nothing is drawn through a blur. */
+.mback {
+  display: inline-flex; align-items: center; gap: .15rem; min-height: 44px; padding: 0 .4rem 0 0; margin-left: -.35rem;
+  border: 0; background: none; font: inherit; font-size: 1.05rem; font-weight: 650; color: var(--ink); cursor: pointer;
+}
+.mback[hidden] { display: none; }
+.mback svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+@media (max-width: 899px) {
+  body.mobile.in-player .mtitle-wrap { display: none; }
+  body.mobile.in-player .player .p-eyebrow .p-back { display: none; }
+  body.mobile.in-player .mview { padding-top: .2rem; }
+}
+@media (max-width: 899px) and (max-height: 900px) {
+  body.mobile .player .p-img { height: clamp(136px, 21svh, 178px); }
+}
+body.mobile .today .crow-shot { width: 66px; height: 48px; }
+@media (max-width: 380px) { body.mobile .today .crow-shot { width: 54px; height: 40px; } }
+body.mobile .weeksec .weekcat.tappable { padding: .55rem .6rem; gap: .35rem; }
+body.mobile .weeksec .weekcat.tappable .wclabel { font-size: .85rem; }
+body.mobile .weeksec .weekcat.tappable .wchead { flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: 0 .4rem; }
+
+/* the player's transport dock sits above the tab bar, in the flow */
+body.mobile .player .p-actions { bottom: calc(var(--mtab-h) + var(--safe-b)); }
+/* the current tab: turquoise icon on its tint */
+.mtabs button { transition: color var(--tab-ms) var(--ease); }
+.mtabs button svg { transition: background var(--tab-ms) var(--ease); }
+@media (max-width: 899px) {
+  .mtabs button.on { color: var(--accent); }
+  .mtabs button.on svg { background: var(--accent-soft); border-radius: 14px; padding: 3px 14px; box-sizing: content-box; }
+}
+body.mobile .btn.go { min-height: 54px; padding: .45rem 1rem .45rem .55rem; font-size: 1.12rem; border-radius: var(--radius-btn); }
+body.mobile .today input[type=checkbox].tick { width: 30px; height: 30px; }
+body.mobile .player .btn.big { min-height: 54px; font-size: 1.05rem; font-weight: 700; border-radius: var(--radius-btn); }
+/* Labels wrap inside their slot rather than run into each other (audit L06);
+   the dock is measured, so the page reserves its real height. */
+body.mobile .player .p-link.btn { font-size: .98rem; min-height: 44px; white-space: normal; line-height: 1.15; text-align: center; }
+@media (max-width: 360px) { body.mobile .player .p-link.btn { font-size: .88rem; gap: .25rem; padding-inline: .2rem; } }
+/* Previous, Skip rest and Next each on one line from 375 px (Fable C2): a
+   little less padding and gap buys the room; narrower, they still wrap (L06). */
+@media (min-width: 375px) {
+  body.mobile .player .p-row2 .p-link.btn { padding-inline: .25rem; gap: .3rem; }
+  body.mobile .player .p-row2 .p-link.btn > span { white-space: nowrap; }
+}
+
+/* ------------------------------------------ player, landscape (Fable C3) --- */
+/* A phone on its side (and an iPad in landscape): the step pictures on the
+   left, the phase and the dial on the right, the transport in one row. The
+   ring is on screen without scrolling. Nothing is removed and every control
+   keeps its place in the order; only the arrangement changes. */
+@media (orientation: landscape) and (max-height: 500px), (orientation: landscape) and (min-width: 1024px) {
+  body.mobile .player { max-width: 1000px; }
+  body.mobile .player .p-content {
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 1.2rem; align-items: start;
+  }
+  body.mobile .player .p-swipe { grid-column: 1; grid-row: 1 / span 6; }
+  body.mobile .player .p-content > :not(.p-swipe) { grid-column: 2; }
+  body.mobile .player .p-content > .p-phaserow { margin-top: .2rem; }
+  body.mobile .player .p-actions { flex-direction: row; align-items: center; gap: .6rem; }
+  body.mobile .player .p-actions > .p-row1 { flex: 1.3 1 0; }
+  body.mobile .player .p-actions > .p-row2 { flex: 1 1 0; }
+}
+@media (orientation: landscape) and (max-height: 500px) {
+  body.mobile .player .p-title { min-height: 0; font-size: 20px; }
+  body.mobile .player .p-img { height: clamp(110px, 36svh, 170px); }
+  body.mobile .player .p-dial { min-height: 172px; padding: 6px; }
+  body.mobile .player .btn.big { min-height: 46px; }
+  body.mobile .player .p-eyebrow { min-height: 32px; }
+}
+/* With the side rail (900 px and wider) the player's own Back sits in its
+   eyebrow, so the header keeps the app name and does not draw a second Back
+   over it (seen at 1194x834, Fable C3 matrix). */
+@media (min-width: 900px) {
+  body.mobile .mback { display: none; }
+}
+
+/* --------------------------------------- the timer to spec (Fable C4) --- */
+/* On a phone 390 px or wider the ring is 200 px: the stroke (11), the bezel
+   and the face scale with it (the drawing is a 160 unit viewBox), and the
+   digits reach the kit's 48 px. Below 390, and on a phone on its side, the
+   160 px ring stays. Digit sizes are measured clear of the inner ring with
+   10 percent added for the iPhone's wider digits (FABLE-BUILD handover). */
+@media (min-width: 390px) and (min-height: 501px) {
+  body.mobile .player .p-ring { width: 200px; height: 200px; }
+  body.mobile .player .p-dial__bezel, body.mobile .player .p-dial__sweep, body.mobile .player .p-dial__pulse { width: 200px; }
+  body.mobile .player .p-dial { min-height: 228px; }
+  body.mobile .player .p-center { inset: 27px; }
+  body.mobile .player .p-num { font-size: 48px; }
+  body.mobile .player .p-num.long { font-size: 36px; }
+  body.mobile .player .p-num.reps { font-size: 50px; }
+  body.mobile .player .p-num.words { font-size: 22px; }
+  body.mobile .player .p-cap { font-size: .86rem; max-width: 108px; }
+}
+
+/* ---------------------------------- touch targets found by the matrix --- */
+/* 393 px, Fable C1 exit check: the week arrows, the clinical notes' "more"
+   and the Plan days cells. On a narrow phone the week's date goes above its
+   seven cells, so each cell gets a full 44 px. */
+body.mobile .icon-btn { width: 44px; height: 44px; }
+body.mobile details.exh-more > summary { min-height: 44px; display: flex; align-items: center; }
+@media (max-width: 440px) {
+  body.mobile .pc-row { grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; }
+  body.mobile .ov-sec.plancal { padding-inline: 12px; }
+  body.mobile .pc-row .pc-wk { grid-column: 1 / -1; margin-top: .35rem; }
+  body.mobile .pc-head .pc-wk { display: none; }
+}
+body.mobile .weeknav .dp-today { white-space: nowrap; }
+/* 320 px, found by the matrix: the picture button beside a row keeps a 44 px
+   hit height, and the week arrows never shrink below it. */
+@media (max-width: 380px) { body.mobile .today .crow-shot { height: 44px; } }
+body.mobile .datenav .icon-btn { flex: none; }
+/* At large text the week's arrows, dates and This week wrap instead of
+   running off the side (matrix, 200% simulation). */
+body.mobile .weeknav .datenav { flex-wrap: wrap; justify-content: center; row-gap: .35rem; }
+body.mobile .weekmonth { text-align: center; }
+body.mobile .ov-sec .row.between { flex-wrap: wrap; column-gap: .6rem; }
+body.mobile .ov-sec .tiny, body.mobile .ov-sec .small { overflow-wrap: anywhere; }
