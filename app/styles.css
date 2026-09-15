@@ -2177,16 +2177,20 @@ button.ov-card:active { transform: scale(.99); transition-duration: var(--press-
   display: flex; flex-direction: column; align-items: center; font: inherit; color: var(--ink-2); }
 .jr-month { font-size: .95rem; font-weight: 560; line-height: 1; height: 22px; }
 .jr-node.now .jr-month { color: var(--ink); font-weight: 720; }
-.jr-dot { margin-top: 14px; width: 14px; height: 14px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.08);
+/* Every dot is centred on the ribbon's own centre line (top 38 + half of 16),
+   not stacked under the month label, so a label's rendered height can never
+   push it off the line (it sat 3px high on his iPhone). */
+.jr-dot { position: absolute; left: 50%; top: 46px; transform: translate(-50%, -50%); width: 14px; height: 14px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.08);
   display: grid; place-items: center; transition: transform var(--release-ms) var(--ease); }
-.jr-node.done .jr-dot { width: 20px; height: 20px; margin-top: 11px; background: var(--good); color: #fff; box-shadow: 0 0 0 2px var(--panel); }
+.jr-node.done .jr-dot { width: 20px; height: 20px; background: var(--good); color: #fff; box-shadow: 0 0 0 2px var(--panel); }
 .jr-dot svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
-.jr-node.now .jr-dot { width: 30px; height: 30px; margin-top: 6px; background: var(--panel); box-shadow: 0 0 0 3px var(--ink), 0 0 0 5px var(--panel); }
+.jr-node.now .jr-dot { width: 30px; height: 30px; background: var(--panel); box-shadow: 0 0 0 3px var(--ink), 0 0 0 5px var(--panel); }
 .jr-node.now.done .jr-dot { background: var(--good); }
 .jr-node.sel:not(.now) .jr-dot { box-shadow: 0 0 0 3px var(--accent), 0 0 0 5px var(--panel); }
-.jr-node:active .jr-dot { transform: scale(.92); }
+.jr-node:active .jr-dot { transform: translate(-50%, -50%) scale(.92); }
 .jr-node:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 10px; }
-.jr-phases { position: relative; min-height: 1.6rem; height: 2.6em; margin-top: .6rem; }
+.jr-phases { position: relative; height: 1.5em; margin-top: .6rem; }
+@media (max-width: 360px) { .jr-phases { height: 2.6em; } }
 .jr-phases span { position: absolute; top: 0; max-width: 33%; font-size: 1rem; font-weight: 700; line-height: 1.2; color: var(--ink); }
 .jr-phases span:first-child { left: 0 !important; }
 .jr-caption { margin-top: .55rem; font-size: .95rem; color: var(--ink-2); }

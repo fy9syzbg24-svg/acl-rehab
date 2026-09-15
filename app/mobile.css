@@ -55,6 +55,21 @@ body.mobile {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* ------------------------------------------------- status bar backing --- */
+/* Safari 26 (iOS 26) paints a Liquid Glass blur under the status bar of a home
+   screen app whenever it cannot sample a solid colour at the top edge, and the
+   blur spills down over the header: his app name looked smeared (2026-09-14,
+   twice). It samples position: fixed or sticky elements with a background-color
+   within a few px of the top. The sticky header is not stuck at the top of a
+   page, so this fixed strip gives it that solid colour on every screen and at
+   every scroll position. The sure fix, status-bar-style "default", only takes
+   effect after reinstalling the home screen app, which would cost this device's
+   local copy and sync sign-in, so it is the fallback, not the first try. */
+.sb-fill {
+  position: fixed; top: 0; left: 0; right: 0; height: max(var(--safe-t), 1px); z-index: 41;
+  background-color: var(--bg); pointer-events: none;
+}
+
 /* --------------------------------------------------------------- top bar --- */
 .mtop {
   position: sticky; top: 0; z-index: 40;

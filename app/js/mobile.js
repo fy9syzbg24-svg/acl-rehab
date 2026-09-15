@@ -355,6 +355,7 @@ load().then(() => {
   let reloading = false;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (!hadController || reloading) return;   // not the very first install
+    if (window.__rehabForceUpdate) return;       // Force update reloads when its cache is ready
     reloading = true;
     // Never mid-workout: the draft is safe either way, but a reload would
     // throw him out of the set he is doing. Wait for the player to close.

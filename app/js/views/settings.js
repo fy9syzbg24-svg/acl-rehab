@@ -1,5 +1,5 @@
 import { esc, todayIso, num } from '../util.js';
-import { state, update, load } from '../store.js';
+import { state, update, load, flushSave } from '../store.js';
 import { CASE } from '../../data/history.js';
 import { toast } from '../components.js';
 import { runSync, syncState, pendingSyncCount, DEVICE_ID } from '../store.js';
@@ -311,29 +311,14 @@ export function bindSettings(root, ctx, rerender) {
   root.querySelector('[data-app-refresh]')?.addEventListener('click', async (ev) => {
     const btn = ev.currentTarget;
     const status = root.querySelector('[data-refresh-status]');
+    const say = (t) => { if (status) status.textContent = t; };
     btn.disabled = true;
-    if (status) status.textContent = 'clearing…';
     try {
-      // Deliberately NOT touching IndexedDB or localStorage: the first holds
-      // your log, the second your sync credentials. Only the cached copies of
-      // the app's own files go, which is what forces a clean re-download.
-      if ('serviceWorker' in navigator) {
-        const regs = await navigator.serviceWorker.getRegistrations();
-        await Promise.all(regs.map((r) => r.unregister()));
-      }
-      if (window.caches) {
-        const keys = await caches.keys();
-        await Promise.all(keys.map((k) => caches.delete(k)));
-      }
-      if (status) status.textContent = 'reloading…';
-      // Bust the HTTP cache too, or iOS can hand back the same HTML.
-      const u = new URL(location.href);
-      u.searchParams.set('u', Date.now().toString(36));
-      location.replace(u.toString());
+      await forceUpdate(say);
     } catch (err) {
       btn.disabled = false;
-      if (status) status.textContent = '';
-      toast(`<b>Could not clear the cache</b><br><span>${esc(String(err.message || err))}</span>`, 'warn');
+      say('');
+      toast(`<b>Could not update</b><br><span>${esc(String(err.message || err))}</span>`, 'warn');
     }
   });
 
@@ -584,4 +569,67 @@ function download(name, text, type) {
   a.download = name;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/**
+ * Force update, rebuilt 2026-09-14 after he saw it bring back the OLD design
+ * until the next launch.
+ *
+ * The old version cleared the worker and its caches, then reloaded with a
+ * cache-busting query on the page only. The page came back fresh, but its CSS
+ * and code were fetched by their plain URLs with no worker in front, and the
+ * CDN (or iOS's own HTTP cache) still answered those with the previous deploy.
+ * The new worker then precached the right files in the background, which is
+ * why quitting and reopening fixed it.
+ *
+ * Now: read the deployed version with a unique URL (nothing can answer that
+ * from a cache), clear the old worker and caches, install the new worker and
+ * wait until its cache is the deployed version (the worker fetches every file
+ * with that version in the URL), and only then reload, so the page is served
+ * entirely from the fresh cache. Local data (IndexedDB) and sync sign-in
+ * (localStorage) are never touched.
+ */
+async function forceUpdate(say) {
+  const reloadFresh = () => {
+    const u = new URL(location.href);
+    u.searchParams.set('u', Date.now().toString(36));
+    location.replace(u.toString());
+  };
+  await flushSave();
+  if (!('serviceWorker' in navigator) || location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+    // The Mac serves files itself with no worker; a reload is enough.
+    if (window.caches) for (const k of await caches.keys()) await caches.delete(k);
+    say('reloading…');
+    reloadFresh();
+    return;
+  }
+  say('checking the latest version…');
+  const src = await fetch(`./sw.js?probe=${Date.now()}`, { cache: 'no-store' }).then((r) => r.text());
+  const deployed = (src.match(/const SHELL_VERSION = '([^']+)'/) || [])[1];
+  if (!deployed) throw new Error('could not read the deployed version');
+
+  window.__rehabForceUpdate = true;   // mobile.js leaves the reload to us
+  say('clearing old files…');
+  for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister();
+  if (window.caches) for (const k of await caches.keys()) { if (!k.startsWith('media')) await caches.delete(k); }
+
+  say('downloading the new version…');
+  const want = `shell-${deployed}`;
+  const deadline = Date.now() + 90000;
+  let reg = await navigator.serviceWorker.register('./sw.js', { scope: './' });
+  for (;;) {
+    const ready = reg.active && (await caches.keys()).includes(want);
+    if (ready) break;
+    if (Date.now() > deadline) throw new Error('the new version did not finish downloading; try again in a minute');
+    await new Promise((r) => setTimeout(r, 1000));
+    // A worker that installed from a stale copy of sw.js holds an older cache:
+    // ask it to check again until the deployed version lands.
+    const keys = await caches.keys();
+    if (reg.active && !keys.includes(want)) {
+      try { await reg.update(); } catch { /* offline for a moment */ }
+      reg = (await navigator.serviceWorker.getRegistration('./')) || reg;
+    }
+  }
+  say('reloading…');
+  reloadFresh();
 }
