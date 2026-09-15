@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-# Offline and update test for the published app (audit A10, A11, A15 to A18).
+# Offline and update test for the published app (audit A10, A11, A15 to A18;
+# Fable A4: A09, A19 and A12 reproduced).
 #     python3 tools/test_offline_update.py
 # Builds deploy-style copies of app/ into a scratch folder, serves them on the
 # IPv6 loopback (a secure context that is not "localhost", so the app registers
@@ -147,6 +148,117 @@ try:
         check('another app\'s cache on the origin is untouched (A18)', 'fringe-shell-test' in keys, True)
         probe = js(c, "return (await fetch('./sw.js?probe='+Date.now(), {cache:'no-store'}).then(r=>r.text())).match(/SHELL_VERSION = '([^']+)'/)[1]")
         check('the version probe reads the server, not a cache (A17)', probe, 'gen3')
+
+        # Fable A4, 2026-09-15: A09 and A19 reproduced, not read from the code.
+        # A save that fails on the phone is simulated by making IndexedDB's put
+        # throw QuotaExceededError (storage full), the real failure iOS gives.
+        FAIL_PUT = "window.__put ||= IDBObjectStore.prototype.put; IDBObjectStore.prototype.put = function () { throw new DOMException('simulated full storage', 'QuotaExceededError'); };"
+        FIX_PUT = "if (window.__put) IDBObjectStore.prototype.put = window.__put;"
+
+        # A09: Force update stops while the latest change is not saved.
+        c.navigate(BASE + '/m.html#settings', settle=3)
+        js(c, "document.querySelectorAll('details[data-setg]').forEach(d=>d.open=true); window.__mark = 1; await new Promise(r=>setTimeout(r,300)); return 1")
+        stage('gen4')
+        js(c, FAIL_PUT + " document.querySelector('[data-app-refresh]').click(); return 1")
+        time.sleep(4)
+        st = js(c, ASK + "return { mark: window.__mark || 0, toast: [...document.querySelectorAll('.toast')].map(t => t.textContent).join(' | '), v: (await ask(navigator.serviceWorker.controller,'version'))?.version }")
+        check('A09: an unsaved change stops Force update (no reload)', st.get('mark'), 1)
+        check('A09: and says why', 'not saved' in (st.get('toast') or ''), True)
+        check('A09: the running generation stays', st.get('v'), 'gen3')
+        js(c, FIX_PUT + " document.querySelector('[data-app-refresh]').click(); return 1")
+        deadline = time.time() + 60
+        v = None
+        while time.time() < deadline:
+            time.sleep(2)
+            try:
+                v = js(c, ASK + "return window.__mark ? 'same page' : (navigator.serviceWorker.controller ? (await ask(navigator.serviceWorker.controller,'version'))?.version : null)")
+            except Exception:
+                v = None
+            if v == 'gen4':
+                break
+        check('A09: once saved, Force update goes ahead', v, 'gen4')
+
+        # A19: a deploy that lands mid-workout waits for the player to close,
+        # then still waits for a save that has not landed.
+        c.navigate(BASE + '/m.html#today', settle=3)
+        opened = js(c, """
+          const s = (ms) => new Promise(r => setTimeout(r, ms));
+          window.__mark = 1;
+          navigator.serviceWorker.addEventListener('controllerchange', () => { window.__cc = 1; });
+          const b = document.querySelector('[data-act="start"]:not([disabled]), [data-act="resume"]');
+          if (!b) return 'no start';
+          b.click(); await s(1200);
+          // Started and past the get ready, so leaving asks what to keep.
+          document.querySelector('[data-p="pause"]')?.click(); await s(400);
+          for (let i = 0; i < 3; i++) { document.querySelector('[data-p="skip"]:not([disabled])')?.click(); await s(400); }
+          await s(1200);
+          return document.querySelector('.player') ? 'open' : 'not open';
+        """)
+        check('A19 setup: the player is open', opened, 'open')
+        stage('gen5')
+        js(c, "const reg = await navigator.serviceWorker.getRegistration('./'); try { await reg.update(); } catch {} for (let i = 0; i < 40 && !window.__cc; i++) await new Promise(r => setTimeout(r, 250)); await new Promise(r => setTimeout(r, 1500)); return 1")
+        st = js(c, "return { cc: window.__cc || 0, mark: window.__mark || 0, player: !!document.querySelector('.player') }")
+        check('A19: the new generation took control', st.get('cc'), 1)
+        check('A19: no reload while the player is open', [st.get('mark'), st.get('player')], [1, True])
+        pending = js(c, FAIL_PUT + """
+          const store = await import('./js/store.js');
+          store.queueSave(); await new Promise(r => setTimeout(r, 1200));
+          return store.saveOutstanding();
+        """)
+        check('A19 setup: a save is still owed', pending, True)
+        asked = js(c, """
+          const s = (ms) => new Promise(r => setTimeout(r, ms));
+          document.querySelector('#nav-back, [data-p="close"]')?.click(); await s(600);
+          const later = document.querySelector('[data-s="later"]');
+          later?.click(); await s(600);
+          return !!later;
+        """)
+        check('A19 setup: leaving asked, and Finish later was chosen', asked, True)
+        time.sleep(3)
+        st = js(c, "return { mark: window.__mark || 0, player: !!document.querySelector('.player') }")
+        check('A19: player closed, reload still waits for the owed save', [st.get('mark'), st.get('player')], [1, False])
+        js(c, FIX_PUT + " const store = await import('./js/store.js'); await store.flushSave(); return 1")
+        deadline = time.time() + 15
+        mark = 1
+        while time.time() < deadline:
+            time.sleep(1)
+            try:
+                mark = js(c, "return window.__mark || 0")
+            except Exception:
+                mark = 1
+            if mark == 0:
+                break
+        check('A19: once saved, the page reloads into the new generation', mark, 0)
+        v = js(c, ASK + "return (await ask(navigator.serviceWorker.controller,'version'))?.version")
+        check('A19: on generation 5', v, 'gen5')
+        draft = js(c, "return !!localStorage.getItem('rehab.player.v1')")
+        check('A19: the workout left for later is still kept', draft, True)
+
+    # A12: IndexedDB cannot be opened. A database of a newer version on the
+    # origin makes the app's open fail with a real VersionError (nothing is
+    # patched). The app must open read only and write nothing.
+    with cdp.Chrome(tempfile.mkdtemp(prefix='rehab-offline-a12-'), headless=True) as c:
+        c.assert_is_ours()
+        c.navigate(BASE + '/manifest.webmanifest', settle=1.5)
+        js(c, "await new Promise((res, rej) => { const r = indexedDB.open('rehab', 99); r.onupgradeneeded = () => r.result.createObjectStore('marker'); r.onsuccess = () => { r.result.close(); res(); }; r.onerror = () => rej(r.error); }); return 1")
+        c.navigate(BASE + '/m.html#today', settle=4)
+        st = js(c, """
+          const store = await import('./js/store.js');
+          const chip = document.getElementById('sync-btn');
+          return { ro: store.state.readOnly, chip: chip ? (chip.textContent.trim() + ' ' + (chip.getAttribute('aria-label') || '')) : null };
+        """)
+        check('A12: a store that will not open is read only', st.get('ro'), True)
+        check('A12: the header chip says Read only', 'Read only' in (st.get('chip') or ''), True)
+        js(c, """
+          const s = (ms) => new Promise(r => setTimeout(r, ms));
+          const t = document.querySelector('input.tick');
+          if (t) { t.click(); await s(1500); }
+          const store = await import('./js/store.js');
+          store.queueSave(); await s(1200);
+          return 1;
+        """)
+        after = js(c, "return await new Promise((res) => { const r = indexedDB.open('rehab'); r.onsuccess = () => { const db = r.result; const out = { v: db.version, stores: [...db.objectStoreNames] }; db.close(); res(out); }; r.onerror = () => res({ err: String(r.error) }); })")
+        check('A12: nothing was written (the database is as it was)', [after.get('v'), after.get('stores')], [99, ['marker']])
 finally:
     srv.shutdown()
     shutil.rmtree(ROOT, ignore_errors=True)

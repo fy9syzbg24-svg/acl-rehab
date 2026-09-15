@@ -40,6 +40,7 @@ const ctx = {
   date: todayIso(),
   go(v) {
     if (ctx.view === 'player' && v !== 'player') playerLeaving();
+    if (ctx.view === 'today' && v !== 'today') delete ctx.todayNotice;   // said for one visit
     rememberScroll();
     ctx.view = v; history.replaceState(null, '', '#' + v); paint();
   },

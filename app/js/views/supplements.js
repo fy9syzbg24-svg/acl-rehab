@@ -431,54 +431,62 @@ function bindDragReorder(root, rerender) {
     return el ? el.closest('[data-dropzone]') : null;
   };
 
+  // Tracked on the document from pointerdown (Fable A2). Moving the row in
+  // the DOM releases pointer capture on the handle (capture clears when its
+  // element is removed), so pointerup never reached the handle and a reorder
+  // was never committed. The row itself moves under the finger; the order is
+  // written once, on release.
   root.querySelectorAll('[data-drag]').forEach((h) => {
     h.addEventListener('pointerdown', (e) => {
+      if (dragging) return;
       e.preventDefault();
       e.stopPropagation();
       dragging = h.closest('[data-row]');
       startY = e.clientY;
       dragging.classList.add('dragging');
-      h.setPointerCapture(e.pointerId);
-    });
+      const pointer = e.pointerId;
 
-    h.addEventListener('pointermove', (e) => {
-      if (!dragging) return;
-      e.preventDefault();
-      const over = rowUnder(e.clientX, e.clientY);
-      if (over && over !== dragging) {
-        const r = over.getBoundingClientRect();
-        const after = e.clientY > r.top + r.height / 2;
-        over.parentNode.insertBefore(dragging, after ? over.nextSibling : over);
-      } else {
-        // Not over a row, maybe over an empty group's list.
-        const zone = zoneUnder(e.clientX, e.clientY);
-        if (zone && !zone.contains(dragging)) zone.appendChild(dragging);
-      }
-    });
-
-    const finish = (e) => {
-      if (!dragging) return;
-      dragging.classList.remove('dragging');
-      const moved = dragging;
-      dragging = null;
-      try { h.releasePointerCapture(e.pointerId); } catch { /* already gone */ }
-      // Commit the DOM order back to the document, in one mutation.
-      update((d) => {
-        let order = 0;
-        root.querySelectorAll('[data-dropzone]').forEach((zone) => {
-          const when = zone.dataset.dropzone;
-          zone.querySelectorAll('[data-row]').forEach((el) => {
-            const row = (d.supplements || []).find((x) => x.id === el.dataset.row);
-            if (!row) return;
-            row.order = order++;
-            row.when = when;
+      const move = (ev) => {
+        if (!dragging || ev.pointerId !== pointer) return;
+        ev.preventDefault();
+        const over = rowUnder(ev.clientX, ev.clientY);
+        if (over && over !== dragging) {
+          const r = over.getBoundingClientRect();
+          const after = ev.clientY > r.top + r.height / 2;
+          const ref = after ? over.nextSibling : over;
+          if (ref !== dragging && ref !== dragging.nextSibling) over.parentNode.insertBefore(dragging, ref);
+        } else if (!over) {
+          // Not over a row, maybe over an empty group's list.
+          const zone = zoneUnder(ev.clientX, ev.clientY);
+          if (zone && !zone.contains(dragging)) zone.appendChild(dragging);
+        }
+      };
+      const finish = (ev) => {
+        if (!dragging || ev.pointerId !== pointer) return;
+        document.removeEventListener('pointermove', move, true);
+        document.removeEventListener('pointerup', finish, true);
+        document.removeEventListener('pointercancel', finish, true);
+        dragging.classList.remove('dragging');
+        dragging = null;
+        // Commit the DOM order back to the document, in one mutation.
+        update((d) => {
+          let order = 0;
+          root.querySelectorAll('[data-dropzone]').forEach((zone) => {
+            const when = zone.dataset.dropzone;
+            zone.querySelectorAll('[data-row]').forEach((el) => {
+              const row = (d.supplements || []).find((x) => x.id === el.dataset.row);
+              if (!row) return;
+              row.order = order++;
+              row.when = when;
+            });
           });
         });
-      });
-      rerender();
-    };
-    h.addEventListener('pointerup', finish);
-    h.addEventListener('pointercancel', finish);
+        rerender();
+      };
+      document.addEventListener('pointermove', move, { capture: true, passive: false });
+      document.addEventListener('pointerup', finish, true);
+      document.addEventListener('pointercancel', finish, true);
+    });
   });
 }
 

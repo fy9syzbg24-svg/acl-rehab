@@ -195,7 +195,7 @@ function dayHead(iso, planned, extras, entries, ctx) {
     </div>
   </header>
   ${workoutButton(iso)}
-  ${statusLine(iso, planned, entries)}`;
+  ${statusLine(iso, planned, entries, ctx)}`;
 }
 
 const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -207,8 +207,12 @@ const cap = (t) => (t ? t[0].toUpperCase() + t.slice(1) : t);
  * will do; otherwise that the plan is done. Text only: the button is the one
  * place to start or resume.
  */
-function statusLine(iso, planned, entries) {
+function statusLine(iso, planned, entries, ctx = {}) {
   const d = draftInfo();
+  // Said once, for the visit after the player left with nothing logged (A1).
+  if (ctx.todayNotice && ctx.todayNotice.iso === iso && !(d && d.phase !== 'done')) {
+    return `<div class="daystatus notice" aria-live="polite">${esc(ctx.todayNotice.text)}</div>`;
+  }
   const t12 = (ms) => new Date(ms).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
   let html;
   let cls = '';
@@ -1051,7 +1055,8 @@ function openDayMenu(iso, ctx, rerender) {
             const d = ensureDay(iso);
             for (const e of CLINIC_HEP.entries) {
               if (alreadyLogged(d, e.ex, e.side)) continue;
-              d.entries.push({ id: uid(), ...e, logged: false });
+              // Marked, so Clear takes them away again like any program row.
+              d.entries.push({ id: uid(), ...e, logged: false, via: 'hep' });
             }
           });
         }
@@ -1075,11 +1080,14 @@ function openDayMenu(iso, ctx, rerender) {
           });
         }
         if (act === 'clear') {
-          const n = (getDay(iso)?.entries || []).filter((e) => e.pid).length;
+          // Program rows and rows the Clinic program action added (A3: those
+          // had no program id, so Clear left them behind).
+          const bulk = (e) => e.pid || e.via === 'hep';
+          const n = (getDay(iso)?.entries || []).filter(bulk).length;
           if (!n || !confirm(`Remove all ${n} program exercise${n === 1 ? '' : 's'} from ${fmtDate(iso)}? Anything you added yourself stays.`)) return;
           update(() => {
             const d = ensureDay(iso);
-            d.entries = d.entries.filter((e) => !e.pid);
+            d.entries = d.entries.filter((e) => !bulk(e));
           });
         }
         ctx.editing = null;

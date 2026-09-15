@@ -1284,6 +1284,13 @@ async function finishRun(ctx, { leave = false } = {}) {
     ctx.go(ctx.playerFrom || 'today');
     return;
   }
+  // Nothing was done on the first job (Next through every set): nothing is
+  // logged, so there is no recovery break to wait for (Fable A1). Back to
+  // Today, which says so once, and the row stays unticked. No confirm step.
+  if (item.first && saved === 'empty') {
+    leaveEmptyFirst(ctx, item);
+    return;
+  }
   if (item.first) {
     stopEffects();
     P.phase = 'done';
@@ -1337,16 +1344,29 @@ function startNextNow() {
 }
 
 /** After a save: the next exercise in the session, or the finish. */
-function afterSave(ctx) {
+function afterSave(ctx, saved = true) {
   const s = P.session;
   if (!s) { clearDraft(); ctx.go(ctx.playerFrom || 'today'); return; }
   // A retried save follows the same rules as the automatic one: the tendon
-  // loading stops for the recovery break, anything else carries on.
+  // loading stops for the recovery break, anything else carries on. An empty
+  // save of the first job logs nothing and starts no break (Fable A1).
   const item = ITEM[P.run?.pid];
+  if (item?.first && saved === 'empty') { leaveEmptyFirst(ctx, item); return; }
   if (item?.first) { P.phase = 'done'; P.stopForGap = item.id; writeDraft(); return; }
   moveOn(s);
   if (P.phase === 'between') startNextNow();
   writeDraft();
+}
+
+/** Leave the player after a first job with nothing done, and tell Today once. */
+function leaveEmptyFirst(ctx, item) {
+  const iso = P.run?.iso;
+  stopEffects();
+  clearDraft();
+  notifyIdle();
+  ctx.todayNotice = { iso, text: `Nothing logged for ${item.title || exerciseById(item.ex)?.name || item.ex}` };
+  announce(ctx.todayNotice.text);
+  ctx.go('today');
 }
 
 function moveOn(s) {
@@ -1612,8 +1632,11 @@ export function bindPlayer(root, ctx, rerender) {
     }
     if (k === 'zoom') return openZoom(ctx, rerender);
     if (k === 'save') {
-      if (!saveCurrent()) return;
+      const savedAs = saveCurrent();
+      if (!savedAs) return;
       const item = ITEM[P.run.pid];
+      // Nothing done: nothing was written, so there is no "Saved" to say (A1).
+      if (savedAs === 'empty') { afterSave(ctx, savedAs); if (P) rerender(); return; }
       b.disabled = true;
       // "Saved" only once it is on this device, and the recovery draft stays
       // until then. A failed write keeps the workout here to try again.
@@ -1625,7 +1648,7 @@ export function bindPlayer(root, ctx, rerender) {
         }
         announce(`Logged ${item.title || item.ex}`);
         toast(`<b>Saved</b><br><span>${esc(item.title || item.ex)}</span>`, 'good', { key: 'player-logged' });
-        afterSave(ctx);
+        afterSave(ctx, savedAs);
         if (P) rerender();
       });
       return;
