@@ -321,6 +321,7 @@ textarea { resize: vertical; min-height: 3.2em; }
 input[type=range] { padding: 0; border: 0; background: none; accent-color: var(--accent); }
 input[type=checkbox] { width: auto; accent-color: var(--accent); }
 label.fld { display: flex; flex-direction: column; gap: .2rem; font-size: .72rem; color: var(--ink-3); font-weight: 550; }
+label.fld[hidden] { display: none; }
 
 .row { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
 .row.between { justify-content: space-between; }
@@ -964,6 +965,10 @@ ol.steps li { font-size: .82rem; margin: .18rem 0; }
 }
 .supptime.set { background: var(--good-soft); color: var(--good); font-weight: 600; }
 .supptime.inactive { opacity: .5; cursor: default; }
+/* The suggested time for a medicine's next dose (nextDoseAt): readable, neutral, and it pops in when it appears. */
+.supptime.inactive.hint { opacity: 1; color: var(--ink); }
+.supptime.hint > span { animation: hintin 420ms var(--ease-settle) both; }
+@keyframes hintin { from { opacity: 0; transform: translateY(5px) scale(.94); } }
 .supptime input[type=time] { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; min-height: 0; font-size: 16px; border: 0; padding: 0; }
 .supptime input[type=time]:disabled { pointer-events: none; }
 .suppdel { flex: none; width: 44px; height: 44px; border: 0; background: none; color: var(--ink-2); font-size: 1rem; border-radius: 10px; cursor: pointer; }

@@ -21,7 +21,7 @@
 
 import { parse, morph } from '../morph.js';
 import { growIn, foldAway, insertBody, patchHead } from '../fold.js';
-import { esc, todayIso, currentDayIso, uid, fmtDate, onTimePicked } from '../util.js';
+import { esc, todayIso, currentDayIso, uid, fmtDate, onTimePicked, addDays } from '../util.js';
 import { state, update, ensureDay, getDay } from '../store.js';
 import { renderDatePill, bindDatePill, openModal, closeModal, toast } from '../components.js';
 
@@ -136,6 +136,44 @@ export function onSuppTime(fn) { suppTimeHook = fn; }
 const hhmm24 = (d) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 const time12 = (d) => d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
 
+/**
+ * One medicine taken as two doses a set number of hours apart (his Pepcid,
+ * 2026-09-15: "one in the evening and one in the morning, separated by 12
+ * hours", whichever comes first). Its rows share a name and carry `gapHours`.
+ * Once a dose is ticked, the other row suggests the time for the next one:
+ * the latest dose logged today or the day before, plus the gap, shown on the
+ * row whose supplement day that time falls in. Only ticks with a real time
+ * count; a suggestion, never a rule.
+ */
+const doseKey = (s) => (Number(s.gapHours) > 0 ? String(s.name).trim().toLowerCase() : null);
+
+export function nextDoseAt(s, iso) {
+  const key = doseKey(s);
+  if (!key) return null;
+  const sibs = (state.data.supplements || []).filter((x) => doseKey(x) === key);
+  let last = null;
+  for (const day of [addDays(iso, -1), iso]) {
+    const t = ticksOn(day);
+    for (const x of sibs) {
+      const at = suppTime(t[x.id]);
+      if (at && (!last || at > last)) last = at;
+    }
+  }
+  if (!last) return null;
+  const next = new Date(last.getTime() + Number(s.gapHours) * 3600e3);
+  if (currentDayIso(next) !== iso) return null;
+  // One row shows it: the dose still to take whose group fits the time (after
+  // midnight still counts as the evening), else the first one still to take.
+  const ticks = ticksOn(iso);
+  const open = sibs.filter((x) => activeOn(x, iso) && !ticks[x.id]);
+  const h = next.getHours();
+  const want = h >= 5 && h < 12 ? 'morning' : h >= 12 && h < 17 ? 'anytime' : 'evening';
+  const rank = (x) => WHENS.findIndex(([k]) => k === (x.when || 'anytime'));
+  const target = open.find((x) => (x.when || 'anytime') === want)
+    || open.slice().sort((a, b) => rank(a) - rank(b) || byOrder(a, b))[0];
+  return target?.id === s.id ? next : null;
+}
+
 export function suppScore(iso) {
   const list = listFor(iso);
   if (!list.length) return null;
@@ -232,6 +270,7 @@ const checkSvg = '<svg class="sg-check" viewBox="0 0 24 24" aria-hidden="true"><
 function suppRow(s, iso, ticks, ctx, edit) {
   const on = !!ticks[s.id];
   const t = suppTime(ticks[s.id]);
+  const next = !on && !edit ? nextDoseAt(s, iso) : null;
   const id = `supp-${s.id}-${iso}`;
   return `
     <div class="supprow ${on ? 'on' : ''} ${ctx.suppPop === s.id ? 'pop' : ''}" data-row="${esc(s.id)}">
@@ -243,8 +282,8 @@ function suppRow(s, iso, ticks, ctx, edit) {
       </label>
       ${edit
         ? `<button class="suppdel" data-suppdel="${esc(s.id)}" aria-label="Remove ${esc(s.name)}">✕</button>`
-        : `<label class="supptime ${on ? '' : 'inactive'} ${t ? 'set' : ''}" data-supptime-wrap>
-            <span>${t ? esc(time12(t)) : 'Set time'}</span>
+        : `<label class="supptime ${on ? '' : 'inactive'} ${t ? 'set' : ''} ${next ? 'hint' : ''}" data-supptime-wrap>
+            <span${next ? ` aria-label="Next dose about ${esc(time12(next))}"` : ''}>${t ? esc(time12(t)) : next ? `Next ${esc(time12(next))}` : 'Set time'}</span>
             <input type="time" data-supptime="${esc(s.id)}" value="${t ? hhmm24(t) : ''}" ${on ? '' : 'disabled'} aria-label="Time you took ${esc(s.name)}">
           </label>`}
     </div>`;
@@ -704,9 +743,18 @@ function addSupplementSheet(iso, rerender) {
     title: 'Add a supplement',
     body: `
       <label class="fld">Name<input id="sa-name" placeholder="e.g. Vitamin D" autocomplete="off"></label>
-      <label class="fld" style="margin-top:.6rem">When
+      <label class="fld" style="margin-top:.6rem">How often
+        <select id="sa-often">
+          <option value="once">Once a day</option>
+          <option value="twice12">Twice a day, 12 hours apart</option>
+        </select>
+      </label>
+      <label class="fld" style="margin-top:.6rem" data-sa-when>When
         <select id="sa-when">${WHENS.map(([k, l]) => `<option value="${k}">${l}</option>`).join('')}</select>
       </label>
+      <div class="tiny muted" style="margin-top:.6rem" data-sa-twice hidden>
+        One in Morning and one in Evening. When you tick either, the other suggests a time 12 hours later.
+      </div>
       <div class="tiny muted" style="margin-top:.6rem">
         Added from <strong>${esc(fmtDate(iso))}</strong> onwards. Earlier days are untouched.
       </div>`,
@@ -716,18 +764,30 @@ function addSupplementSheet(iso, rerender) {
         const name = m.querySelector('#sa-name').value.trim();
         if (!name) return;
         const when = m.querySelector('#sa-when').value;
+        const twice = m.querySelector('#sa-often').value === 'twice12';
         update((d) => {
           d.supplements = d.supplements || [];
           // Always a NEW row, even if the name already exists, the same
           // supplement is often taken morning AND evening, and merging them
           // made the second one silently move the first.
           const max = d.supplements.reduce((n, s) => Math.max(n, s.order ?? 0), -1);
-          d.supplements.push({ id: uid(), name, when, order: max + 1, spans: [{ from: iso, until: null }] });
+          const spans = () => [{ from: iso, until: null }];
+          if (twice) {
+            d.supplements.push({ id: uid(), name, when: 'morning', gapHours: 12, order: max + 1, spans: spans() });
+            d.supplements.push({ id: uid(), name, when: 'evening', gapHours: 12, order: max + 2, spans: spans() });
+          } else {
+            d.supplements.push({ id: uid(), name, when, order: max + 1, spans: spans() });
+          }
         });
         closeModal(); rerender();
       };
       m.querySelector('[data-save]').addEventListener('click', save);
       m.querySelector('#sa-name').addEventListener('keydown', (e) => { if (e.key === 'Enter') save(); });
+      m.querySelector('#sa-often').addEventListener('change', (e) => {
+        const twice = e.target.value === 'twice12';
+        m.querySelector('[data-sa-when]').hidden = twice;
+        m.querySelector('[data-sa-twice]').hidden = !twice;
+      });
     },
   });
 }

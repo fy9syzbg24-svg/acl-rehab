@@ -1019,3 +1019,17 @@ Two changes:
   and each switch between hold and rest is one tone (`scheduleSwitch` in audio.js) instead of the 3, 2, 1. The
   countdown plays only before the very end. Steps, logging, estimates and the six hour line are unchanged.
 
+## A medicine taken twice a day, 12 hours apart (2026-09-15)
+
+His ask: Pepcid "twice a day ... one in the evening and one in the morning, separated by 12 hours", whichever comes
+first, with "a slight suggestion at what time I can take the second one".
+
+The add sheet has **How often: Twice a day, 12 hours apart**, which adds two rows with the same name, one in Morning
+and one in Evening, both with `gapHours: 12` (a field on the supplement record, no new document key). `nextDoseAt`
+in `supplements.js` takes the latest dose with a real time among rows of that name, today or the day before, adds
+the gap, and shows **Next 9:00 AM** in the time slot of one row still to take: the one whose group fits that time
+(5am to noon Morning, noon to 5pm Anytime, otherwise Evening), else the first still to take, and only on the
+supplement day the time falls in. It pops in, in neutral ink. A suggestion only: nothing is blocked. The same rows
+show on Today. Checked: a morning tick hints the evening row; last night's 9 PM dose hints this morning's row and
+not tonight's; tonight's dose hints nothing today; unticking clears it.
+
