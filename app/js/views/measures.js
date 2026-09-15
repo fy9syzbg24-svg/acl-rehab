@@ -39,7 +39,8 @@ function loadRecords() {
         const key = `${e.ex}|${s}`;
         const cur = rec[key];
         const cand = { ex: e.ex, side: s, load, unit: e.loadUnit || 'kg', sets: e.sets, reps: e.reps, date, seeded: e.seeded, both: e.side === 'B' };
-        if (!cur || load > cur.load) rec[key] = cand;
+        // Heaviest in one unit (audit A23): 50 lb is not heavier than 30 kg.
+        if (!cur || toKg(load, cand.unit) > toKg(cur.load, cur.unit)) rec[key] = cand;
       }
     }
   }
@@ -54,8 +55,20 @@ function baselines() {
   const open = ids.filter((id) => OPEN_CHAIN.has(id));
   const other = ids.filter((id) => !OPEN_CHAIN.has(id));
 
-  const table = (list) => !list.length ? '<div class="empty">Nothing logged with a load yet.</div>' : `
-    <div class="scroll-x"><table class="tbl" style="min-width:560px">
+  // On a phone each exercise is one compact record with both sides side by
+  // side (audit L07); the wide table stays for iPad and Mac.
+  const side = (tag, r) => `<span class="mv"><b class="sidetag ${tag}">${tag === 'B' ? 'Both' : tag}</b>${r ? `${esc(String(round(r.load, 2)))}<small>${esc(r.unit)}</small>` : '<span class="muted">·</span>'}</span>`;
+  const narrow = (list) => `<div class="only-narrow brows">${list.map((id) => {
+    const L = byEx[id].L; const R = byEx[id].R; const B = byEx[id].B;
+    const top = [L, R, B].filter(Boolean).sort((a, b) => toKg(b.load, b.unit) - toKg(a.load, a.unit))[0];
+    return `<div class="brow">
+      <div class="brow-name">${esc(exerciseById(id)?.name || id)}</div>
+      <div class="brow-vals">${L || R ? side('L', L) + side('R', R) : ''}${B ? side('B', B) : ''}</div>
+      <div class="brow-meta">${top.sets ? `best set ${esc(`${top.sets} x ${top.reps ?? '?'}`)} · ` : ''}${esc(fmtDateNum(top.date))}</div>
+    </div>`;
+  }).join('')}</div>`;
+  const table = (list) => !list.length ? '<div class="empty">Nothing logged with a load yet.</div>' : `${narrow(list)}
+    <div class="only-wide scroll-x"><table class="tbl" style="min-width:560px">
       <thead><tr><th>Exercise</th><th class="num">Left</th><th class="num">Right</th><th class="num">Both legs</th><th class="num">Difference</th><th>Best set</th><th>When</th></tr></thead>
       <tbody>${list.map((id) => {
         const L = byEx[id].L; const R = byEx[id].R; const B = byEx[id].B;
@@ -63,7 +76,7 @@ function baselines() {
         const want = state.data.settings.weightUnit || 'kg';
         const inU = (r) => fromKg(toKg(r.load, r.unit), want);
         const delta = L && R && round(inU(L), 1) !== round(inU(R), 1) ? `${round(Math.abs(inU(L) - inU(R)), 1)} ${want} ${inU(L) > inU(R) ? 'L' : 'R'}` : '';
-        const top = [L, R, B].filter(Boolean).sort((a, b) => b.load - a.load)[0];
+        const top = [L, R, B].filter(Boolean).sort((a, b) => toKg(b.load, b.unit) - toKg(a.load, a.unit))[0];
         return `<tr>
           <td>${esc(exerciseById(id)?.name || id)} ${top.seeded ? '<span class="seeded-dot" title="from clinical notes">●</span>' : ''}</td>
           <td class="num mono">${L ? `${round(L.load, 2)} ${esc(L.unit)}` : '·'}</td>
@@ -122,7 +135,12 @@ function volumeTable() {
   }
   const list = Object.values(rec).sort((a, b) => (exerciseById(a.ex)?.name || a.ex).localeCompare(exerciseById(b.ex)?.name || b.ex));
   if (!list.length) return '<div class="empty">Nothing logged without a load yet.</div>';
-  return `<div class="scroll-x"><table class="tbl" style="min-width:460px">
+  return `<div class="only-narrow brows">${list.map((r) => `<div class="brow">
+      <div class="brow-name">${esc(exerciseById(r.ex)?.name || r.ex)}</div>
+      <div class="brow-vals"><span class="mv">${esc(r.reps ? `${r.sets * r.reps}` : `${round(r.sets * r.time, 1)}`)}<small>${r.reps ? 'reps' : 'min'}</small></span></div>
+      <div class="brow-meta">${esc(r.reps ? `${r.sets} x ${r.reps}` : `${r.sets} x ${round(r.time, 2)} min`)} · ${esc(fmtDateNum(r.date))}</div>
+    </div>`).join('')}</div>
+  <div class="only-wide scroll-x"><table class="tbl" style="min-width:460px">
     <thead><tr><th>Exercise</th><th>Best effort</th><th class="num">Total</th><th>When</th></tr></thead>
     <tbody>${list.map((r) => `<tr>
       <td>${esc(exerciseById(r.ex)?.name || r.ex)} ${r.seeded ? '<span class="seeded-dot" title="from clinical notes">●</span>' : ''}</td>
@@ -166,7 +184,7 @@ function valdView(ctx) {
     <header><h2>VALD</h2><span class="sub">Dynamo isometric strength + force plate assessments</span></header>
     <div class="card-body">
       <details class="disc" data-key="vald:source" style="margin-bottom:.6rem"><summary>Where these numbers come from</summary>
-        <div class="tiny">Seeded from your Dynamo test and force plate session (report dated 3 Aug). Percentiles are recorded alongside the raw numbers so you can see both the value and where it sits. An asymmetry printed on a report is shown as printed; one worked out here is shown in grey.</div>
+        <div class="tiny">Results from your recorded Dynamo and force plate tests, each with its own date. Percentiles are recorded alongside the raw numbers so you can see both the value and where it sits. An asymmetry printed on a report is shown as printed; one worked out here is shown in grey.</div>
       </details>
       ${groups.map((g) => {
         const ms = MEASURES.filter((m) => m.group === g);

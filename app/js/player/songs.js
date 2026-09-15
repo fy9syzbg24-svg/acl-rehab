@@ -209,27 +209,52 @@ export function nextInCycle() {
   return queue.find((x) => x.sha === sha) || null;
 }
 
-async function advance() {
-  const song = nextInCycle();
-  if (!song) return false;
+/**
+ * The next track that actually loads, trying each other track in the cycle at
+ * most once (audit A22), so one broken file never stops the music and a
+ * missing set never loops. Null when none loads, or when a newer request
+ * (a Pause, another skip) took over while it was loading.
+ */
+async function loadNext() {
   const token = playToken;
-  const ok = await prepareSong(song, 0);
-  if (!ok || token !== playToken || !wantPlaying) return false;
-  onTrack?.(song);
+  const tried = new Set([current]);
+  for (let n = 0; n < queue.length; n++) {
+    const song = nextInCycle();
+    if (!song || tried.has(song.sha)) break;
+    tried.add(song.sha);
+    const ok = await prepareSong(song, 0);
+    if (token !== playToken) return { stale: true };
+    if (ok) return { song };
+    // prepareSong leaves `current` on the failed track's predecessor, so step
+    // the cycle past it before the next try.
+    const i = cycle.indexOf(song.sha);
+    if (i >= 0) { cycle.splice(i, 1); cycle.push(song.sha); }
+  }
+  return { song: null };
+}
+
+async function advance() {
+  const got = await loadNext();
+  if (got.stale || !got.song || !wantPlaying) {
+    if (!got.stale && !got.song) setStatus('error');
+    return false;
+  }
+  onTrack?.(got.song);
   playSong(true);
   return true;
 }
 
-/** Skip to the next track now. Plays it if music was playing. */
+/**
+ * Skip to the next track now. Plays it only if music is still wanted once it
+ * has loaded (audit A21): a Pause or stop during the download wins.
+ */
 export async function skipSong() {
-  const was = wantPlaying;
-  const song = nextInCycle();
-  if (!song) return null;
-  const ok = await prepareSong(song, 0);
-  if (!ok) { setStatus('error'); return null; }
-  onTrack?.(song);
-  if (was) playSong(true);
-  return song;
+  const got = await loadNext();
+  if (got.stale) return null;
+  if (!got.song) { setStatus('error'); return null; }
+  onTrack?.(got.song);
+  if (wantPlaying) playSong(true);
+  return got.song;
 }
 
 /**

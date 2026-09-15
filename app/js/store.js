@@ -9,9 +9,9 @@ import { EXERCISE_BY_ID } from '../data/exercises.js';
 import { CATEGORIES } from '../data/measurements.js';
 import { seedSupplements, seedPrnMeds } from './views/supplements.js';
 import { collectRecords, fingerprint } from './sync/records.js';
-import { stampChanges, stampAll, pendingCount } from './sync/merge.js';
+import { stampChanges, stampAll, pendingCount, mergeDocs } from './sync/merge.js';
 import { recordScheduleVersion } from './planstreak.js';
-import { readLocalDoc, writeLocalDoc, SERVER_MODE } from './sync/local-store.js';
+import { readLocalDoc, writeLocalDoc, SERVER_MODE, StaleWrite, RefusedWrite, adoptRevision } from './sync/local-store.js';
 import { syncNow } from './sync/engine.js';
 import { isConfigured, getConfig } from './sync/config.js';
 
@@ -113,9 +113,16 @@ export async function load() {
       emit();
       return;
     }
-    // iPhone: IndexedDB itself failed (rare). Open anyway with a blank doc so
-    // the app is never dead on arrival; the next sync repopulates it.
-    incoming = {};
+    // iPhone: IndexedDB itself failed. This used to open a blank WRITABLE
+    // document, which a later save or sync could then treat as the truth
+    // (audit A12). Now it is read-only, exactly like the Mac with the server
+    // down: nothing is written and nothing is synced until a reload reads the
+    // store properly.
+    state.readOnly = true;
+    state.error = 'Could not open the workout log saved on this device. Nothing will be saved or synced. Close the app completely and open it again.';
+    state.data = migrate(blank());
+    emit();
+    return;
   }
 
   state.readOnly = false;
@@ -289,20 +296,47 @@ async function persist() {
   state.saving = true;
   emit();
   let ok = false;
+  // The journal as it stands when this copy is taken (the write serialises
+  // the document immediately), so only what it covers is released after.
+  const gen = journalGen;
   try {
-    state.lastSaved = await writeLocalDoc(state.data);   // Mac: server. iPhone: IDB.
+    state.lastSaved = await writeDurable();   // Mac: server. iPhone: IDB.
     state.error = null;
     ok = true;
+    journalLanded(gen);
   } catch (err) {
     savePending = true;   // still owed
-    state.error = SERVER_MODE
-      ? 'Save failed. The server may have stopped. Your data is still on screen.'
-      : 'Could not save locally. Your data is still on screen.';
+    state.error = err instanceof RefusedWrite
+      ? 'Not saved: this would have emptied your saved log, so it was refused. Your data is still on screen.'
+      : SERVER_MODE
+        ? 'Save failed. The server may have stopped. Your data is still on screen.'
+        : 'Could not save locally. Your data is still on screen.';
   } finally {
     state.saving = false;
     emit();
   }
   return ok;
+}
+
+/**
+ * Write the document, merging first if another window (or a PhysiApp import on
+ * the Mac) saved since this one read (audit A13, A15). The merge is the sync
+ * merge, so nothing either side holds is dropped; after it the view repaints.
+ */
+async function writeDurable(doc = null) {
+  for (let attempt = 0; attempt < 4; attempt++) {
+    try {
+      return await writeLocalDoc(doc || state.data);
+    } catch (err) {
+      if (!(err instanceof StaleWrite)) throw err;
+      const merged = mergeDocs(doc || state.data, err.doc || {});
+      if (doc) doc = merged.doc;
+      else state.data = merged.doc;
+      adoptRevision(err.rev);
+      if (merged.changed && remoteChangeCb) setTimeout(() => remoteChangeCb(), 0);
+    }
+  }
+  throw new Error('the saved log kept changing in another window');
 }
 
 /**
@@ -313,6 +347,7 @@ async function persist() {
  */
 export async function flushSave() {
   if (state.readOnly) return false;
+  if (staged.size) flushEdits();
   const ok = await persist();
   if (ok) scheduleSync();
   return ok;
@@ -346,7 +381,8 @@ export function onRemoteChange(fn) { remoteChangeCb = fn; }
 
 /** How many records are still waiting to reach the server. */
 export function pendingSyncCount() {
-  return pendingCount(state.data, getConfig().lastPushedAt || 0);
+  const c = getConfig();
+  return pendingCount(state.data, c.ack || c.lastPushedAt || 0);
 }
 
 let syncing = false;
@@ -385,7 +421,7 @@ export async function runSync(reason = 'manual') {
         // the view needs a repaint.
         state.data = merged;
         pulledSomething = true;
-        await writeLocalDoc(state.data);
+        await writeDurable();
       },
       { deviceId: DEVICE_ID },
     );
@@ -429,18 +465,42 @@ function repair(fn) {
 // reload loses nothing), and committed through update() when he pauses, leaves
 // the field, changes view, or the page hides, and before any other change.
 // Descriptors, not closures, so a recovery copy can be replayed after a reload.
+//
+// 2026-09-15 (audit A07): the recovery copy stays until a save that includes
+// the commit has actually landed. Committing used to delete it at once, so a
+// close in the half second before the debounced save lost the edit. Each entry
+// carries when it was typed; a replay skips any the document already holds
+// with a newer stamp, so a copy left over from a save that did land never
+// overwrites a later change.
 const EDIT_KEY = 'rehab.editdraft';
 const staged = new Map();
 let stageTimer = null;
+let journal = [];          // committed, not yet known to be on disk
+let journalGen = 0;        // bumps whenever the journal changes
+
+function writeJournal() {
+  journalGen++;
+  const all = [...journal, ...staged.values()];
+  try {
+    if (all.length) localStorage.setItem(EDIT_KEY, JSON.stringify(all));
+    else localStorage.removeItem(EDIT_KEY);
+  } catch { /* the in-memory copy still commits */ }
+}
 
 export function stageEdit(key, desc) {
-  staged.set(key, desc);
-  try { localStorage.setItem(EDIT_KEY, JSON.stringify([...staged.values()])); } catch { /* the in-memory copy still commits */ }
+  staged.set(key, { ...desc, at: Date.now() });
+  writeJournal();
   clearTimeout(stageTimer);
   stageTimer = setTimeout(flushEdits, 700);
 }
 
 export function hasStagedEdits() { return staged.size > 0; }
+
+function recordKeyOf(e) {
+  const iso = String(e.iso).replace(/\|/g, '%7C');
+  if (e.kind === 'entry') return `e|${iso}|${String(e.id).replace(/\|/g, '%7C')}`;
+  return `d|${iso}`;
+}
 
 function applyEdit(d, e) {
   if (!e || !e.iso) return;
@@ -462,8 +522,9 @@ export function flushEdits() {
   if (!staged.size) return false;
   const list = [...staged.values()];
   staged.clear();
+  journal.push(...list);
+  writeJournal();
   update((d) => { for (const e of list) applyEdit(d, e); });
-  try { localStorage.removeItem(EDIT_KEY); } catch { /* nothing to clear */ }
   return true;
 }
 
@@ -472,9 +533,28 @@ export function recoverEdits() {
   let list = null;
   try { list = JSON.parse(localStorage.getItem(EDIT_KEY) || 'null'); } catch { list = null; }
   if (!Array.isArray(list) || !list.length || state.readOnly) return 0;
-  update((d) => { for (const e of list) applyEdit(d, e); });
+  const todo = editsToReplay(list, state.data._sync?.rec || {});
+  journal = todo.slice();
+  writeJournal();
+  if (todo.length) update((d) => { for (const e of todo) applyEdit(d, e); });
+  return todo.length;
+}
+
+/**
+ * Which recovered edits still need replaying. One the document already holds
+ * with a stamp at or after when it was typed landed before the close;
+ * replaying it could only undo something later. Older copies without a time
+ * are replayed, as before.
+ */
+export function editsToReplay(list, rec) {
+  return (list || []).filter((e) => !(e && e.at && (rec[recordKeyOf(e)] ?? 0) >= e.at));
+}
+
+/** Called after a save lands: drop the recovery copy it made durable. */
+function journalLanded(gen) {
+  if (gen !== journalGen || staged.size) return;
+  journal = [];
   try { localStorage.removeItem(EDIT_KEY); } catch { /* nothing to clear */ }
-  return list.length;
 }
 
 if (typeof document !== 'undefined') {
@@ -553,11 +633,15 @@ export function latest(measureId, leg) {
 
 /** Best value ever for a measure/leg, honouring lower-is-better measures. */
 export function best(measureId, leg, lower = false) {
-  const rows = measurementsFor(measureId, leg).filter((r) => typeof r.value === 'number');
+  const rows = measurementsFor(measureId, leg).filter((r) => typeof r.value === 'number' && Number.isFinite(r.value));
   if (!rows.length) return null;
+  // Weights are compared in one unit (audit A23): 210 lb is less than 100 kg.
+  // The record comes back as stored, with its own unit, for display.
+  const kg = (r) => (r.unit === 'lb' ? r.value / 2.2046226218 : r.value);
+  const cmp = (r) => (r.unit === 'lb' || r.unit === 'kg' ? kg(r) : r.value);
   return rows.reduce((a, b) => {
-    if (lower) return b.value < a.value ? b : a;
-    return b.value > a.value ? b : a;
+    if (lower) return cmp(b) < cmp(a) ? b : a;
+    return cmp(b) > cmp(a) ? b : a;
   });
 }
 

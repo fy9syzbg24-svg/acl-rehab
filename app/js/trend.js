@@ -103,8 +103,13 @@ function niceTicks(lo, hi, n = 4) {
   const mag = 10 ** Math.floor(Math.log10(raw));
   const step = [1, 2, 2.5, 5, 10].map((k) => k * mag).find((s) => s >= raw) || raw;
   const start = Math.floor(lo / step) * step;
+  // Always reach past the highest value (audit A25): stopping half a step
+  // short put a 4.9 above a top tick of 4, outside the plot.
   const ticks = [];
-  for (let v = start; v <= hi + step * 0.5 && ticks.length < 8; v += step) ticks.push(round(v, 6));
+  for (let v = start; ticks.length < 12; v += step) {
+    ticks.push(round(v, 6));
+    if (v >= hi - step * 1e-9) break;
+  }
   return ticks;
 }
 

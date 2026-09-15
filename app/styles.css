@@ -1472,6 +1472,13 @@ button.prog-main:focus-visible { outline: 2px solid var(--accent); outline-offse
 
 /* ------------------------------------------------ secondary screens, 09-14 */
 .only-wide { display: none; }
+/* compact records on a phone (audit L07): full name, both sides together */
+.brows { display: flex; flex-direction: column; }
+.brow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .15rem .8rem; padding: .7rem 0; border-top: 1px solid var(--line-2); align-items: baseline; }
+.brow:first-child { border-top: 0; }
+.brow-name { font-weight: 600; line-height: 1.25; overflow-wrap: break-word; }
+.brow-vals { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .2rem .8rem; }
+.brow-meta { grid-column: 1 / -1; font-size: .85rem; color: var(--ink-2); }
 @media (min-width: 700px) { .only-wide { display: block; } .only-narrow { display: none; } }
 
 /* metric rows: numbers pinned right, the name wraps, detail behind a tap */
@@ -1507,7 +1514,7 @@ details.mrow[open] > summary .mrow-name { color: var(--accent); }
   position: sticky; top: 0; z-index: 6; display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px;
   padding: .35rem; border-radius: 12px; background: color-mix(in srgb, var(--bg) 92%, transparent); backdrop-filter: blur(10px);
 }
-body.mobile .mnav { top: calc(var(--mtop-h) + var(--safe-t)); }
+body.mobile .mnav { top: var(--mtop-real, calc(var(--mtop-h) + var(--safe-t))); }
 .mnav-btn {
   display: flex; flex-direction: column; align-items: center; gap: 0; min-height: 48px; padding: .2rem 0;
   border: 1px solid var(--line); border-radius: 9px; background: var(--panel); font: inherit; cursor: pointer; color: var(--ink-2);
@@ -1618,12 +1625,17 @@ table.tbl { font-size: .9rem; }
 /* the page head every view opens with: eyebrow, title, one factual line */
 .pagehead { display: flex; flex-direction: column; gap: .15rem; padding: .35rem 0 .2rem; }
 .pagehead .eyebrow { font-size: .8rem; font-weight: 650; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-2); }
-.pagehead h1 { font-size: 2rem; font-weight: 750; letter-spacing: -.02em; line-height: 1.12; overflow-wrap: anywhere; }
+.pagehead h1 { font-size: min(2rem, 12vw); font-weight: 750; letter-spacing: -.02em; line-height: 1.12; overflow-wrap: break-word; hyphens: manual; }
 .pagehead .lede { font-size: 1rem; color: var(--ink-2); }
 
 /* sub navigation: text tabs with an underline, the same on every device */
 .subnav { display: flex; gap: 1.4rem; border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; }
 .subnav::-webkit-scrollbar { display: none; }
+/* A strip that scrolls fades at the edge that has more (audit L08), so a cut
+   label reads as "more this way", not as a broken label. */
+.subnav.more-r { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent); }
+.subnav.more-l { -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 40px), transparent); mask-image: linear-gradient(to left, #000 calc(100% - 40px), transparent); }
+.subnav.more-l.more-r { -webkit-mask-image: linear-gradient(to right, transparent, #000 40px, #000 calc(100% - 40px), transparent); mask-image: linear-gradient(to right, transparent, #000 40px, #000 calc(100% - 40px), transparent); }
 .subnav button {
   flex: none; border: 0; background: none; font: inherit; font-size: .95rem; font-weight: 550; color: var(--ink-2);
   padding: .55rem 0 .6rem; min-height: var(--touch); cursor: pointer; box-shadow: inset 0 -2px 0 transparent;
@@ -1833,6 +1845,13 @@ table.tbl { font-size: .9rem; }
 .player .p-actions.static { position: static; }
 .p-row1 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .6rem; }
 .p-row2 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .2rem; }
+/* When the three labels cannot share one line whole (large text on a small
+   phone, audit L06) they wrap onto a second line in the same order, never
+   breaking a word. */
+@media (max-width: 380px) {
+  .p-row2:not(.one) { display: flex; flex-wrap: wrap; justify-content: space-between; }
+  .p-row2:not(.one) > .btn { flex: 1 1 auto; }
+}
 .p-row2.one { grid-template-columns: 1fr; }
 .player .btn { min-width: 0; white-space: normal; text-align: center; line-height: 1.15; }
 .p-pause { background: var(--panel); border: 1px solid var(--ink-2); }
@@ -1905,7 +1924,10 @@ table.tbl { font-size: .9rem; }
 .dr-mark { fill: none; stroke: var(--seg); stroke-width: 2.5; stroke-linecap: round; }
 .dr-count { display: flex; flex-direction: column; align-items: center; line-height: 1; }
 .dr-count b { font-size: calc(var(--dr) * .25); font-weight: 780; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
-.dr-count small { font-size: .78rem; color: var(--ink-2); margin-top: .2rem; }
+/* Sized from the ring, not the text setting (audit L04), so the label always
+   fits inside it; the ring's accessible name carries the same words. */
+.dr-count small { font-size: calc(var(--dr) * .13); color: var(--ink-2); margin-top: calc(var(--dr) * .02); }
+.dr-count b.long { font-size: calc(var(--dr) * .2); }
 .dr-check { width: 64%; height: 64%; border-radius: 50%; display: grid; place-items: center; background: var(--good-soft); color: var(--good); }
 .dr-check svg { position: static; width: 52%; height: 52%; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
 .dr-check.play svg path { stroke-dasharray: 24; animation: drcheck calc(var(--finish-ms) * .7) var(--ease-settle) calc(var(--finish-ms) * .3) both; }
@@ -1940,8 +1962,11 @@ table.tbl { font-size: .9rem; }
 /* ------------------------------------------------------- Today, revision 3 -- */
 .today { max-width: 720px; gap: .9rem; }
 .today-head { gap: .1rem; padding-top: 0; }
-.daynav { display: flex; align-items: center; gap: .3rem; min-height: 44px; }
-.daynav-date { position: relative; flex: 1 1 auto; min-width: 0; overflow-wrap: normal; }
+.daynav { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem; min-height: 44px; }
+/* When the date and its controls cannot share a line (large text, audit L03)
+   the controls move under it, right aligned, and nothing overlaps. */
+.daynav-ctl { margin-left: auto; }
+.daynav-date { position: relative; flex: 1 1 auto; min-width: auto; overflow-wrap: normal; }
 .dn-short { display: none; }
 @media (max-width: 430px) {
   .dn-long { display: none; }
@@ -2026,6 +2051,17 @@ button.recovery-line span { color: var(--ink); text-decoration: underline; text-
   flex: 1; min-width: 0; display: flex; flex-direction: row; align-items: center; gap: .5rem; padding: .25rem 0; min-height: 52px;
   border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer;
 }
+/* On a phone the minutes sit above the chevron in one narrow column, so the
+   title and prescription get the width (audit L01): two lines, not three. */
+@media (max-width: 700px) {
+  .today .crow-main { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto; column-gap: .45rem; row-gap: .1rem; align-items: center; }
+  .today .crow-main > .crow-text { grid-column: 1; grid-row: 1 / span 2; }
+  .today .crow-main > .crow-mins { grid-column: 2; grid-row: 1; align-self: end; }
+  .today .crow-main > .crow-chev { grid-column: 2; grid-row: 2; justify-self: center; align-self: start; }
+  .today .crow-shot, body.mobile .today .crow-shot { width: 56px; height: 42px; }
+  .today input[type=checkbox].tick { margin: 7px 4px; }
+  .today .crow-name { overflow-wrap: break-word; }
+}
 .crow-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .1rem; }
 .today .crow-name { font-size: 1.05rem; font-weight: 700; line-height: 1.25; overflow-wrap: anywhere; }
 .today .crow-sub { font-size: .9rem; color: var(--ink-2); gap: .15rem .35rem; margin-top: .1rem; }
@@ -2096,7 +2132,7 @@ details.row-disc[open] .disc-chev { transform: rotate(90deg); }
 
 /* --------------------------------------------------- Progress, ring design -- */
 .progress { gap: 1rem; }
-.progress > .pagehead h1 { font-size: 2.3rem; }
+.progress > .pagehead h1 { font-size: min(2.3rem, 12vw); }
 .ov { display: flex; flex-direction: column; gap: 1.1rem; }
 .ov-sec { background: var(--panel); border-radius: var(--radius); padding: 1.05rem 1.1rem 1.1rem; }
 .ov-sec.journeysec { padding: .4rem .2rem; }
@@ -2155,7 +2191,7 @@ button.ov-card:active { transform: scale(.99); transition-duration: var(--press-
 .ovs-link { color: var(--accent); font-weight: 650; font-size: .95rem; margin-top: .15rem; }
 .ovs-ms:active { transform: scale(.98); transition: transform var(--press-ms); }
 .ovs-week { grid-column: 1 / -1; padding: .5rem 1.1rem 0; margin-top: .5rem; border-top: 1px solid var(--line-2); }
-.ovs-week .weekdots { margin-top: .5rem; }
+.ovs-week .weekdots { margin: .5rem auto 0; max-width: 340px; }
 .ovs-week .weekdots i { max-width: 30px; }
 .ovs-week .weekdots-key { font-size: .82rem; }
 @media (min-width: 760px) {
@@ -2359,7 +2395,7 @@ button.pc-cell { min-height: 44px; }
 .tr-vals { display: grid; grid-template-columns: 1fr; gap: .6rem; background: var(--panel); border-radius: 12px; padding: .7rem .85rem; }
 .tr-vals.two { grid-template-columns: repeat(auto-fit, minmax(min(100%, 7rem), 1fr)); }
 .tr-val b { overflow-wrap: break-word; }
-h1, h2, h3 { overflow-wrap: break-word; hyphens: auto; -webkit-hyphens: auto; }
+h1, h2, h3 { overflow-wrap: break-word; }
 .tr-val { display: flex; flex-direction: column; }
 .tr-val small { font-size: .75rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
 .tr-val b { font-size: 1.5rem; font-weight: 750; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }

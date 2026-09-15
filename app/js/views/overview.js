@@ -1,7 +1,7 @@
 // Progress > Overview. Everything here reads the real calendar date, not the
 // date Today is browsing, because it describes where he is now.
 //
-// 2026-09-14 ring design, order settled with ChatGPT through Reuben:
+// 2026-09-14 ring design, order settled with ChatGPT through the owner:
 //   1. the plan streak and the latest earned milestone, side by side
 //   2. this week's goal tiles, each a shortcut into Today (they ARE "this week")
 //   3. the six month journey road, kept prominent

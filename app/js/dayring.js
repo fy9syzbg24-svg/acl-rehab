@@ -21,6 +21,12 @@ function catOf(item) {
 }
 
 function arc(cx, cy, r, a0, a1) {
+  // A whole circle cannot be one SVG arc: its two ends are the same point and
+  // it draws nothing (audit L11, a one-item day). Draw it as two halves.
+  if (a1 - a0 >= Math.PI * 2 - 1e-6) {
+    const mid = a0 + Math.PI;
+    return `${arc(cx, cy, r, a0, mid)} ${arc(cx, cy, r, mid, a0 + Math.PI * 2 - 1e-7).replace(/^M[^A]*/, '')}`;
+  }
   const p = (a) => [cx + r * Math.cos(a - Math.PI / 2), cy + r * Math.sin(a - Math.PI / 2)];
   const [x0, y0] = p(a0);
   const [x1, y1] = p(a1);
@@ -88,7 +94,7 @@ export function dayRing(planned, entries, { size = 88, stroke = 8, center = 'cou
   const middle = center === 'none' ? ''
     : complete && center === 'check'
       ? `<span class="dr-check ${celebrate ? 'play' : ''}" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 12.5l4 4L18 8"/></svg></span>`
-      : `<span class="dr-count"><b>${done}/${total}</b><small>${esc(label)}</small></span>`;
+      : `<span class="dr-count"><b class="${`${done}/${total}`.length > 4 ? 'long' : ''}">${done}/${total}</b><small>${esc(label)}</small></span>`;
   const html = `<span class="dayring2 ${complete ? 'complete' : ''} ${celebrate ? 'celebrate' : ''}" style="--dr:${size}px"
     role="img" aria-label="${done} of ${total} planned exercises done${complete ? ', plan complete' : ''}">
     <svg viewBox="0 0 ${size} ${size}" aria-hidden="true">${segs}</svg>${middle}</span>`;

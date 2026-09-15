@@ -573,21 +573,19 @@ function download(name, text, type) {
 
 /**
  * Force update, rebuilt 2026-09-14 after he saw it bring back the OLD design
- * until the next launch.
+ * until the next launch, and again 2026-09-15 for the follow-up audit
+ * (A09, A16 to A18).
  *
- * The old version cleared the worker and its caches, then reloaded with a
- * cache-busting query on the page only. The page came back fresh, but its CSS
- * and code were fetched by their plain URLs with no worker in front, and the
- * CDN (or iOS's own HTTP cache) still answered those with the previous deploy.
- * The new worker then precached the right files in the background, which is
- * why quitting and reopening fixed it.
- *
- * Now: read the deployed version with a unique URL (nothing can answer that
- * from a cache), clear the old worker and caches, install the new worker and
- * wait until its cache is the deployed version (the worker fetches every file
- * with that version in the URL), and only then reload, so the page is served
- * entirely from the fresh cache. Local data (IndexedDB) and sync sign-in
- * (localStorage) are never touched.
+ * The rules now:
+ *   - nothing happens unless his latest change is saved on this device first
+ *   - nothing is unregistered or deleted up front: the running generation
+ *     keeps working until a complete new one is installed (the worker installs
+ *     a generation whole or not at all, and removes the old one itself)
+ *   - "ready" means the worker says it runs the deployed version AND holds
+ *     every file of it, not that a cache with the right name exists
+ *   - only this app's worker is touched; the Fringe Planner shares the origin
+ *   - the suppression flag for the automatic reload is always cleared
+ * Local data (IndexedDB) and sync sign-in (localStorage) are never touched.
  */
 async function forceUpdate(say) {
   const reloadFresh = () => {
@@ -595,41 +593,61 @@ async function forceUpdate(say) {
     u.searchParams.set('u', Date.now().toString(36));
     location.replace(u.toString());
   };
-  await flushSave();
+  say('saving…');
+  if (!(await flushSave())) throw new Error('your latest change is not saved yet, so nothing was updated. Try again in a moment');
   if (!('serviceWorker' in navigator) || location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
     // The Mac serves files itself with no worker; a reload is enough.
-    if (window.caches) for (const k of await caches.keys()) await caches.delete(k);
     say('reloading…');
     reloadFresh();
     return;
   }
   say('checking the latest version…');
-  const src = await fetch(`./sw.js?probe=${Date.now()}`, { cache: 'no-store' }).then((r) => r.text());
+  const src = await fetch(`./sw.js?probe=${Date.now()}`, { cache: 'no-store' }).then((r) => {
+    if (!r.ok) throw new Error(`could not reach the app (${r.status})`);
+    return r.text();
+  });
   const deployed = (src.match(/const SHELL_VERSION = '([^']+)'/) || [])[1];
   if (!deployed) throw new Error('could not read the deployed version');
 
+  const scope = new URL('./', location.href).href;
+  let reg = (await navigator.serviceWorker.getRegistration(scope)) || await navigator.serviceWorker.register('./sw.js', { scope: './' });
   window.__rehabForceUpdate = true;   // mobile.js leaves the reload to us
-  say('clearing old files…');
-  for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister();
-  if (window.caches) for (const k of await caches.keys()) { if (!k.startsWith('media')) await caches.delete(k); }
-
-  say('downloading the new version…');
-  const want = `shell-${deployed}`;
-  const deadline = Date.now() + 90000;
-  let reg = await navigator.serviceWorker.register('./sw.js', { scope: './' });
-  for (;;) {
-    const ready = reg.active && (await caches.keys()).includes(want);
-    if (ready) break;
-    if (Date.now() > deadline) throw new Error('the new version did not finish downloading; try again in a minute');
-    await new Promise((r) => setTimeout(r, 1000));
-    // A worker that installed from a stale copy of sw.js holds an older cache:
-    // ask it to check again until the deployed version lands.
-    const keys = await caches.keys();
-    if (reg.active && !keys.includes(want)) {
-      try { await reg.update(); } catch { /* offline for a moment */ }
-      reg = (await navigator.serviceWorker.getRegistration('./')) || reg;
+  try {
+    const deadline = Date.now() + 120000;
+    let lastUpdate = 0;
+    for (;;) {
+      const worker = reg.active;
+      const v = worker ? await askWorker(worker, 'version') : null;
+      if (v && v.version === deployed) {
+        if (v.complete) break;
+        say('fetching missing files…');
+        const r = await askWorker(worker, 'repair');
+        if (r && r.complete) break;
+      }
+      if (Date.now() > deadline) {
+        throw new Error('the new version did not finish downloading. The app you have still works; try again in a few minutes');
+      }
+      if (Date.now() - lastUpdate > 5000 && !reg.installing) {
+        lastUpdate = Date.now();
+        say('downloading the new version…');
+        try { await reg.update(); } catch { /* offline for a moment */ }
+      }
+      await new Promise((r) => setTimeout(r, 800));
+      reg = (await navigator.serviceWorker.getRegistration(scope)) || reg;
     }
+    say('reloading…');
+    reloadFresh();
+  } finally {
+    window.__rehabForceUpdate = false;
   }
-  say('reloading…');
-  reloadFresh();
+}
+
+/** Ask a worker something over a private channel; null if it does not answer. */
+function askWorker(worker, kind, ms = 4000) {
+  return new Promise((resolve) => {
+    const ch = new MessageChannel();
+    const timer = setTimeout(() => resolve(null), ms);
+    ch.port1.onmessage = (e) => { clearTimeout(timer); resolve(e.data || null); };
+    try { worker.postMessage({ kind }, [ch.port2]); } catch { clearTimeout(timer); resolve(null); }
+  });
 }

@@ -18,11 +18,11 @@ Then open <http://localhost:8757>. Pure Python standard library, no
 dependencies, no build step.
 
 But normally you don't start it at all: **the server runs as a login service**
-(`com.reuben.acl-rehab`; see the top of the workspace `CLAUDE.md`). It starts
+(its label is in the top of the workspace `CLAUDE.md`). It starts
 at login and restarts itself if it dies. After changing `server.py`, restart it:
 
 ```bash
-launchctl kickstart -k gui/501/com.reuben.acl-rehab
+launchctl kickstart -k gui/$(id -u)/<label from CLAUDE.md>
 ```
 
 `start.command` is still there for a manual run; it reclaims the port first
@@ -43,7 +43,7 @@ goes away, the grant lapses. The process keeps the port bound but every
 request dies with `PermissionError: [Errno 1] Operation not permitted` on
 `app/index.html`, and a new server can't bind the port the zombie owns.
 
-**The workspace has since moved to `/Users/reuben/Workspace`, outside the
+**The workspace has since moved to `~/Workspace`, outside the
 protected folders, so this should not recur.** Do not move it back under
 `~/Desktop`, `~/Documents` or `~/Downloads`.
 
@@ -514,7 +514,7 @@ adding any surface; each one exists because its violation was called out.
 
 ## His arrangement IS the default
 
-Anything Reuben curates in the running app (the supplement list, its grouping
+Anything the owner curates in the running app (the supplement list, its grouping
 and order, the as-needed medications, units, theme) is the source of truth. Code
 defaults exist only to seed a device that has never had any, and they are
 refreshed by copying FROM the live data, never by imposing on it.
@@ -743,7 +743,7 @@ Never roll the data back with the code.
 
 ## Ring design (2026-09-14, evening)
 
-ChatGPT's revision 2 design kit, with seven decisions settled through Reuben
+ChatGPT's revision 2 design kit, with seven decisions settled through the owner
 (the continuation record is `RING-BUILD-2026-09-14.local.md`, gitignored).
 It supersedes these lines above where they differ; the older text stays as
 history.
@@ -856,3 +856,34 @@ Target not met; no calendar pace judgement.
 
 Correction, same night: History's source label for ticks and typed records is "Recorded in app", not
 "Entered here" (ChatGPT's final handoff wording for F45).
+
+## Follow-up audit fixes (2026-09-15)
+
+GPT's L and A audit of build 7a4a1a2. Record with evidence: `AUDIT-FOLLOWUP-2026-09-15.local.md` (gitignored).
+
+**Sync** (`app/js/sync/`): what is pushed is a frozen copy, and the acknowledgement is that copy's exact stamps,
+kept on the device (`ack` in the sync config), so an edit made during an upload stays pending. A key's new stamp is
+always after its previous one. Ties are broken by value, a live record beats a deletion at a tie, and a tie won with
+a different value is pushed. Tombstones are never pruned. A day's own fields merge field by field, and supplement
+ticks, the checklist and the check-in item by item, from per-field stamps in `_sync.dp`; a copy without them (an
+older build, a day the server created) falls back to the record's stamp, and an item it does not hold counts as
+unknown, not deleted.
+
+**Saving**: the phone's IndexedDB write checks the revision it read, refuses to replace records with an empty
+document, and keeps restore points that are never deleted (the first save of each day, and before any save holding
+fewer records). The Mac server does the same with `X-Data-Rev` / `If-Match` (409 returns the newer document; the
+app merges with the sync merge and retries), refuses an empty write (422), refuses to save if a backup fails, and
+keeps never-pruned snapshots in `data/snapshots/`. It listens on 127.0.0.1 only (`--lan` to opt in). A failed
+phone read opens read-only. The typed-edit journal stays until a save covering it lands.
+
+**Offline and updates** (`app/sw.js`): caches are named `acl-rehab-*` and only ours are cleaned (the Fringe Planner
+shares the origin); a generation installs whole or not at all; the worker answers `version` and `repair` messages;
+it never serves `sw.js` or probes from cache and never refreshes a page on its own. Force update saves first, keeps
+the running generation, and reloads only when the worker reports the deployed version complete. `desktop.html` is
+added to the offline list at deploy.
+
+**Other**: weights compared in one unit for bests and baselines; a per-leg ratio goal needs both legs; chart ticks
+always cover the data; future dates cannot start a workout; swipe saves lock the transport; song loading respects a
+later Pause; photo zoom is a real dialog. Public code no longer carries his medication names or clinical notes.
+
+Tests: `app/dev-audit.js` (browser page), `tools/test_offline_update.py`, `tools/test_server_guards.py`.

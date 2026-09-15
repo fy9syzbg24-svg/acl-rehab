@@ -145,7 +145,7 @@ export function focusTiles(month, from, to, { title = "The month's focus" } = {}
     ${auto.map((x) => `
       <li class="${x.cov.hit ? 'hit' : ''}" title="${esc(x.it.t)}">
         <span class="fl-mark" aria-label="${x.cov.hit ? 'touched' : 'not touched yet'}">${x.cov.hit ? CHECK : ''}</span>
-        <span class="fl-text">${esc(shortFocus(x.it.t))}</span>
+        <span class="fl-text">${esc(x.it.t)}</span>
         <span class="fl-count">${x.cov.days ? `${x.cov.days} day${x.cov.days === 1 ? '' : 's'}` : ''}</span>
       </li>`).join('')}
   </ul>
@@ -192,16 +192,9 @@ export function shortCat(label) {
     .trim();
 }
 
-/** Focus bullets are long; the grid needs a label, not a paragraph. */
-function shortFocus(text) {
-  // Drop a leading verb, unless what follows would then start mid-phrase
-  // ("Progress from planned to reactive" keeps its verb).
-  let s = text.replace(/^As tolerated:\s*/i, '').replace(/^Continue\s+/i, '').replace(/^Progress(ing)?\s+(?!from\b|to\b)/i, '');
-  s = s.split(/\s*[:(]\s*/)[0];   // the label ends at a gloss or a bracket
-  const arrows = s.split('→').map((x) => x.trim()).filter(Boolean);
-  if (arrows.length > 1) s = `${arrows[0]} → ${arrows[arrows.length - 1]}`;
-  return s.length > 76 ? s.slice(0, 74).trimEnd() + '…' : s;
-}
+// The month's focus items are shown in full (audit L10). A shortened version
+// dropped whatever followed a colon or bracket, which is the clinician's own
+// qualifier, so none is generated any more.
 
 // ------------------------------------------------- unfinished past months --
 function carriedBlock(current) {

@@ -263,6 +263,27 @@ export function openModal({ title, body, footer, wide = false, onMount }) {
   return back;
 }
 
+/**
+ * The modal behaviours for an overlay that is not built by openModal (the
+ * player's photo zoom, audit A27): the page behind is inert, Tab stays inside,
+ * Escape closes. Returns a release function.
+ */
+export function holdFocus(container, onEscape) {
+  setInert(true);
+  const keys = (e) => {
+    if (!document.contains(container)) return;
+    if (e.key === 'Escape') { e.preventDefault(); onEscape(); return; }
+    if (e.key !== 'Tab') return;
+    const f = [...container.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')]
+      .filter((x) => !x.disabled && x.offsetParent !== null);
+    if (!f.length) return;
+    if (e.shiftKey && document.activeElement === f[0]) { e.preventDefault(); f[f.length - 1].focus(); }
+    else if (!e.shiftKey && document.activeElement === f[f.length - 1]) { e.preventDefault(); f[0].focus(); }
+  };
+  document.addEventListener('keydown', keys);
+  return () => { document.removeEventListener('keydown', keys); setInert(false); };
+}
+
 function setInert(on) {
   for (const sel of ['#view', '.mtop', '.topbar', '#mtabs', '#tabs']) {
     const n = document.querySelector(sel);

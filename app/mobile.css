@@ -84,7 +84,7 @@ body.mobile {
    Placement is by CLASS, not by source order. During a deploy the CDN can
    briefly serve mixed generations, and a cache built in that window holds
    them for good: order-placed grid items then land in the wrong columns
-   (the title once truncated to "Project Juicy As" exactly this way).
+   (the app name once lost its last letter exactly this way).
    Explicit columns render the same header whichever HTML the cache holds. */
 .mtop-in {
   min-height: var(--mtop-h);
@@ -106,6 +106,12 @@ body.mobile {
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .mpostop { font-size: .66rem; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* two rows when one cannot hold the name or Back beside the chip (L02, L05) */
+.mtop.stack .mtop-in { grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto; row-gap: .25rem; }
+.mtop.stack .mtitle-wrap, .mtop.stack .mback { grid-column: 1 / -1; grid-row: 1; }
+.mtop.stack .mtop-in > .msync { grid-column: 1; grid-row: 2; justify-self: end; }
+.mtop.stack .mtop-in > .micon { grid-column: 2; grid-row: 2; }
+.mtop.stack .app-title, .mtop.stack .mpostop { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: break-word; }
 .mpostop b { color: var(--ink-2); font-weight: 600; }
 
 /* .msync / .msync-dot live in styles.css now, the desktop shows the same
@@ -400,5 +406,7 @@ body.mobile .player .p-actions { bottom: calc(var(--mtab-h) + var(--safe-b)); }
 body.mobile .btn.go { min-height: 54px; padding: .45rem 1rem .45rem .55rem; font-size: 1.12rem; border-radius: var(--radius-btn); }
 body.mobile .today input[type=checkbox].tick { width: 30px; height: 30px; }
 body.mobile .player .btn.big { min-height: 54px; font-size: 1.05rem; font-weight: 700; border-radius: var(--radius-btn); }
-body.mobile .player .p-link.btn { font-size: .98rem; min-height: 44px; white-space: nowrap; }
+/* Labels wrap inside their slot rather than run into each other (audit L06);
+   the dock is measured, so the page reserves its real height. */
+body.mobile .player .p-link.btn { font-size: .98rem; min-height: 44px; white-space: normal; line-height: 1.15; text-align: center; }
 @media (max-width: 360px) { body.mobile .player .p-link.btn { font-size: .88rem; gap: .25rem; padding-inline: .2rem; } }

@@ -57,10 +57,11 @@ function inUse(a) {
 
 /** The control in `root` (or an open sheet) that a redraw would interrupt right now, or null. */
 export function editingIn(root) {
-  if (dragging && root && root.contains(dragging)) return dragging;
+  const modal = typeof document !== 'undefined' ? document.getElementById('modal-root') : null;
+  // A slider being dragged in an open sheet holds the repaint too (audit A26).
+  if (dragging && root && (root.contains(dragging) || (modal && modal.contains(dragging)))) return dragging;
   const a = typeof document !== 'undefined' ? document.activeElement : null;
   if (!a || !root) return null;
-  const modal = document.getElementById('modal-root');
   if (!root.contains(a) && !(modal && modal.contains(a))) return null;
   return inUse(a) ? a : null;
 }

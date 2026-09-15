@@ -54,8 +54,11 @@ def stamp(doc: dict, key: str, now_ms: int) -> None:
     s.setdefault("v", 1)
     rec = s.setdefault("rec", {})
     dels = s.setdefault("del", {})
-    rec[key] = now_ms
+    # Never reuse a stamp for a key (2026-09-15, audit A02): strictly after
+    # its previous stamp or tombstone, whatever the clock says.
+    rec[key] = max(now_ms, int(rec.get(key) or 0) + 1, int(dels.get(key) or 0) + 1)
     dels.pop(key, None)
+
 
 
 def proposed(rec: dict) -> dict:

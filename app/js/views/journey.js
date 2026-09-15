@@ -1,7 +1,7 @@
 // The six month journey, drawn as a ribbon. 2026-09-14 revision 3 (F37).
 //
 // The full spectrum across the calendar is the one scoped exception to the
-// app's colour rules, asked for by Reuben: it colours the calendar, never a
+// app's colour rules, asked for by the owner: it colours the calendar, never a
 // forecast of healing, and it never fills to show progress. What it carries:
 //
 //   - one node per month, evenly spaced, with the month above it

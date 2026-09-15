@@ -25,7 +25,21 @@ export function capture(root) {
   return snap;
 }
 
+/** Mark which ends of each scrolling strip have more (audit L08). */
+export function edgeCues(root) {
+  if (!root) return;
+  root.querySelectorAll('.subnav').forEach((el) => {
+    const mark = () => {
+      el.classList.toggle('more-l', el.scrollLeft > 2);
+      el.classList.toggle('more-r', el.scrollLeft + el.clientWidth < el.scrollWidth - 2);
+    };
+    if (!el.dataset.cues) { el.dataset.cues = '1'; el.addEventListener('scroll', mark, { passive: true }); }
+    mark();
+  });
+}
+
 export function restore(root, snap) {
+  edgeCues(root);
   if (!root || !snap) return;
   root.querySelectorAll('details[data-key]').forEach((d) => {
     if (snap.open.has(d.dataset.key)) d.open = snap.open.get(d.dataset.key);

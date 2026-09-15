@@ -11,6 +11,7 @@ Serves the single-page app in ./app and persists all user data to
 from __future__ import annotations
 
 import argparse
+import hashlib
 import http.server
 import json
 import os
@@ -41,12 +42,19 @@ DATA_FILE = DATA_DIR / "rehab-data.json"
 BACKUP_DIR = DATA_DIR / "backups"
 
 
+# Restore points that are never pruned (2026-09-15, audit A13 and A14): one
+# when the server starts, one on the first save of each day, and one before
+# any save that holds fewer records than the file it replaces.
+SNAP_DIR = DATA_DIR / "snapshots"
+
+
 def use_data_file(path: Path) -> None:
     """Point the server at a different data file (used for scratch testing)."""
-    global DATA_DIR, DATA_FILE, BACKUP_DIR
+    global DATA_DIR, DATA_FILE, BACKUP_DIR, SNAP_DIR
     DATA_FILE = path.resolve()
     DATA_DIR = DATA_FILE.parent
     BACKUP_DIR = DATA_DIR / "backups"
+    SNAP_DIR = DATA_DIR / "snapshots"
 MAX_BACKUPS = 300
 MAX_BODY = 16 * 1024 * 1024  # 16 MB ceiling on a save
 
@@ -222,9 +230,12 @@ def physiapp_sync(payload) -> dict:
         settings = data.setdefault("settings", {})
         out = pa_import.merge(data, harvest, items, int(time.time() * 1000))
         now = datetime.now().isoformat(timespec="seconds")
+        now_ms = int(time.time() * 1000)
         settings["physiappLastSync"] = now
+        pa_import.stamp(data, "s|physiappLastSync", now_ms)
         if out["added"] or out["updated"]:
             settings["physiappLastImport"] = now
+            pa_import.stamp(data, "s|physiappLastImport", now_ms)
         write_data(data)
     _pa_status["lastError"] = _pa_status["lastErrorKind"] = None
 
@@ -272,19 +283,101 @@ def read_data() -> dict:
         raise DataUnreadable(str(exc)) from exc
 
 
+class BackupFailed(Exception):
+    """A required backup could not be written, so the save is refused."""
+
+
+class RefusedWrite(Exception):
+    """A save that would empty a store holding records."""
+
+
+def count_records(doc: dict) -> int:
+    """His records, roughly as the app counts them: enough to spot a save that
+    would empty the store or drop records, never used to decide a merge."""
+    if not isinstance(doc, dict):
+        return 0
+    n = 0
+    for name in ("measurements", "mrss", "customExercises", "supplements", "prnMeds", "doses"):
+        v = doc.get(name)
+        if isinstance(v, list):
+            n += len(v)
+    for name in ("planGoals", "planFocus"):
+        v = doc.get(name)
+        if isinstance(v, dict):
+            n += len(v)
+    days = doc.get("days")
+    if isinstance(days, dict):
+        for day in days.values():
+            n += 1
+            if isinstance(day, dict) and isinstance(day.get("entries"), list):
+                n += len(day["entries"])
+    return n
+
+
+def data_rev() -> str:
+    """A revision id for the file on disk: changes whenever its bytes do."""
+    try:
+        return hashlib.sha256(DATA_FILE.read_bytes()).hexdigest()[:20]
+    except OSError:
+        return "none"
+
+
+def _unique(stem: str, folder: Path) -> Path:
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
+    path = folder / f"{stem}-{stamp}.json"
+    k = 1
+    while path.exists():   # never overwrite an earlier copy
+        path = folder / f"{stem}-{stamp}-{k}.json"
+        k += 1
+    return path
+
+
+def snapshot(reason: str) -> Path | None:
+    """An immutable restore point in data/snapshots/, never pruned."""
+    if not DATA_FILE.exists():
+        return None
+    SNAP_DIR.mkdir(parents=True, exist_ok=True)
+    dest = _unique(f"rehab-data-{reason}", SNAP_DIR)
+    try:
+        shutil.copy2(DATA_FILE, dest)
+    except OSError as exc:
+        raise BackupFailed(f"snapshot ({reason}) failed: {exc}") from exc
+    return dest
+
+
 def write_data(payload: dict) -> None:
-    """Atomic replace, keeping a rolling set of timestamped backups."""
+    """Atomic replace, keeping a rolling set of timestamped backups.
+
+    2026-09-15 (audit A13, A14): a save that would empty a store holding
+    records is refused; a save holding fewer records than the file first takes
+    a snapshot that is never pruned, as does the first save of each day; every
+    backup has a unique name, and if a backup cannot be written the save is
+    refused rather than made without one."""
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     BACKUP_DIR.mkdir(parents=True, exist_ok=True)
 
     if DATA_FILE.exists():
-        stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
         try:
-            shutil.copy2(DATA_FILE, BACKUP_DIR / f"rehab-data-{stamp}.json")
+            current = json.loads(DATA_FILE.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            current = None
+        have = count_records(current) if current is not None else 0
+        want = count_records(payload)
+        if have > 0 and want == 0:
+            raise RefusedWrite(f"refusing to replace {have} records with an empty document")
+        if current is not None and want < have:
+            snapshot("before-reduce")
+        today = datetime.now().strftime("%Y%m%d")
+        if not SNAP_DIR.exists() or not any(SNAP_DIR.glob(f"rehab-data-day-{today}-*.json")):
+            snapshot("day")
+
+        try:
+            shutil.copy2(DATA_FILE, _unique("rehab-data", BACKUP_DIR))
         except OSError as exc:
-            print(f"  !! backup failed: {exc}", file=sys.stderr)
+            raise BackupFailed(f"backup failed: {exc}") from exc
         # Keep every backup from the last 7 days regardless of count, so a
         # burst of saves in one session cannot roll older days out of reach.
+        # The never-pruned restore points live in data/snapshots/.
         backups = sorted(BACKUP_DIR.glob("rehab-data-*.json"))
         cutoff = time.time() - 7 * 86400
         for stale in backups[:-MAX_BACKUPS]:
@@ -374,8 +467,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if self.command != "HEAD":
             self.wfile.write(body)
 
-    def _json(self, code: int, obj) -> None:
-        self._send(code, json.dumps(obj).encode("utf-8"), "application/json; charset=utf-8")
+    def _json(self, code: int, obj, extra: dict | None = None) -> None:
+        self._send(code, json.dumps(obj).encode("utf-8"), "application/json; charset=utf-8", extra)
 
     def _resolve(self, path: str) -> Path | None:
         """Map a URL path to a file inside APP_DIR, or None if it escapes.
@@ -420,7 +513,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if self.path.split("?")[0] == "/api/data":
             with _lock:
                 try:
-                    self._json(200, read_data())
+                    self._json(200, read_data(), {"X-Data-Rev": data_rev()})
                 except DataUnreadable as exc:
                     self._json(500, {"error": f"data file unreadable: {exc}"})
             return
@@ -470,6 +563,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
                              "kind": getattr(exc, "kind", "network")})
         except DataUnreadable as exc:
             self._json(500, {"error": "data file unreadable: %s" % exc})
+        except (BackupFailed, RefusedWrite) as exc:
+            self._json(200, {"ok": False, "message": "Not saved: %s" % exc, "kind": "save"})
 
     def do_PUT(self):  # noqa: N802
         if self.path.split("?")[0] != "/api/data":
@@ -493,8 +588,29 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self._json(400, {"error": "payload must be an object"})
             return
         with _lock:
-            write_data(payload)
-        self._json(200, {"ok": True, "savedAt": datetime.now().isoformat(timespec="seconds")})
+            # A page that read an older file must merge before it writes
+            # (audit A13): two tabs, or a PhysiApp import, would otherwise be
+            # silently replaced by whichever saved last.
+            expected = self.headers.get("If-Match")
+            if expected and expected != data_rev():
+                try:
+                    current = read_data()
+                except DataUnreadable as exc:
+                    self._json(500, {"error": f"data file unreadable: {exc}"})
+                    return
+                self._json(409, {"error": "stale", "rev": data_rev(), "doc": current})
+                return
+            try:
+                write_data(payload)
+            except RefusedWrite as exc:
+                self._json(422, {"error": str(exc)})
+                return
+            except BackupFailed as exc:
+                self._json(503, {"error": str(exc)})
+                return
+            rev = data_rev()
+        self._json(200, {"ok": True, "savedAt": datetime.now().isoformat(timespec="seconds"), "rev": rev},
+                   {"X-Data-Rev": rev})
 
     def log_message(self, fmt, *args):  # quieter console
         if self.command == "PUT":
@@ -548,6 +664,8 @@ def main() -> int:
     ap.add_argument("--port", type=int, default=8757)
     ap.add_argument("--no-browser", action="store_true")
     ap.add_argument("--data", type=Path, help="use a different data file (for testing)")
+    ap.add_argument("--lan", action="store_true",
+                    help="also listen on the local network (off by default: the data API has no sign-in)")
     ap.add_argument("--no-physiapp", action="store_true",
                     help="refuse PhysiApp imports (test copies must never reach their site)")
     args = ap.parse_args()
@@ -559,6 +677,10 @@ def main() -> int:
         PHYSIAPP_OFF = True
 
     DATA_DIR.mkdir(parents=True, exist_ok=True)
+    try:
+        snapshot("startup")
+    except BackupFailed as exc:
+        print(f"  !! {exc}", file=sys.stderr)
     if not APP_DIR.is_dir():
         print(f"error: {APP_DIR} is missing", file=sys.stderr)
         return 1
@@ -570,7 +692,11 @@ def main() -> int:
         return 1
 
     try:
-        httpd = Server(("0.0.0.0", args.port), Handler)
+        # This Mac only (audit A29). The phone uses the installed app and the
+        # sync relay, never this server, and /api/data has no sign-in, so
+        # listening on the network would let any device on the Wi-Fi read or
+        # replace the record. --lan opts back in.
+        httpd = Server(("0.0.0.0" if args.lan else "127.0.0.1", args.port), Handler)
     except OSError as exc:
         print(f"error: could not bind port {args.port}: {exc}", file=sys.stderr)
         print("       another copy may already be running.", file=sys.stderr)
@@ -581,7 +707,7 @@ def main() -> int:
     print()
     print("  ACL Rehab Tracker")
     print(f"  on this Mac : {url}")
-    if ip:
+    if ip and args.lan:
         print(f"  on your phone: http://{ip}:{args.port}   (same Wi-Fi)")
     print(f"  data file    : {DATA_FILE}")
     print("\n  Press Ctrl-C to stop.\n")

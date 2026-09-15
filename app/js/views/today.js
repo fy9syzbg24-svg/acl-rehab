@@ -279,9 +279,15 @@ function workoutButton(iso) {
   const d = draftInfo();
   const left = workoutQueue(state.data, iso).length;
   const resume = !!d && d.phase !== 'done';
+  // A day that has not come yet is for looking ahead, not for logging (audit
+  // A30): Start stays in its place, dimmed. Past days still open for catching up.
+  // Future means after the calendar date, so the small hours still count as today.
+  const future = iso > todayIso();
+  // An open workout from another day says which day it is.
+  const other = resume && d.iso && d.iso !== iso ? ` from ${fmtDate(d.iso, 'dow')}` : '';
   return goButton({
-    attrs: `data-act="${resume ? 'resume' : 'start'}" ${resume || left ? '' : 'disabled'} aria-label="${resume ? `Resume ${esc(d.title || 'workout')}` : 'Start the workout'}"`,
-    label: resume ? 'Resume workout' : 'Start workout',
+    attrs: `data-act="${resume ? 'resume' : 'start'}" ${resume || (left && !future) ? '' : 'disabled'} aria-label="${resume ? `Resume ${esc(d.title || 'workout')}${esc(other)}` : future ? 'Start the workout, available on the day' : 'Start the workout'}"`,
+    label: resume ? `Resume workout${esc(other)}` : 'Start workout',
     cls: 'startbtn',
   });
 }
@@ -370,7 +376,7 @@ function rowBody(item, ex, iso, mine, confirmed) {
   const name = item.title || ex?.name || item.ex;
   const hasInstr = (item.steps && item.steps.length) || (item.notes && item.notes.length) || item.note || item.pre;
   return `
-    ${goButton({ attrs: `data-timer="${esc(item.id)}" ${item.notYet ? 'disabled' : ''}`, label: 'Begin', cls: 'row-begin' })}
+    ${goButton({ attrs: `data-timer="${esc(item.id)}" ${item.notYet || iso > todayIso() ? 'disabled' : ''}`, label: 'Begin', cls: 'row-begin' })}
     ${cat ? `<div class="row-cat" style="--cat:${cat.color}">${esc(cat.label)}</div>` : ''}
     ${item.img ? `<button class="row-photo" data-bigpic="${esc(item.id)}" aria-label="Show the pictures for ${esc(name)} larger">
         <img src="${esc(item.img)}" alt="Step pictures: ${esc(name)}" decoding="async"><span class="row-photo-zoom" aria-hidden="true">${ICON.zoom}</span></button>` : ''}

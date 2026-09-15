@@ -185,6 +185,38 @@ function paintChrome() {
   if (label.textContent !== c.label) label.textContent = c.label;
   document.getElementById('sync-btn')?.setAttribute('title', c.title);
   document.getElementById('sync-btn')?.setAttribute('aria-label', `${c.label}. ${c.title}`);
+  fitHeader();
+}
+
+/**
+ * Two header rows when one cannot hold everything (audit L02, L05): the app
+ * name or the player's Back label is never cut off or run into the save chip.
+ * Measured, not guessed from a breakpoint, because it depends on the text size
+ * and the label, and the real header height is published for sticky offsets.
+ */
+function fitHeader() {
+  const top = document.querySelector('.mtop');
+  if (!top) return;
+  top.classList.remove('stack');
+  const shown = (el) => el && !el.hidden && el.offsetParent !== null;
+  const clipped = (el) => shown(el) && el.scrollWidth > el.clientWidth + 1;
+  const chip = document.getElementById('sync-btn');
+  const back = document.getElementById('nav-back');
+  const hits = shown(back) && chip && back.getBoundingClientRect().right > chip.getBoundingClientRect().left - 4;
+  if (clipped(document.getElementById('app-title')) || clipped(document.getElementById('postop-strip')) || clipped(back) || hits) {
+    top.classList.add('stack');
+  }
+  document.documentElement.style.setProperty('--mtop-real', `${top.offsetHeight}px`);
+}
+window.addEventListener('resize', () => fitHeader());
+// A change of text size changes the header's own boxes without resizing the
+// window, so watch the pieces themselves.
+if (typeof ResizeObserver !== 'undefined') {
+  const ro = new ResizeObserver(() => fitHeader());
+  for (const id of ['app-title', 'sync-btn', 'nav-back']) {
+    const el = document.getElementById(id);
+    if (el) ro.observe(el);
+  }
 }
 
 // -------------------------------------------------------------------- wiring
@@ -359,8 +391,12 @@ load().then(() => {
     reloading = true;
     // Never mid-workout: the draft is safe either way, but a reload would
     // throw him out of the set he is doing. Wait for the player to close.
+    // After the player closes, the same barrier as below still applies (A19):
+    // a field in use or a save still landing waits.
     if (playerBusy()) {
-      window.addEventListener('rehab-player-idle', () => location.reload(), { once: true });
+      window.addEventListener('rehab-player-idle', () => {
+        whenIdle(viewEl, saveOutstanding).then(() => location.reload());
+      }, { once: true });
       return;
     }
     // Nor while he is typing, or before his last change has been saved on this

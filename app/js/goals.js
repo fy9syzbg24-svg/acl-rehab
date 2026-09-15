@@ -13,10 +13,18 @@ export function goalProgress(g) {
   }
   if (g.kind === 'ratio') {
     const bw = bodyweightKg();
-    const b = best(g.measure, MEASURE_BY_ID[g.measure]?.perLeg ? 'L' : null);
-    const b2 = MEASURE_BY_ID[g.measure]?.perLeg ? best(g.measure, 'R') : null;
-    if (!bw || !b) return { p: manual.done ? 100 : 0, detail: bw ? 'no lift recorded' : 'set your bodyweight in settings', done: !!manual.done, untested: !manual.done };
+    const perLeg = !!MEASURE_BY_ID[g.measure]?.perLeg;
+    const b = best(g.measure, perLeg ? 'L' : null);
+    const b2 = perLeg ? best(g.measure, 'R') : null;
+    if (!bw || (!b && !b2)) return { p: manual.done ? 100 : 0, detail: bw ? 'no lift recorded' : 'set your bodyweight in settings', done: !!manual.done, untested: !manual.done };
     const val = (rec) => toKg(rec.value, rec.unit || state.data.settings.weightUnit);
+    // A per-leg goal needs both legs (audit A24): one leg's lift never stands
+    // in for the other, so a missing side is shown and the goal is not met.
+    if (perLeg && (!b || !b2)) {
+      const has = b || b2;
+      const ratio = val(has) / bw;
+      return { p: Math.min(99, pct(ratio, g.target)), detail: `${b ? 'left' : 'right'} ${round(ratio, 2)}x bodyweight, ${b ? 'right' : 'left'} not tested yet`, done: false };
+    }
     const worst = b2 ? Math.min(val(b), val(b2)) : val(b);
     const ratio = worst / bw;
     return { p: pct(ratio, g.target), detail: `${round(ratio, 2)}x bodyweight`, done: ratio >= g.target };

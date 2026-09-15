@@ -11,10 +11,16 @@
 // Every step is idempotent. A sync interrupted anywhere loses nothing: the
 // local document already holds the change (stamped, queued), so the next sync
 // simply tries again. Nothing is marked "sent" until GitHub confirms the PUT.
+//
+// 2026-09-15 (audit A01): what goes up is a frozen copy taken before the
+// request, and the acknowledgement is that copy's exact stamps (`ack`, kept on
+// this device only). An edit made while the PUT is on its way is not in the
+// copy, so it stays pending instead of being marked sent by a cursor read off
+// the live document afterwards.
 
 import { getConfig, setConfig } from './config.js';
 import { ghGetFile, ghPutFile, ConflictError, GitHubError } from './github.js';
-import { mergeDocs, maxStamp } from './merge.js';
+import { mergeDocs, maxStamp, ackOf } from './merge.js';
 
 const MAX_CONFLICT_RETRIES = 5;
 
@@ -55,9 +61,9 @@ export async function syncNow(getLocal, setLocal, opts = {}) {
   // ---- empty repo: create the file from what we have ----------------
   if (!pulled.doc) {
     try {
-      const doc = getLocal();
+      const doc = freeze(getLocal());
       const put = await putFile(conn, doc, null, `rehab sync (init) from ${opts.deviceId || 'device'}`);
-      save({ remoteSha: put.sha, lastSyncedAt: Date.now(), lastPushedAt: maxStamp(doc) });
+      save({ remoteSha: put.sha, lastSyncedAt: Date.now(), lastPushedAt: maxStamp(doc), ack: ackOf(doc) });
       return { ok: true, created: true, pulled: 0, pushed: 'all', deleted: 0 };
     } catch (err) {
       // Lost a race to create it, fall through to the normal path next time.
@@ -76,18 +82,19 @@ export async function syncNow(getLocal, setLocal, opts = {}) {
 
   // ---- 3. push, only if we hold something remote does not -----------
   if (merge.pushed === 0) {
-    save({ remoteSha: pulled.sha, lastSyncedAt: Date.now(), lastPushedAt: maxStamp(local) });
+    // The remote already holds everything: acknowledge ITS stamps, not ours.
+    save({ remoteSha: pulled.sha, lastSyncedAt: Date.now(), lastPushedAt: maxStamp(pulled.doc), ack: ackOf(pulled.doc) });
     return { ok: true, pulled: merge.pulled, pushed: 0, deleted: merge.deleted };
   }
 
   let sha = pulled.sha;
-  let toPush = local;
+  let toPush = freeze(local);
   for (let attempt = 0; attempt < MAX_CONFLICT_RETRIES; attempt++) {
     try {
       const put = await putFile(conn, toPush, sha, msg);
-      // Cursor comes from what we actually pushed, so a later edit is always
-      // strictly newer and therefore still counted as pending.
-      save({ remoteSha: put.sha, lastSyncedAt: Date.now(), lastPushedAt: maxStamp(toPush) });
+      // Acknowledge exactly the copy that went up. Anything edited since is
+      // not in it, so it is still pending.
+      save({ remoteSha: put.sha, lastSyncedAt: Date.now(), lastPushedAt: maxStamp(toPush), ack: ackOf(toPush) });
       return { ok: true, pulled: merge.pulled, pushed: merge.pushed, deleted: merge.deleted };
     } catch (err) {
       if (!(err instanceof ConflictError)) return classifyFailure(err);
@@ -99,11 +106,22 @@ export async function syncNow(getLocal, setLocal, opts = {}) {
       } catch (e2) {
         return classifyFailure(e2);
       }
-      const m2 = mergeDocs(toPush, re.doc);
-      toPush = m2.doc;
+      // Fold the newer remote into what is on this device NOW (it may hold
+      // edits made during the failed PUT), adopt that, and push a fresh copy.
+      const m2 = mergeDocs(getLocal(), re.doc);
       sha = re.sha;
-      if (m2.changed) await setLocal(toPush);
+      if (m2.changed) await setLocal(m2.doc);
+      if (m2.pushed === 0) {
+        save({ remoteSha: re.sha, lastSyncedAt: Date.now(), lastPushedAt: maxStamp(re.doc), ack: ackOf(re.doc) });
+        return { ok: true, pulled: merge.pulled + m2.pulled, pushed: 0, deleted: merge.deleted + m2.deleted };
+      }
+      toPush = freeze(m2.changed ? m2.doc : getLocal());
     }
   }
   return { ok: false, reason: 'conflict', error: 'too many concurrent writes' };
+}
+
+/** A deep copy, so what is sent and acknowledged cannot change under us. */
+function freeze(doc) {
+  return JSON.parse(JSON.stringify(doc));
 }

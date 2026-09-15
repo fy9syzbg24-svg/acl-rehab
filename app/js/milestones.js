@@ -8,7 +8,7 @@
 // moment plays once, on one device, and never again after a reload or a sync.
 // Deleting that map loses nothing but the memory of an animation.
 //
-// 2026-09-14 ring design, settled with ChatGPT through Reuben:
+// 2026-09-14 ring design, settled with ChatGPT through the owner:
 //   - the existing ladder stays, plus First plan complete
 //   - guided exercises count at most once per planned item per date, and only
 //     when that item was confirmed done: a repeat, an unplanned extra or a

@@ -192,6 +192,47 @@ export function pruneHollowDays(doc, del = {}) {
   }
 }
 
+// ---- a day's fields, path by path (2026-09-15, A06) ----------------------
+// These fields are maps of independent items (a supplement tick, a check-in
+// answer, a checklist line), so each item is its own path. The rest are whole
+// values. Paths use a dot; item keys never contain one in this data, and a key
+// that did would only fall back to merging its whole field.
+const ITEM_FIELDS = new Set(['supps', 'checklist', 'checkin']);
+
+/** Every path a day value holds. */
+export function dayPaths(v) {
+  const out = [];
+  if (!v || typeof v !== 'object') return out;
+  for (const f of DAY_FIELDS) {
+    const x = v[f];
+    if (x === undefined) continue;
+    if (ITEM_FIELDS.has(f) && x && typeof x === 'object' && !Array.isArray(x)) {
+      const ks = Object.keys(x).filter((k) => !k.includes('.'));
+      if (ks.length !== Object.keys(x).length) { out.push(f); continue; }
+      for (const k of ks) out.push(`${f}.${k}`);
+    } else {
+      out.push(f);
+    }
+  }
+  return out;
+}
+
+export function getPath(v, path) {
+  if (!v || typeof v !== 'object') return undefined;
+  const i = path.indexOf('.');
+  if (i < 0) return v[path];
+  const f = v[path.slice(0, i)];
+  return f && typeof f === 'object' ? f[path.slice(i + 1)] : undefined;
+}
+
+export function setPath(v, path, value) {
+  const i = path.indexOf('.');
+  if (i < 0) { v[path] = value; return; }
+  const f = path.slice(0, i);
+  if (!v[f] || typeof v[f] !== 'object') v[f] = {};
+  v[f][path.slice(i + 1)] = value;
+}
+
 /** Cheap value fingerprint, for spotting what a mutation actually changed. */
 export function fingerprint(v) {
   return v === undefined ? '\0undef' : JSON.stringify(v);
@@ -202,6 +243,7 @@ export function ensureSync(doc, deviceId) {
   s.v ||= SYNC_VERSION;
   s.rec ||= {};
   s.del ||= {};
+  s.dp ||= {};      // per-field stamps for day records (2026-09-15, A06)
   if (deviceId) s.device = deviceId;
   return s;
 }

@@ -33,6 +33,10 @@ sed -i '' "s/const SHELL_VERSION = '[^']*';/const SHELL_VERSION = '$SHA';/" "$ST
 #    system bands top and bottom, which no CSS can fill.
 mv "$STAGE/index.html" "$STAGE/desktop.html"
 cp "$STAGE/m.html" "$STAGE/index.html"
+# The desktop page exists only in the published copy, so it is added to the
+# offline list here (audit A18), or opening it offline fell back to mobile.
+perl -0pi -e "s#  './index.html',\n#  './index.html',\n  './desktop.html',\n#" "$STAGE/sw.js"
+grep -q "'./desktop.html'" "$STAGE/sw.js" || { echo "deploy: could not add desktop.html to the offline list" >&2; exit 1; }
 
 # 3. Stop Pages running the content through Jekyll (which drops _-prefixed files).
 touch "$STAGE/.nojekyll"
@@ -50,8 +54,9 @@ git checkout -q --orphan "$TMPBRANCH"
 git rm -rqf . >/dev/null 2>&1 || true
 cp -R "$STAGE/." .
 git add -A
-git -c user.name="Reuben" -c user.email="reuben.moreland@gmail.com" \
-    commit -q -m "Deploy $SHA"
+# The repo's own configured identity, never a personal address: this branch
+# is public (2026-09-15, audit A28).
+git commit -q -m "Deploy $SHA"
 git push -q -f origin "$TMPBRANCH":gh-pages
 popd >/dev/null
 git worktree remove --force "$WORK"

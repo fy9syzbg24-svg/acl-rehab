@@ -5,8 +5,11 @@ import { MEASURE_BY_ID, UNIT_LABEL } from '../../data/measurements.js';
 import { ACL_RSI, TSK11, IKDC, scoreAclRsi, scoreTsk11, scoreIkdc } from '../../data/questionnaires.js';
 import { openMeasureEntry } from '../components.js';
 
+// Shown only when the settings hold a reconstruction date for both knees, so
+// this public code states a rule, not anyone's history (audit A28).
 const BILATERAL_NOTE =
-  'Both of your knees are reconstructed, so a limb symmetry index compares two operated legs, it can read 100% while both are well below where they need to be. Treat the absolute hurdles (reps, seconds, degrees, bodyweight multiples) as the real test, and read LSI as a balance check only. Your own 6-month plan makes the same point.';
+  'When both knees have been reconstructed, a limb symmetry index compares two operated legs, so it can read 100% while both are well below where they need to be. Treat the absolute hurdles (reps, seconds, degrees, bodyweight multiples) as the real test, and read LSI as a balance check only.';
+const bothReconstructed = () => !!(state.data.settings?.surgeryLeft && state.data.settings?.surgeryRight);
 
 // --------------------------------------------------------------- scoring ---
 function measureState(row) {
@@ -105,8 +108,8 @@ export function renderMelbourne(ctx) {
     <section class="card">
       <header class="hero"><h2>Melbourne ACL Rehabilitation Guide 2.0</h2><span class="sub">criteria-driven: the criteria set the pace, not the calendar</span></header>
       <div class="card-body">
-        <details class="disc" data-key="melb:why" style="margin-bottom:.8rem"><summary>Both knees are reconstructed, so read symmetry as a balance check only. Why</summary>
-          <div class="tiny" style="padding:.3rem 0 .1rem;line-height:1.5">${esc(BILATERAL_NOTE)}</div></details>
+        ${bothReconstructed() ? `<details class="disc" data-key="melb:why" style="margin-bottom:.8rem"><summary>Both knees reconstructed: read symmetry as a balance check only. Why</summary>
+          <div class="tiny" style="padding:.3rem 0 .1rem;line-height:1.5">${esc(BILATERAL_NOTE)}</div></details>` : ''}
         <div class="tabrow">
           ${MELBOURNE_PHASES.map((p) => {
             const s = phaseSummary(p);

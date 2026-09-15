@@ -24,7 +24,7 @@ import { esc, uid, todayIso, num, fmtDate, toKg, fromKg, round, addDays } from '
 import { state, update, ensureDay, getDay, lastEntry, flushSave } from '../store.js';
 import { REHAB_PROGRAM, GYM_PROGRAM, THERABAND, BAND_BY_ID, plannedOn } from '../../data/program.js';
 import { CATEGORIES } from '../../data/measurements.js';
-import { exerciseById, thumb, openModal, closeModal, toast, announce } from '../components.js';
+import { exerciseById, thumb, openModal, closeModal, toast, announce, holdFocus } from '../components.js';
 import { dayRing } from '../dayring.js';
 import { fmtClock, fmtMins, timerPrefs, minutesFor } from '../timing.js';
 import { itemStatus, saveRun, rowsFingerprint, runsFor } from '../logging.js';
@@ -1215,7 +1215,10 @@ let saving = false;
 function saveCurrent() {
   if (saving || !P?.run) return false;
   const run = P.run;
-  if ((P.savedRunIds || []).includes(run.runId)) return true;
+  // Already in the document? (A08) Read the entries themselves, never a
+  // "saved" flag set before the write was durable: after a failed save and a
+  // reload the draft still carries the run, and it must be applied again.
+  if ((getDay(run.iso)?.entries || []).some((e) => e.runId === run.runId && e.logged)) return true;
   saving = true;
   try {
     const item = ITEM[run.pid];
@@ -1404,12 +1407,18 @@ async function switchExercise(ctx, dir) {
   const item = ITEM[run.pid];
   if (E.summary(run).anyDone) {
     P.finishing = true;
+    player()?.setAttribute('aria-busy', 'true');
     stopClock();
+    // Hold the run still while it saves; on a failure it stays here, paused,
+    // with every confirmed set.
+    if (run.state === 'running') E.pause(run, performance.now(), Date.now());
+    writeDraft();
     const saved = saveCurrent();
     if (saved === true) {
       const ok = await flushSave();
       if (!ok) {
         P.finishing = false;
+        player()?.removeAttribute('aria-busy');
         announce('Not saved yet. Your workout is kept here.');
         toast('<b>Not saved yet</b><br><span>Stayed on this exercise so nothing is lost.</span>', 'warn', { key: 'player-save' });
         currentRerender?.();
@@ -1419,6 +1428,7 @@ async function switchExercise(ctx, dir) {
       showReceipt(item.title || item.ex);
     }
     P.finishing = false;
+    player()?.removeAttribute('aria-busy');
   }
   stopEffects();
   // The list from here on, with the chosen one in hand. The tendon loading
@@ -1436,6 +1446,8 @@ async function switchExercise(ctx, dir) {
   announce(`${it.title || exerciseById(it.ex)?.name || it.ex}, ${P.session.pos + 1} of ${queue.length}`);
   currentRerender?.();
 }
+
+const player = () => document.querySelector('[data-player]');
 
 function bindSwipe(zone, ctx) {
   if (!zone) return;
@@ -1500,6 +1512,10 @@ export function bindPlayer(root, ctx, rerender) {
     if (!b || b.disabled || !player.contains(b)) return;
     const k = b.dataset.p;
     if (k === 'ex-next' || k === 'ex-prev') { switchExercise(ctx, k === 'ex-next' ? 1 : -1); return; }
+    // While the outgoing exercise is being saved nothing may change it (A20):
+    // the save was taken from it, and a set confirmed now would be lost when
+    // the run is replaced.
+    if (P?.finishing && (TRANSPORT.has(k) || k === 'reps-' || k === 'reps+')) return;
     if (TRANSPORT.has(k) || k === 'reps-' || k === 'reps+') {
       if (!P?.run || (b.dataset.step && b.dataset.step !== stepKey(P.run))) return;
       const now = Date.now();
@@ -1758,6 +1774,11 @@ function notifyIdle() {
 }
 
 // --------------------------------------------------------------- zoom ----
+/** Start before a run has begun, Pause while it runs, Resume when paused (A27). */
+function zoomPauseLabel(run) {
+  return run.state === 'running' ? 'Pause' : run.state === 'ready' ? 'Start' : 'Resume';
+}
+
 function openZoom(ctx, rerender) {
   const item = ITEM[P.run.pid];
   const back = document.createElement('div');
@@ -1770,32 +1791,33 @@ function openZoom(ctx, rerender) {
     <div class="p-zoom-scroll"><img src="${esc(item.img)}" alt="Step pictures: ${esc(item.title || item.ex)}"></div>
     <div class="p-zoom-bar">
       <span class="p-zoom-phase">${esc(phaseLabel(E.step(P.run)?.kind))} <span class="mono" data-p-clock>${E.remainingSec(P.run, performance.now()) != null ? fmtClock(E.remainingSec(P.run, performance.now())) : ''}</span></span>
-      <button class="btn" data-z="zoom">Zoom</button>
-      <button class="btn" data-z="pause">${P.run.state === 'running' ? 'Pause' : 'Resume'}</button>
+      <button class="btn" data-z="zoom" aria-pressed="false">Zoom</button>
+      <button class="btn" data-z="pause">${zoomPauseLabel(P.run)}</button>
       <button class="btn primary" data-z="close">${I.close}Close</button>
     </div>`;
   document.getElementById('modal-root').appendChild(back);
   const img = back.querySelector('img');
+  let release = () => {};
   const close = () => {
     back.remove();
-    document.removeEventListener('keydown', esc_);
+    release();
     rerender();
     const z = document.querySelector('[data-p="zoom"]') || opener;
     try { z?.focus({ preventScroll: true }); } catch { /* ignore */ }
   };
-  const esc_ = (e) => { if (e.key === 'Escape') close(); };
-  document.addEventListener('keydown', esc_);
-  const zoom = () => { img.classList.toggle('big'); };
+  release = holdFocus(back, close);
+  const zoomBtn = back.querySelector('[data-z="zoom"]');
+  const zoom = () => { const on = img.classList.toggle('big'); zoomBtn.setAttribute('aria-pressed', String(on)); };
   requestAnimationFrame(() => back.querySelector('[data-z="close"]')?.focus());
   img.addEventListener('click', zoom);
-  back.querySelector('[data-z="zoom"]').addEventListener('click', zoom);
+  zoomBtn.addEventListener('click', zoom);
   back.querySelector('[data-z="close"]').addEventListener('click', close);
   back.querySelector('[data-z="pause"]').addEventListener('click', (e) => {
     const r = P.run;
     if (r.state === 'running') E.pause(r, performance.now(), Date.now());
     else if (r.state === 'ready') E.start(r, performance.now(), Date.now());
     else E.resume(r, performance.now(), Date.now());
-    e.target.textContent = r.state === 'running' ? 'Pause' : 'Resume';
+    e.target.textContent = zoomPauseLabel(r);
     writeDraft();
     syncEffects();
   });

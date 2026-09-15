@@ -25,19 +25,13 @@ import { renderDatePill, bindDatePill, openModal, closeModal, toast } from '../c
 
 export const WHENS = [['morning', 'Morning'], ['anytime', 'Anytime'], ['evening', 'Evening']];
 
-// The owner's own arrangement, read back out of the app (Aug 2026).
-//
-// THE RULE: whatever he has arranged in the app IS the default. This list only
-// ever seeds a device that has never had one, `settings.suppsSeeded` means it
+// THE RULE: whatever he has arranged in the app IS the default. His list lives
+// in his synced data, never in this public code (2026-09-15, audit A28: the
+// seed list here used to name his own medications). A fresh device starts
+// empty and receives the real list by sync; `settings.suppsSeeded` means this
 // never runs twice, so an update can never reorder, regroup or re-add anything
-// he has curated. When these defaults are refreshed, they are copied FROM the
-// live data, not imposed on it.
-const DEFAULTS = [
-  ['Ritalin XR', 'morning'], ['Creatine Morning', 'morning'],
-  ['Multivitamin', 'morning'], ['Collagen', 'morning'], ['Prozac', 'morning'],
-  ['Fiber', 'anytime'], ['Vitamin C', 'anytime'],
-  ['Magnesium evening', 'evening'], ['Creatine Evening', 'evening'], ['Statin', 'evening'],
-];
+// he has curated.
+const DEFAULTS = [];
 
 // Common as-needed drugs, offered in the add sheet and seeded once.
 export const PRN_PRESETS = [
