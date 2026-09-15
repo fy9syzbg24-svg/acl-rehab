@@ -887,3 +887,9 @@ always cover the data; future dates cannot start a workout; swipe saves lock the
 later Pause; photo zoom is a real dialog. Public code no longer carries his medication names or clinical notes.
 
 Tests: `app/dev-audit.js` (browser page), `tools/test_offline_update.py`, `tools/test_server_guards.py`.
+
+Status bar, 2026-09-15: `m.html` now uses `apple-mobile-web-app-status-bar-style: default`. With
+`black-translucent`, iOS 26 drew a Liquid Glass blur over the top of the page that smeared the app name, and a
+fixed solid strip under the status bar (`.sb-fill`, still present and harmless) did not stop it. iOS reads this tag
+only when the app is added to the Home Screen: an existing install keeps the old look until it is deleted and added
+again, which also clears that device's local copy and sync sign-in, so sync first and have the token ready.

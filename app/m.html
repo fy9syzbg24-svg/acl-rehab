@@ -8,7 +8,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="theme-color" content="#F3F5F6">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<!-- 2026-09-15: "default", not "black-translucent". Under a translucent status
+     bar, iOS 26 paints a Liquid Glass blur that spilled over the app name on
+     every screen, and a solid strip behind it did not stop it. With "default"
+     the status bar is iOS's own and the page starts below it. iOS reads this
+     only when the app is added to the Home Screen, so it needs a reinstall. -->
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Rehab">
 <title>Rehab tracker</title>
 <link rel="manifest" href="./manifest.webmanifest">
