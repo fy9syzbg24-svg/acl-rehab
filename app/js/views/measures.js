@@ -106,7 +106,7 @@ function baselines() {
   </section>
 
   <section class="card">
-    <header><h2>Bodyweight work</h2><span class="sub">biggest set volume logged, no external load</span></header>
+    <header><h2>Bodyweight work</h2><span class="sub">most reps, longest hold or most minutes in one session, per side, no external load</span></header>
     <div class="card-body">${volumeTable()}</div>
   </section>
 
@@ -118,34 +118,54 @@ function baselines() {
   </section>`;
 }
 
-/** Best unloaded effort per exercise: most total reps, or longest time. */
+/**
+ * Best unloaded effort per exercise and side (Codex audit B05): the most reps,
+ * the longest total hold or the most minutes, each from what was actually done.
+ * Reps add up per set ([12, 10, 8] is 30, never 3 x 12); holds and timed work
+ * are seconds, never the "1 rep" a hold row also carries; logged rows only.
+ */
+export function effortOf(e) {
+  const bySet = Array.isArray(e.repsBySet) ? e.repsBySet.map(num).filter((x) => x != null && x > 0) : [];
+  const secsList = Array.isArray(e.secsList) ? e.secsList.map(num).filter((x) => x != null && x > 0) : [];
+  const sets = num(e.sets) || 1;
+  if (secsList.length) return { kind: 'sec', total: secsList.reduce((a, b) => a + b, 0), detail: secsList.length > 1 && secsList.every((x) => x === secsList[0]) ? `${secsList.length} x ${secsList[0]} s` : `${secsList.join(' + ')} s` };
+  if (num(e.secs) || num(e.hold)) { const x = num(e.secs) ?? num(e.hold); return { kind: 'sec', total: sets * x, detail: `${sets} x ${round(x, 1)} s` }; }
+  if (bySet.length) return { kind: 'reps', total: bySet.reduce((a, b) => a + b, 0), detail: bySet.every((x) => x === bySet[0]) ? `${bySet.length} x ${bySet[0]}` : bySet.join(' + ') };
+  if (num(e.reps)) return { kind: 'reps', total: sets * num(e.reps), detail: `${sets} x ${num(e.reps)}` };
+  if (num(e.time)) return { kind: 'min', total: sets * num(e.time), detail: sets > 1 ? `${sets} x ${round(num(e.time), 2)} min` : `${round(num(e.time), 2)} min` };
+  return null;
+}
+const EFFORT_UNIT = { reps: 'reps', sec: 's', min: 'min' };
+
 function volumeTable() {
   const rec = {};
   for (const [date, day] of Object.entries(state.data.days)) {
     for (const e of day.entries || []) {
       if (num(e.load) || !e.logged) continue;
-      const sets = num(e.sets) || 1;
-      const reps = num(e.reps);
-      const time = num(e.time);
-      if (!reps && !time) continue;
-      const score = reps ? sets * reps : sets * time * 100;
-      const cur = rec[e.ex];
-      if (!cur || score > cur.score) rec[e.ex] = { ex: e.ex, sets, reps, time, score, date, seeded: e.seeded };
+      const eff = effortOf(e);
+      if (!eff || !(eff.total > 0)) continue;
+      const side = e.side || 'B';
+      const key = `${e.ex}|${side}|${eff.kind}`;
+      const cur = rec[key];
+      if (!cur || eff.total > cur.total) rec[key] = { ex: e.ex, side, ...eff, date, seeded: e.seeded };
     }
   }
-  const list = Object.values(rec).sort((a, b) => (exerciseById(a.ex)?.name || a.ex).localeCompare(exerciseById(b.ex)?.name || b.ex));
+  const name = (id) => exerciseById(id)?.name || id;
+  const list = Object.values(rec).sort((a, b) => name(a.ex).localeCompare(name(b.ex)) || a.side.localeCompare(b.side));
   if (!list.length) return '<div class="empty">Nothing logged without a load yet.</div>';
+  const tag = (r) => (r.side === 'L' || r.side === 'R' ? `<b class="sidetag ${r.side}">${r.side}</b> ` : '');
+  const total = (r) => `${round(r.total, 1)} ${EFFORT_UNIT[r.kind]}`;
   return `<div class="only-narrow brows">${list.map((r) => `<div class="brow">
-      <div class="brow-name">${esc(exerciseById(r.ex)?.name || r.ex)}</div>
-      <div class="brow-vals"><span class="mv">${esc(r.reps ? `${r.sets * r.reps}` : `${round(r.sets * r.time, 1)}`)}<small>${r.reps ? 'reps' : 'min'}</small></span></div>
-      <div class="brow-meta">${esc(r.reps ? `${r.sets} x ${r.reps}` : `${r.sets} x ${round(r.time, 2)} min`)} · ${esc(fmtDateNum(r.date))}</div>
+      <div class="brow-name">${tag(r)}${esc(name(r.ex))}</div>
+      <div class="brow-vals"><span class="mv">${esc(String(round(r.total, 1)))}<small>${EFFORT_UNIT[r.kind]}</small></span></div>
+      <div class="brow-meta">${esc(r.detail)} · ${esc(fmtDateNum(r.date))}</div>
     </div>`).join('')}</div>
   <div class="only-wide scroll-x"><table class="tbl" style="min-width:460px">
     <thead><tr><th>Exercise</th><th>Best effort</th><th class="num">Total</th><th>When</th></tr></thead>
     <tbody>${list.map((r) => `<tr>
-      <td>${esc(exerciseById(r.ex)?.name || r.ex)} ${r.seeded ? '<span class="seeded-dot" title="from clinical notes">●</span>' : ''}</td>
-      <td class="mono tiny">${r.reps ? `${r.sets} x ${r.reps}` : `${r.sets} x ${round(r.time, 2)} min`}</td>
-      <td class="num mono">${r.reps ? r.sets * r.reps + ' reps' : round(r.sets * r.time, 1) + ' min'}</td>
+      <td>${tag(r)}${esc(name(r.ex))} ${r.seeded ? '<span class="seeded-dot" title="from clinical notes">●</span>' : ''}</td>
+      <td class="mono tiny">${esc(r.detail)}</td>
+      <td class="num mono">${esc(total(r))}</td>
       <td class="tiny muted">${esc(fmtDateNum(r.date))}</td>
     </tr>`).join('')}</tbody></table></div>`;
 }

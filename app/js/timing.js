@@ -294,3 +294,13 @@ export function fmtDayTotal(list) {
   const base = `about ${fmtMins(mins)}`;
   return untimed ? `${base} + ${untimed} untimed` : base;
 }
+
+/**
+ * Minutes of exercise from the seconds of work a run recorded (Codex audit
+ * B02): get ready, rest and time away are never in the list. One decimal,
+ * never rounded up; null when nothing ran.
+ */
+export function workMinutes(secsList) {
+  const secs = (secsList || []).reduce((a, b) => a + (Number(b) || 0), 0);
+  return secs > 0 ? Math.floor(secs / 6) / 10 : null;
+}

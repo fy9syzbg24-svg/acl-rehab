@@ -2,7 +2,7 @@
 // data; if the data isn't there, the insight simply doesn't appear.
 
 import { state, entriesFor, hasCheckin, measurementsFor } from './store.js';
-import { addDays, num, round } from './util.js';
+import { addDays, num, round, toKg, fromKg } from './util.js';
 import { EXERCISE_BY_ID } from '../data/exercises.js';
 import { planStreak } from './planstreak.js';
 
@@ -27,13 +27,17 @@ function recentPB(iso) {
       const l = num(e.load);
       if (!l || !e.logged || seen.has(e.ex + '|' + (e.side || 'B'))) continue;
       seen.add(e.ex + '|' + (e.side || 'B'));
+      // In the Settings unit (Codex audit B04): 50 lb after 30 kg is not a 20 point jump.
+      const unit = state.data.settings.weightUnit || 'kg';
+      const inUnit = (x) => fromKg(toKg(num(x.load), x.loadUnit || unit), unit);
       const prior = entriesFor(e.ex, e.side === 'B' ? null : e.side)
         .filter((x) => x.date < from && num(x.load) > 0)
-        .map((x) => num(x.load));
+        .map(inUnit);
       if (!prior.length) continue;
       const was = Math.max(...prior);
-      if (l > was && l - was > best.jump) {
-        Object.assign(best, { jump: l - was, now: l, was, ex: e.ex, unit: e.loadUnit || state.data.settings.weightUnit });
+      const now = inUnit(e);
+      if (now > was && now - was > best.jump) {
+        Object.assign(best, { jump: round(now - was, 1), now: round(now, 1), was: round(was, 1), ex: e.ex, unit });
       }
     }
   }

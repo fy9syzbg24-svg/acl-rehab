@@ -19,12 +19,19 @@
 // the live document afterwards.
 
 import { getConfig, setConfig } from './config.js';
-import { ghGetFile, ghPutFile, ConflictError, GitHubError } from './github.js';
+import { ghGetFile, ghPutFile, ghCheckAccess, ConflictError, GitHubError } from './github.js';
 import { mergeDocs, maxStamp, ackOf } from './merge.js';
 
 const MAX_CONFLICT_RETRIES = 5;
 
+class PrivacyRefused extends Error {
+  constructor(privacy) { super(privacy === 'public' ? 'the sync repository is public' : 'could not confirm the sync repository is private'); this.privacy = privacy; }
+}
+
 function classifyFailure(err) {
+  if (err instanceof PrivacyRefused) {
+    return { ok: false, reason: err.privacy === 'public' ? 'public-repo' : 'privacy-unknown', error: String(err.message) };
+  }
   if (err instanceof GitHubError && err.status === 401) return { ok: false, reason: 'auth', error: String(err) };
   if (err instanceof GitHubError && err.status === 404) return { ok: false, reason: 'no-repo', error: String(err) };
   if (err instanceof GitHubError && err.status === 403) return { ok: false, reason: 'forbidden', error: String(err) };
@@ -43,7 +50,23 @@ export async function syncNow(getLocal, setLocal, opts = {}) {
   // The transport is injectable purely so the tests can drive outages,
   // interruptions and concurrent writers deterministically.
   const getFile = opts.getFile || ghGetFile;
-  const putFile = opts.putFile || ghPutFile;
+  const rawPut = opts.putFile || ghPutFile;
+  const checkAccess = opts.checkAccess || ghCheckAccess;
+  // 2026-09-15 (Codex audit B01): nothing is uploaded unless GitHub says, just
+  // now, that the repository is private. A repo made public after connecting,
+  // or a check that cannot be answered, stops the upload; the data stays on
+  // this device and nothing is lost. Checked once per sync, before the first
+  // write, so a sync with nothing to send costs nothing extra.
+  let privacy = null;
+  const putFile = async (...args) => {
+    if (!privacy) {
+      let check;
+      try { check = await checkAccess(conn); } catch { check = null; }
+      privacy = !check || !check.ok ? 'unknown' : check.private === true ? 'private' : check.private === false ? 'public' : 'unknown';
+    }
+    if (privacy !== 'private') throw new PrivacyRefused(privacy);
+    return rawPut(...args);
+  };
   const cfg = opts.config || getConfig();
   const save = opts.setConfig || setConfig;
   if (!cfg.token || !cfg.owner || !cfg.repo) return { ok: false, reason: 'unconfigured' };

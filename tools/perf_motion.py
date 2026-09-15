@@ -69,6 +69,8 @@ INSTRUMENT = r"""
     return {
       repaints: st.repaints, tap: st.tap == null ? null : Math.round(st.tap * 10) / 10,
       longest: Math.round(Math.max(0, ...f)), over34: f.filter((x) => x > 34).length,
+      median: (() => { const a = f.slice().sort((x, y) => x - y); return a.length ? Math.round(a[Math.floor(a.length / 2)] * 10) / 10 : null; })(),
+      p95: (() => { const a = f.slice().sort((x, y) => x - y); return a.length ? Math.round(a[Math.min(a.length - 1, Math.floor(a.length * 0.95))] * 10) / 10 : null; })(),
       step: Math.round(steps(st.still, s0) * 10) / 10,
       net: s0 && s1 ? Math.round(Math.hypot(s1[0] - s0[0], s1[1] - s0[1]) * 10) / 10 : null,
       moverStep: Math.round(steps(st.mover, st.mover0) * 10) / 10,
@@ -105,14 +107,27 @@ class Harness:
     def trace_end(self):
         _, events = self.raw("Tracing.end")
         decodes = 0
+        work = {"layoutMs": 0.0, "layouts": 0, "styleMs": 0.0, "paintMs": 0.0, "paints": 0}
+        self.work = work
         deadline = time.time() + 10
         done = False
         while not done and time.time() < deadline:
             for e in events:
                 if e.get("method") == "Tracing.dataCollected":
                     for ev in e["params"].get("value", []):
-                        if ev.get("name") in ("Decode Image", "ImageDecodeTask", "Decode LazyPixelRef"):
+                        name = ev.get("name")
+                        if name in ("Decode Image", "ImageDecodeTask", "Decode LazyPixelRef"):
                             decodes += 1
+                        # Main-thread layout, style and paint (Codex audit exit checks).
+                        dur = (ev.get("dur") or 0) / 1000.0
+                        if ev.get("ph") not in ("X", "B", "E") or not dur:
+                            continue
+                        if name == "Layout":
+                            work["layoutMs"] += dur; work["layouts"] += 1
+                        elif name in ("UpdateLayoutTree", "RecalculateStyles"):
+                            work["styleMs"] += dur
+                        elif name == "Paint":
+                            work["paintMs"] += dur; work["paints"] += 1
                 if e.get("method") == "Tracing.tracingComplete":
                     done = True
             events = []
@@ -151,6 +166,7 @@ class Harness:
         decodes = self.trace_end()
         out = self.js("return window.__perf.end()")
         out["decodes"] = decodes
+        out.update({k: (round(v, 1) if isinstance(v, float) else v) for k, v in getattr(self, "work", {}).items()})
         out["drift"] = self.drift()
         return out
 
@@ -546,6 +562,20 @@ def lite_motion_check(c, h):
     return out
 
 
+MOTION = None
+if "--motion" in sys.argv:
+    # Force full or lite motion before every load (headless Chrome here can run
+    # at 30 frames and switch light motion on by itself).
+    i = sys.argv.index("--motion")
+    MOTION = sys.argv[i + 1]
+    del sys.argv[i:i + 2]
+
+
+def force_motion(c):
+    if MOTION in ("full", "lite"):
+        c.call("Page.addScriptToEvaluateOnNewDocument", source=f"try {{ localStorage.setItem('rehab.motion', '{MOTION}'); }} catch (e) {{}}")
+
+
 def main():
     if len(sys.argv) > 1 and sys.argv[1] == "lite":
         with cdp.Chrome(tempfile.mkdtemp(prefix="rehab-perf-"), headless=True) as c:
@@ -583,6 +613,7 @@ def main():
         # every evaluation in headless Chrome; answer it for the harness.
         c.call("Page.enable")
         c.call("Page.addScriptToEvaluateOnNewDocument", source="window.confirm = () => true; window.alert = () => {};")
+        force_motion(c)
         h = Harness(c)
         for rate in rates:
             for name in names:
@@ -599,7 +630,7 @@ def main():
         c.call("Emulation.setCPUThrottlingRate", rate=1)
     after = entry_count()
     print(f"\ntest copy entries and supplement ticks before {before} after {after}")
-    out = Path(tempfile.gettempdir()) / "rehab-perf-last.json"
+    out = Path(os.environ.get("REHAB_PERF_OUT") or (Path(tempfile.gettempdir()) / "rehab-perf-last.json"))
     out.write_text(json.dumps(results, indent=1))
     print(f"results: {out}")
 

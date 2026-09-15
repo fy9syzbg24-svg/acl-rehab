@@ -344,6 +344,21 @@ async function writeDurable(doc = null) {
 }
 
 /**
+ * Adopt a document an import produced (Codex audit B15). It is already the
+ * sync merge of this device's document and the backup, with the backup's own
+ * stamps, so it is NOT stamped again: re-stamping would make an old backup's
+ * records newer than work on the other devices. Returns whether it saved.
+ */
+export async function adoptImport(doc) {
+  if (state.readOnly) return false;
+  state.data = doc;
+  emit();
+  const ok = await flushSave();
+  if (remoteChangeCb) remoteChangeCb();
+  return ok;
+}
+
+/**
  * Save now and say whether it worked. For anything that must not report
  * "saved" or throw away a recovery copy before the write is durable (the
  * player's Save). The debounced save may still run afterwards; writing the
@@ -810,17 +825,25 @@ export function focusCoverage(item, fromIso, toIso) {
 }
 
 // ------------------------------------------------- resistance history -------
+// 2026-09-15 (Codex audit B04): every function here reads LOGGED rows only. A
+// row opened and never ticked is a copy of last time, not a session, and it
+// used to win "heaviest ever", fill in "last time" and set a cardio target.
+// Loads are compared in one unit; each row comes back as stored, its own unit.
+
+const kgOf = (e, field) => (field === 'load' ? toKgUnit(Number(e[field]), e.loadUnit || state.data.settings.weightUnit || 'kg') : Number(e[field]));
+function toKgUnit(v, unit) { return unit === 'lb' ? v / 2.2046226218 : v; }
+
 /** Every logged entry for an exercise/side, oldest first. */
 export function entriesFor(exId, side) {
   const out = [];
   for (const [date, day] of Object.entries(state.data.days)) {
     for (const e of day.entries || []) {
-      if (e.ex !== exId) continue;
+      if (e.ex !== exId || !e.logged) continue;
       if (side && e.side !== side && e.side !== 'B') continue;
       out.push({ ...e, date });
     }
   }
-  return out.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  return out.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : String(a.doneAt || '').localeCompare(String(b.doneAt || ''))));
 }
 
 /**
@@ -830,19 +853,19 @@ export function entriesFor(exId, side) {
 export function maxLoad(exId, side, field = 'load') {
   const rows = entriesFor(exId, side).filter((e) => Number(e[field]) > 0);
   if (!rows.length) return null;
-  const top = rows.reduce((a, b) => (Number(b[field]) > Number(a[field]) ? b : a));
+  const top = rows.reduce((a, b) => (kgOf(b, field) > kgOf(a, field) ? b : a));
   return { ...top, load: Number(top[field]) };
 }
 
-/** One point per session: the highest value used that day. */
+/** One point per session: the highest value used that day, in its own unit. */
 export function loadSeries(exId, side, limit = 12, field = 'load') {
   const byDate = {};
   for (const e of entriesFor(exId, side)) {
     const l = Number(e[field]);
     if (!(l > 0)) continue;
-    if (!byDate[e.date] || l > byDate[e.date].load) {
+    if (!byDate[e.date] || kgOf(e, field) > byDate[e.date].kg) {
       byDate[e.date] = {
-        date: e.date, load: l,
+        date: e.date, load: l, kg: kgOf(e, field),
         unit: field === 'resistance' ? '' : (e.loadUnit || 'kg'),
         sets: e.sets, reps: e.reps, time: e.time, calories: e.calories,
       };
@@ -855,4 +878,13 @@ export function loadSeries(exId, side, limit = 12, field = 'load') {
 export function lastEntry(exId, side) {
   const rows = entriesFor(exId, side).filter((e) => e.side === side || side === undefined);
   return rows.length ? rows[rows.length - 1] : null;
+}
+
+/**
+ * Last time's cardio minutes, for the target: the newest logged bout that was
+ * done in full. A bout stopped early is a record of that day, not the new plan.
+ */
+export function lastCardioMinutes(exId) {
+  const rows = entriesFor(exId, 'B').filter((e) => (e.side || 'B') === 'B' && !e.partial && Number(e.time) > 0);
+  return rows.length ? Number(rows[rows.length - 1].time) : null;
 }

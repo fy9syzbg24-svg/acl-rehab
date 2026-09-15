@@ -65,6 +65,17 @@ export async function idbGetDoc() {
   return { doc: doc || null, rev: rev || 0 };
 }
 
+// A whole collection missing from a document is the sync wipe trap, never an
+// edit: deleting records leaves the key there, empty (Codex audit, partial
+// bucket reductions). Same list as server.py's BUCKETS.
+const BUCKETS = ['measurements', 'mrss', 'customExercises', 'supplements', 'prnMeds', 'doses',
+  'planGoals', 'planFocus', 'days', 'caseFile', 'settings', 'program', 'melbourne'];
+const holds = (v) => !!v && typeof v === 'object' && Object.keys(v).length > 0;
+export function missingBuckets(current, doc) {
+  if (!current || typeof current !== 'object' || !doc || typeof doc !== 'object') return [];
+  return BUCKETS.filter((k) => holds(current[k]) && !(k in doc));
+}
+
 const countOf = (doc) => (doc && typeof doc === 'object' ? collectRecords(doc).size : 0);
 const dayStamp = () => new Date().toISOString().slice(0, 10);
 
@@ -94,6 +105,8 @@ export async function idbPutDoc(doc, expectedRev = null) {
         if (expectedRev !== null && rev !== expectedRev) { fail(new StaleWrite(current, rev)); return; }
         const have = countOf(current);
         if (have > 0 && want === 0) { fail(new RefusedWrite(`refusing to replace ${have} records with an empty document`)); return; }
+        const gone = missingBuckets(current, doc);
+        if (gone.length) { fail(new RefusedWrite(`refusing a document without ${gone.join(', ')}, which this device holds`)); return; }
         const write = () => {
           newRev = rev + 1;
           st.put(doc, KEY);
@@ -114,6 +127,31 @@ export async function idbPutDoc(doc, expectedRev = null) {
     tx.onerror = () => reject(failure || tx.error);
     tx.onabort = () => reject(failure || tx.error || new Error('IndexedDB write aborted'));
   });
+}
+
+/**
+ * A named restore point of the stored document, never deleted, read back and
+ * compared before it counts (Codex audit B15: before an import). Resolves to
+ * { ok, key, empty }.
+ */
+export async function idbSnapshot(reason) {
+  const db = await open();
+  const key = `${reason}-${new Date().toISOString()}`;
+  const current = await new Promise((resolve, reject) => {
+    const tx = db.transaction([STORE, SNAPS], 'readwrite');
+    const get = tx.objectStore(STORE).get(KEY);
+    let doc = null;
+    get.onsuccess = () => {
+      doc = get.result || null;
+      if (doc) tx.objectStore(SNAPS).put(doc, key);
+    };
+    tx.oncomplete = () => resolve(doc);
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error || new Error('snapshot aborted'));
+  });
+  if (!current) return { ok: true, empty: true, key: null };
+  const back = await reqP(db.transaction(SNAPS, 'readonly').objectStore(SNAPS).get(key));
+  return { ok: !!back && JSON.stringify(back) === JSON.stringify(current), key };
 }
 
 /** Best-effort: ask the browser to keep this origin's storage from eviction. */

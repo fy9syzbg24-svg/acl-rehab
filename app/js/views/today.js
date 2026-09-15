@@ -8,7 +8,7 @@
 // do I do today, and the first exercise has to be on the first screen.
 
 import { esc, todayIso, addDays, fmtDate, fmtDateNum, uid, num, round, currentDayIso, onTimePicked } from '../util.js';
-import { state, update, ensureDay, getDay, lastEntry, maxLoad, loadSeries, entriesFor, stageEdit } from '../store.js';
+import { state, update, ensureDay, getDay, lastEntry, lastCardioMinutes, maxLoad, loadSeries, entriesFor, stageEdit } from '../store.js';
 import { monthForDate } from '../../data/plan.js';
 import { CATEGORIES, MEASURE_BY_ID, UNIT_LABEL } from '../../data/measurements.js';
 import { REHAB_PROGRAM, GYM_PROGRAM, BAND_BY_ID, THERABAND, plannedOn, dayPlanFor } from '../../data/program.js';
@@ -53,7 +53,7 @@ function rowMinutes(item, ex = exerciseById(item.ex)) {
   if (minsMemo.rev !== state.rev) { minsMemo.rev = state.rev; minsMemo.byId.clear(); }
   const hit = minsMemo.byId.get(item.id);
   if (hit) return hit;
-  const last = ex?.cardio ? num(lastEntry(item.ex, 'B')?.time) : null;
+  const last = ex?.cardio ? lastCardioMinutes(item.ex) : null;
   const m = minutesFor(item, ex, state.data, last, runsFor(state.data, state.rev, item.id));
   minsMemo.byId.set(item.id, m);
   return m;
@@ -77,13 +77,23 @@ function collagenSupp() {
   return (state.data.supplements || []).find((s) => /collagen/i.test(s.name || '')) || null;
 }
 
-/** Inside update(): the tendon loading done at `at`. */
-function setFirstDoneAt(iso, at) {
+/**
+ * Inside update(): the tendon loading done at `at`. `from` says where the time
+ * came from when it was not typed for this row (Codex audit K02): a time set
+ * on the collagen is an inference, and `doneAtFrom: 'collagen'` keeps that
+ * visible to anything that later reads doneAt as a real completion. What the
+ * app shows and does is unchanged.
+ */
+function setFirstDoneAt(iso, at, from = null) {
   const item = ALL_ITEMS.find((p) => p.first);
   if (!item) return;
   const d = ensureDay(iso);
   tickItem(d, item, true);
-  for (const e of d.entries) if (e.pid === item.id && e.logged) e.doneAt = at.toISOString();
+  for (const e of d.entries) {
+    if (e.pid !== item.id || !e.logged) continue;
+    e.doneAt = at.toISOString();
+    if (from) e.doneAtFrom = from; else delete e.doneAtFrom;
+  }
 }
 
 /** Inside update(): the collagen taken at `at`. */
@@ -96,7 +106,7 @@ function setCollagenAt(iso, at) {
 
 onSuppTime((iso, suppId, at) => {
   if (collagenSupp()?.id !== suppId) return;
-  setFirstDoneAt(iso, new Date(at.getTime() + MORNING_GAP_MIN * 60000));
+  setFirstDoneAt(iso, new Date(at.getTime() + MORNING_GAP_MIN * 60000), 'collagen');
 });
 
 export function renderToday(ctx) {
@@ -549,13 +559,16 @@ function entryChips(mine) {
   return mine.map((e) => {
     const bits = [];
     const bySet = Array.isArray(e.repsBySet) ? e.repsBySet.filter((x) => x != null) : [];
-    if (bySet.length > 1 && bySet.some((x) => x !== bySet[0])) bits.push(`${bySet.join(' + ')} reps`);
+    const holds = Array.isArray(e.secsList) ? e.secsList.filter((x) => x != null) : [];
+    // Holds read as holds ("4 × 30 s"), never as sets of one rep plus a time.
+    if (holds.length) bits.push(holds.every((x) => x === holds[0]) ? `${holds.length} × ${holds[0]} s` : `${holds.join(' + ')} s`);
+    else if (bySet.length > 1 && bySet.some((x) => x !== bySet[0])) bits.push(`${bySet.join(' + ')} reps`);
     else if (e.sets && e.reps) bits.push(`${e.sets}×${e.reps}`);
     else if (e.reps) bits.push(`${e.reps} reps`);
-    else if (e.sets) bits.push(`${e.sets} sets`);
+    else if (e.sets) bits.push(`${e.sets} set${Number(e.sets) === 1 ? '' : 's'}`);
     if (num(e.load)) bits.push(`${round(num(e.load), 2)} ${e.loadUnit || state.data.settings.weightUnit}`);
     if (num(e.time)) bits.push(`${round(num(e.time), 2)} min`);
-    if (num(e.secs)) bits.push(`${round(num(e.secs), 1)} s`);
+    if (!holds.length && num(e.secs)) bits.push(`${round(num(e.secs), 1)} s`);
     else if (num(e.hold)) bits.push(`hold ${round(num(e.hold), 1)} s`);
     if (num(e.secsL) != null || num(e.secsR) != null) bits.push(`L ${e.secsL ?? '·'} · R ${e.secsR ?? '·'} s`);
     if (num(e.testL) != null || num(e.testR) != null) bits.push(`best L ${e.testL ?? '·'} · R ${e.testR ?? '·'}`);
@@ -713,12 +726,13 @@ function legBlock(side, label, c) {
       <strong class="mono" style="font-size:.8rem" data-ckout>${painVal === '' ? '·' : painVal + '/10'}</strong>
       <span class="spacer"></span>
       <label class="tiny muted" style="display:flex;gap:.3rem;align-items:center">swelling
-        <select data-ck="${effKey}" class="sel-sm">
+        <select data-ck="${effKey}" class="sel-sm" aria-label="${esc(label)} knee swelling">
           ${EFFUSION.map((o) => `<option value="${o}" ${(c[effKey] || '') === o ? 'selected' : ''}>${o || '·'}</option>`).join('')}
         </select>
       </label>
     </div>
-    <input type="range" min="0" max="10" step="1" data-ck="${painKey}" value="${painVal === '' ? 0 : painVal}">
+    <input type="range" min="0" max="10" step="1" data-ck="${painKey}" value="${painVal === '' ? 0 : painVal}"
+      aria-label="${esc(label)} knee pain, 0 to 10" aria-valuetext="${painVal === '' ? 'not recorded' : `${painVal} out of 10`}">
   </div>`;
 }
 
@@ -1426,6 +1440,7 @@ export function bindToday(root, ctx, rerender) {
       inp.addEventListener('input', () => {
         const out = inp.closest('div')?.querySelector('[data-ckout]');
         if (out) out.textContent = `${inp.value}/10`;
+        inp.setAttribute('aria-valuetext', `${inp.value} out of 10`);
       });
       inp.addEventListener('change', () => { update(() => { ensureDay(iso).checkin[key] = value(); }); rerender(); });
       return;

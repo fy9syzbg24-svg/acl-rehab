@@ -69,7 +69,7 @@ export function workText(e) {
   else if (secs.length) bits.push(sameAll(secs) ? `${secs.length} × ${secs[0]} sec` : `${secs.join(' + ')} sec`);
   else if (num(e.sets) && num(e.reps)) bits.push(`${e.sets} × ${e.reps}`);
   else if (num(e.reps)) bits.push(`${e.reps} reps`);
-  else if (num(e.sets)) bits.push(`${e.sets} sets`);
+  else if (num(e.sets)) bits.push(`${e.sets} set${num(e.sets) === 1 ? '' : 's'}`);
   if (!secs.length && num(e.secs)) bits.push(`${round(num(e.secs), 1)} sec`);
   if (num(e.time)) bits.push(`${round(num(e.time), 1)} min`);
   if (num(e.load)) bits.push(`${round(num(e.load), 2)} ${unit}`);

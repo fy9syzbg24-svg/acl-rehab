@@ -2,7 +2,7 @@
 """ACL Rehab Tracker: tiny stdlib-only web server.
 
 Serves the single-page app in ./app and persists all user data to
-./data/rehab-data.json (atomic writes + rolling backups).
+./data/rehab-data.json (atomic writes, a backup per save, none deleted).
 
     python3 server.py            -> http://localhost:8757
     python3 server.py --port 9000
@@ -55,7 +55,6 @@ def use_data_file(path: Path) -> None:
     DATA_DIR = DATA_FILE.parent
     BACKUP_DIR = DATA_DIR / "backups"
     SNAP_DIR = DATA_DIR / "snapshots"
-MAX_BACKUPS = 300
 MAX_BODY = 16 * 1024 * 1024  # 16 MB ceiling on a save
 
 _lock = threading.Lock()
@@ -314,6 +313,23 @@ def count_records(doc: dict) -> int:
     return n
 
 
+BUCKETS = ("measurements", "mrss", "customExercises", "supplements", "prnMeds", "doses",
+           "planGoals", "planFocus", "days", "caseFile", "settings", "program", "melbourne")
+
+
+def _holds(v) -> bool:
+    return isinstance(v, (list, dict)) and len(v) > 0
+
+
+def missing_buckets(current, payload) -> list:
+    """Collections the saved file holds records in that the payload lacks as a
+    key altogether (Codex audit, partial-bucket reductions). An emptied list or
+    map is an edit and is allowed, with the snapshot before a reduction."""
+    if not isinstance(current, dict) or not isinstance(payload, dict):
+        return []
+    return [k for k in BUCKETS if _holds(current.get(k)) and k not in payload]
+
+
 def data_rev() -> str:
     """A revision id for the file on disk: changes whenever its bytes do."""
     try:
@@ -346,7 +362,7 @@ def snapshot(reason: str) -> Path | None:
 
 
 def write_data(payload: dict) -> None:
-    """Atomic replace, keeping a rolling set of timestamped backups.
+    """Atomic replace, keeping a timestamped backup of every save (never pruned).
 
     2026-09-15 (audit A13, A14): a save that would empty a store holding
     records is refused; a save holding fewer records than the file first takes
@@ -365,6 +381,12 @@ def write_data(payload: dict) -> None:
         want = count_records(payload)
         if have > 0 and want == 0:
             raise RefusedWrite(f"refusing to replace {have} records with an empty document")
+        gone = missing_buckets(current, payload)
+        if gone:
+            # A whole collection absent from the document is the sync wipe trap
+            # (a copy made by code that does not know the key), never an edit:
+            # deleting his records leaves the key there, empty.
+            raise RefusedWrite("refusing a document without %s, which the saved file holds" % ", ".join(gone))
         if current is not None and want < have:
             snapshot("before-reduce")
         today = datetime.now().strftime("%Y%m%d")
@@ -375,17 +397,10 @@ def write_data(payload: dict) -> None:
             shutil.copy2(DATA_FILE, _unique("rehab-data", BACKUP_DIR))
         except OSError as exc:
             raise BackupFailed(f"backup failed: {exc}") from exc
-        # Keep every backup from the last 7 days regardless of count, so a
-        # burst of saves in one session cannot roll older days out of reach.
-        # The never-pruned restore points live in data/snapshots/.
-        backups = sorted(BACKUP_DIR.glob("rehab-data-*.json"))
-        cutoff = time.time() - 7 * 86400
-        for stale in backups[:-MAX_BACKUPS]:
-            try:
-                if stale.stat().st_mtime < cutoff:
-                    stale.unlink()
-            except OSError:
-                pass
+        # 2026-09-15 (Codex audit B14): backups are never deleted by the app.
+        # This loop used to remove any beyond the newest 300 that were older
+        # than 7 days, against the standing rule that nothing removes a backup.
+        # The folder now only grows; its size is reported by tools/catchup.py.
 
     tmp = DATA_FILE.with_suffix(".json.tmp")
     with tmp.open("w", encoding="utf-8") as fh:
@@ -537,6 +552,35 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.do_GET()
 
     def do_POST(self):  # noqa: N802
+        # Every body is read first, whatever the endpoint. Left unread on a
+        # kept-alive connection it becomes the start of the next request, which
+        # then fails with a 501: an import's save after its snapshot did exactly
+        # that (found by tools/test_flows.py settings_io), and so did anything
+        # after a PhysiApp request on a test copy.
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            length = 0
+        raw = self.rfile.read(length) if 0 < length <= MAX_BODY else b""
+        if self.path.split("?")[0] == "/api/snapshot":
+            # A verified restore point before an import (Codex audit B15). JSON
+            # only, so a page on another site cannot trigger it without a
+            # preflight this server never answers.
+            if not (self.headers.get("Content-Type") or "").startswith("application/json"):
+                self._json(415, {"error": "json only"})
+                return
+            with _lock:
+                try:
+                    dest = snapshot("before-import")
+                except BackupFailed as exc:
+                    self._json(503, {"error": str(exc)})
+                    return
+                if dest is None:
+                    self._json(200, {"ok": True, "empty": True})
+                    return
+                same = hashlib.sha256(dest.read_bytes()).hexdigest() == hashlib.sha256(DATA_FILE.read_bytes()).hexdigest()
+                self._json(200 if same else 503, {"ok": same, "name": dest.name, "rev": data_rev()})
+            return
         if self.path.split("?")[0] != "/api/physiapp/sync":
             self._json(404, {"error": "unknown endpoint"})
             return
@@ -544,14 +588,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
             # A test copy: never sign in to their site, whatever the data says.
             self._json(200, {"ok": True, "skipped": "off", "message": ""})
             return
-        try:
-            length = int(self.headers.get("Content-Length") or 0)
-        except ValueError:
-            length = 0
         payload = None
-        if 0 < length <= MAX_BODY:
+        if raw:
             try:
-                payload = json.loads(self.rfile.read(length).decode("utf-8"))
+                payload = json.loads(raw.decode("utf-8"))
             except (UnicodeDecodeError, json.JSONDecodeError):
                 payload = None
         # No lock here on purpose: a 30-day sync is minutes of network, and
@@ -591,12 +631,22 @@ class Handler(http.server.BaseHTTPRequestHandler):
             # A page that read an older file must merge before it writes
             # (audit A13): two tabs, or a PhysiApp import, would otherwise be
             # silently replaced by whichever saved last.
+            # 2026-09-15 (Codex audit B13): a write to a file that exists must
+            # quote its revision. A page that sends none (a tab left open from
+            # before revisions existed) could otherwise replace newer work with
+            # no check at all. It gets 428 and the newer document, which this
+            # build merges exactly like a 409; an old page is told to reload.
             expected = self.headers.get("If-Match")
-            if expected and expected != data_rev():
+            exists = DATA_FILE.exists()
+            if (exists and not expected) or (expected and expected != data_rev()):
                 try:
                     current = read_data()
                 except DataUnreadable as exc:
                     self._json(500, {"error": f"data file unreadable: {exc}"})
+                    return
+                if not expected:
+                    self._json(428, {"error": "this page is out of date: reload it before saving",
+                                     "rev": data_rev(), "doc": current})
                     return
                 self._json(409, {"error": "stale", "rev": data_rev(), "doc": current})
                 return

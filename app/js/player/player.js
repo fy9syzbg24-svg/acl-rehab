@@ -21,12 +21,12 @@
 // Skip rest and Next beneath; whatever does not apply is dimmed, not removed.
 
 import { esc, uid, todayIso, num, fmtDate, toKg, fromKg, round, addDays } from '../util.js';
-import { state, update, ensureDay, getDay, lastEntry, flushSave } from '../store.js';
+import { state, update, ensureDay, getDay, lastEntry, lastCardioMinutes, flushSave } from '../store.js';
 import { REHAB_PROGRAM, GYM_PROGRAM, THERABAND, BAND_BY_ID, plannedOn } from '../../data/program.js';
 import { CATEGORIES } from '../../data/measurements.js';
 import { exerciseById, thumb, openModal, closeModal, toast, announce, holdFocus } from '../components.js';
 import { dayRing } from '../dayring.js';
-import { fmtClock, fmtMins, timerPrefs, minutesFor } from '../timing.js';
+import { fmtClock, fmtMins, timerPrefs, minutesFor, workMinutes } from '../timing.js';
 import { itemStatus, saveRun, rowsFingerprint, runsFor } from '../logging.js';
 import { planStreak, dayComplete } from '../planstreak.js';
 import { unseenMilestones, markSeen, markFinishSeen, finishSeen, milestoneSentence, needsSeed } from '../milestones.js';
@@ -36,6 +36,9 @@ import { liteMotion } from '../motion.js';
 import * as S from './songs.js';
 
 const ALL_ITEMS = REHAB_PROGRAM.concat(GYM_PROGRAM);
+// The name he reads: the program title, else the exercise's own name. Never the
+// internal id (the elliptical's receipt said "Logged · elliptical").
+const nameOf = (item) => item.title || exerciseById(item.ex)?.name || item.ex;
 const ITEM = Object.fromEntries(ALL_ITEMS.map((p) => [p.id, p]));
 const DRAFT_KEY = 'rehab.player.v1';
 const CUES_KEY = 'rehab.player.cues';
@@ -48,16 +51,26 @@ export const GAP_HOURS = 6;
 //   base, reviewStartedWall, savedRunIds, reconcile }
 let P = null;
 
-function readDraft() {
+// Several tabs or windows of the app share one draft (Codex audit B11). Each
+// remembers the exact draft text it last read or wrote. When the stored text
+// has changed under it, another tab has moved the workout on: this tab adopts
+// that draft instead of writing its own stale copy over it, unless this tab is
+// the one being used (visible and focused) or is in the middle of saving.
+let lastSeenRaw = null;
+
+function rawDraft() {
+  try { return localStorage.getItem(DRAFT_KEY); } catch { return undefined; }
+}
+
+function parseDraft(raw) {
   try {
-    const raw = localStorage.getItem(DRAFT_KEY);
     if (!raw) return null;
     const d = JSON.parse(raw);
     if (!d || d.v !== 1) return null;
     d.finishing = false;   // a reload mid-save retries from the review screen
     d.pulseSet = false;    // the set dot pulses for the tap, never for a reload
-    // A draft left running (a crash, a reload, an update) comes back
-    // interrupted. The time since it was last saved is not credited.
+    // A draft left running (a crash, a reload, an update, another tab) comes
+    // back interrupted. The time since it was last saved is not credited.
     if (d.run?.state === 'running') {
       d.run.state = 'interrupted';
       d.run.since = null;
@@ -70,10 +83,58 @@ function readDraft() {
   }
 }
 
+function readDraft() {
+  const raw = rawDraft();
+  lastSeenRaw = raw ?? null;
+  return parseDraft(raw);
+}
+
+const inUse = () => document.visibilityState === 'visible' && document.hasFocus();
+
+/** Take another tab's newer draft. Returns true if this tab's workout changed. */
+function reconcileDraft() {
+  if (P?.finishing || saving) return false;
+  const raw = rawDraft();
+  if (raw === undefined || raw === lastSeenRaw) return false;
+  if (P?.run?.state === 'running' && inUse()) return false;   // this tab wins on its next write
+  if (P) stopEffects();
+  lastSeenRaw = raw;
+  P = parseDraft(raw);
+  return true;
+}
+
+window.addEventListener('storage', (e) => {
+  if (e.key !== DRAFT_KEY && e.key !== null) return;
+  if (reconcileDraft()) currentRerender?.();
+});
+
+// A draft that could not be written (storage full or blocked, Codex audit B12)
+// is said on screen, never silently dropped: the workout stays in memory, the
+// write is retried at every transition, and Save what I did still logs it.
+let draftFailed = false;
+function draftFailedNow(failed) {
+  if (failed === draftFailed) return;
+  draftFailed = failed;
+  if (failed) {
+    toast('<b>This workout is not being kept on this device</b><br><span>Storage is full or blocked. Keep the app open, or use Save what I did to log it.</span>', 'warn', { key: 'draft-fail', ms: 8000 });
+    announce('This workout is not being kept on this device. Storage is full.');
+  } else {
+    toast('<b>Workout kept on this device again</b>', 'good', { key: 'draft-fail' });
+  }
+  const slot = document.querySelector('.player [data-slot="status"]');
+  if (slot && P?.run) slot.innerHTML = statusLine(P.run);
+}
+
 let lastDraftWrite = 0;
 function writeDraft() {
   try {
-    if (!P) { localStorage.removeItem(DRAFT_KEY); return; }
+    const stored = rawDraft();
+    if (stored !== undefined && stored !== lastSeenRaw && !P?.finishing && !saving && !inUse()) {
+      // Another tab moved on meanwhile: never overwrite its draft with ours.
+      if (reconcileDraft()) currentRerender?.();
+      return;
+    }
+    if (!P) { localStorage.removeItem(DRAFT_KEY); lastSeenRaw = null; draftFailedNow(false); return; }
     // Fold the running clock in before saving, so a reload loses at most the
     // few seconds since the last write.
     const run = P.run;
@@ -86,15 +147,27 @@ function writeDraft() {
       if (E.step(copy.run)?.kind === 'rest') copy.run.restMs += d; else copy.run.activeMs += d;
       snapshot = copy;
     }
-    localStorage.setItem(DRAFT_KEY, JSON.stringify({ ...snapshot, v: 1, savedAtWall: Date.now() }));
+    const raw = JSON.stringify({ ...snapshot, v: 1, savedAtWall: Date.now() });
+    localStorage.setItem(DRAFT_KEY, raw);
+    lastSeenRaw = raw;
     lastDraftWrite = Date.now();
-  } catch { /* storage full or blocked: the workout still runs */ }
+    draftFailedNow(false);
+  } catch {
+    // Storage full or blocked: the workout still runs, and he is told.
+    lastDraftWrite = Date.now();
+    draftFailedNow(true);
+  }
 }
 
 function clearDraft() {
   S.stopSong();
   P = null;
-  try { localStorage.removeItem(DRAFT_KEY); } catch { /* nothing to do */ }
+  try {
+    // Only this tab's own draft: one another tab wrote since is left alone.
+    const stored = rawDraft();
+    if (stored === lastSeenRaw || stored === null) { localStorage.removeItem(DRAFT_KEY); lastSeenRaw = null; }
+  } catch { /* nothing to do */ }
+  draftFailedNow(false);
 }
 
 P = readDraft();
@@ -102,8 +175,9 @@ P = readDraft();
 // Which songs this device can play; the player repaints once it knows.
 S.loadSongs().then(() => { if (P?.phase === 'run') refresh(); });
 
-export function hasDraft() { return !!P; }
+export function hasDraft() { reconcileDraft(); return !!P; }
 export function draftInfo() {
+  reconcileDraft();
   if (!P) return null;
   const item = ITEM[P.run?.pid];
   const run = P.run;
@@ -180,7 +254,7 @@ export function fmtTime12(d) {
 function newRun(pid, iso, opts = {}) {
   const item = ITEM[pid];
   const ex = exerciseById(item.ex);
-  const last = ex?.cardio ? num(lastEntry(item.ex, 'B')?.time) : null;
+  const last = ex?.cardio ? lastCardioMinutes(item.ex) : null;
   return E.createRun({ item, ex, iso, prefs: timerPrefs(state.data, pid), cardioMin: last, runId: `run-${uid()}`, readySec: opts.readySec });
 }
 
@@ -220,6 +294,7 @@ export function startWorkout(ctx, iso = ctx.date || todayIso()) {
 }
 
 export function resumePlayer(ctx) {
+  reconcileDraft();
   if (!P) return;
   ctx.playerFrom = ctx.view === 'player' ? (ctx.playerFrom || 'today') : ctx.view;
   ctx.go('player');
@@ -235,7 +310,7 @@ export function playerLeaving() {
 
 // ------------------------------------------------------------ effects ----
 let wake = null;
-let wakeState = 'off';   // on | off | unavailable | lost
+let wakeState = 'off';   // on | off | unavailable | denied | lost
 let tickTimer = null;
 let lastTick = 0;
 let currentRerender = null;
@@ -252,7 +327,9 @@ async function holdWake() {
       paintWake();
     });
   } catch {
-    wakeState = 'lost';
+    // Refused (Low Power Mode, a browser setting): said as refused, and asked
+    // again at the next tap on a control while the workout runs (syncEffects).
+    wakeState = 'denied';
   }
   paintWake();
 }
@@ -266,13 +343,15 @@ function dropWake() {
 function paintWake() {
   const el = document.querySelector('[data-p-wake]');
   if (!el) return;
+  // The words follow the real state (Codex audit W01): while the workout runs
+  // it never says "while paused".
+  const text = wakeText();
   el.dataset.state = wakeState;
-  el.title = {
-    on: 'The screen stays awake while this runs',
-    off: 'The screen may lock while paused',
-    unavailable: 'This browser cannot keep the screen awake',
-    lost: 'The screen may lock: keeping it awake was refused',
-  }[wakeState];
+  if (el.title !== text) el.title = text;
+  if (el.getAttribute('aria-label') !== text) el.setAttribute('aria-label', text);
+  const note = el.querySelector('.p-wake-note');
+  const words = wakeNote();
+  if (note && note.textContent !== words) note.textContent = words;
 }
 
 /** Stop the clock's own effects: the tick, scheduled cues, the arc, the wake lock. */
@@ -367,7 +446,7 @@ function loop() {
     refresh();
     return;
   }
-  paintClock(now);
+  if (arcFrame || !paintArcOnce()) paintClock(now);
   if (Date.now() - lastDraftWrite > DRAFT_EVERY_MS) writeDraft();
   tickTimer = setTimeout(loop, 200);
 }
@@ -585,6 +664,7 @@ function playSlide(player) {
 const stepKey = (run) => `${run.runId}:${run.i}:${run.state}`;
 
 export function renderPlayer(ctx) {
+  reconcileDraft();
   if (!P) {
     return `<div class="player empty-player">
       <div class="p-eyebrow">${backBtn(ctx)}</div>
@@ -612,7 +692,7 @@ export function renderPlayer(ctx) {
     <div class="p-eyebrow">
       ${backBtn(ctx)}
       <span class="p-count" data-slot="count">${countLine(run)}</span>
-      <span class="p-wake" data-p-wake data-state="${wakeState}" role="img" aria-label="${esc(wakeText())}">${I.wake}<span class="p-wake-note">${wakeState === 'lost' ? 'Screen may lock' : ''}</span></span>
+      <span class="p-wake" data-p-wake data-state="${wakeState}" role="img" aria-label="${esc(wakeText())}">${I.wake}<span class="p-wake-note">${wakeNote()}</span></span>
     </div>
     <div class="p-stage"><div class="p-content">
       <div class="p-swipe" data-p-swipe>
@@ -694,6 +774,7 @@ function refresh() {
   set('reps-', { disabled: !repsEditable(run) });
   set('reps+', { disabled: !repsEditable(run) });
   paintWake();
+  patchZoom();
 }
 
 // ------------------------------------------------------ dial moments ----
@@ -754,12 +835,17 @@ function countLine(run) {
 }
 
 function wakeText() {
+  const running = P?.run?.state === 'running';
   return {
     on: 'The screen stays awake while this runs',
-    off: 'The screen may lock while paused',
-    unavailable: 'This browser cannot keep the screen awake',
-    lost: 'The screen may lock: keeping it awake was refused',
+    off: running ? 'Asking to keep the screen awake' : 'Paused: the screen may lock',
+    unavailable: 'This browser cannot keep the screen awake: the screen may lock',
+    denied: 'Screen may lock: this device refused to keep it awake. Tap any control to ask again',
+    lost: 'Screen may lock: keeping it awake stopped. Tap any control to ask again',
   }[wakeState] || '';
+}
+function wakeNote() {
+  return P?.run?.state === 'running' && ['denied', 'lost', 'unavailable'].includes(wakeState) ? 'Screen may lock' : '';
 }
 
 function pauseLabel(run) {
@@ -802,6 +888,7 @@ function statusLine(run) {
     r.shown = true;
     return `<span class="p-logged ${fresh ? 'fresh' : ''}" role="status" aria-label="Logged ${esc(r.title)}">${I.checkCircle}<span aria-hidden="true">Logged · ${esc(r.title)}</span></span>`;
   }
+  if (draftFailed) return '<span class="p-note bad">Not kept on this device: storage is full. <button class="p-retry" data-p="draft-retry">Retry</button></span>';
   if (run.state === 'interrupted') return '<span class="p-note">Paused while you were away. Nothing was counted.</span>';
   return esc(unitLine(run, E.step(run)));
 }
@@ -998,25 +1085,41 @@ function paintClock(now) {
  * is moving and visible. Attributes are patched in place.
  */
 let arcFrame = 0;
-function paintArc() {
-  arcFrame = 0;
+const reduceMotionNow = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+/** One paint of the arc and the clock; false when there is nothing timed to draw. */
+function paintArcOnce() {
   const run = P?.run;
-  if (!run || run.state !== 'running' || document.visibilityState !== 'visible') return;
-  const el = document.querySelector('[data-p-arc]');
+  if (!run || run.state !== 'running' || document.visibilityState !== 'visible') return false;
   const st = E.step(run);
-  if (el && st) {
+  if (!st || st.secs == null) return false;
+  const el = document.querySelector('[data-p-arc]');
+  if (el) {
     const frac = arcDash(run, st, performance.now());
     if (frac != null) {
-      el.setAttribute('stroke-dasharray', `${(frac * RING.c).toFixed(2)} ${RING.c.toFixed(2)}`);
+      const dash = `${(frac * RING.c).toFixed(2)} ${RING.c.toFixed(2)}`;
+      if (el.getAttribute('stroke-dasharray') !== dash) el.setAttribute('stroke-dasharray', dash);
       // Opacity only when it changes (Fable B8): the dash is the one write a frame.
       const hide = frac <= 0;
       if (el.__hidden !== hide) { el.style.opacity = hide ? '0' : ''; el.__hidden = hide; }
     }
   }
   paintClock(performance.now());
+  return true;
+}
+function paintArc() {
+  arcFrame = 0;
+  // Frames only while a timed step is moving (Codex audit P01): a reps set, a
+  // pause, a hidden page or Reduce Motion schedules none. The clock loop keeps
+  // the numbers right either way.
+  if (reduceMotionNow() || !paintArcOnce()) return;
   arcFrame = requestAnimationFrame(paintArc);
 }
 function startArc() {
+  const st = P?.run ? E.step(P.run) : null;
+  if (!st || st.secs == null) { stopArc(); return; }
+  // Under Reduce Motion the arc steps with the clock (every 200 ms) instead of
+  // sliding every frame: still the true time left, without the movement.
+  if (reduceMotionNow()) { paintArcOnce(); return; }
   if (!arcFrame) arcFrame = requestAnimationFrame(paintArc);
 }
 function stopArc() {
@@ -1246,7 +1349,7 @@ function renderReview(ctx, run, item, ex) {
       sig,
       sets: s.sets,
       repsBySet: s.repsBySet.slice(),
-      minutes: prev?.minutes ?? (run.mode === 'cardio' ? Math.max(1, Math.round((s.secsList[0] || 0) / 60)) : null),
+      minutes: prev?.minutes ?? (run.mode === 'cardio' ? workMinutes(s.secsList) : null),
       load: prev && 'load' in prev ? prev.load : (showLoad ? prevLoad(s.side) : undefined),
       band: prev?.band ?? band,
       freeReps: prev?.freeReps,
@@ -1342,17 +1445,22 @@ function collectReview(run, item) {
       anyDone = s.anyDone && sets !== 0 && reps !== 0;
     }
     const secs = s.secsList.length ? Math.round(s.secsList.reduce((a, b) => a + b, 0) / s.secsList.length) : null;
+    // Cardio (Codex audit B02): the minutes are the work itself, from the
+    // seconds the bout ran. Get ready, rest and time away are not exercise.
+    // A number typed on the retry screen wins. One decimal, never rounded up.
+    const cardioMin = num(v.minutes) ?? workMinutes(s.secsList);
     return {
       side: s.side,
       anyDone,
       full: anyDone && full,
       short,
-      sets,
+      // A cardio bout is not a set: stored as minutes only, so no row reads "1 sets".
+      sets: run.mode === 'cardio' ? null : sets,
       reps,
       repsBySet: countsReps ? repsBySet : [],
       secs: run.mode === 'cardio' ? null : secs,
       secsList: run.mode === 'cardio' ? [] : s.secsList,
-      minutes: run.mode === 'cardio' ? num(v.minutes) : null,
+      minutes: run.mode === 'cardio' ? cardioMin : null,
       load: v.load === undefined ? undefined : num(v.load),
       loadUnit: v.load != null ? state.data.settings.weightUnit : undefined,
       // With no review screen, the band is the one set for this exercise.
@@ -1439,11 +1547,11 @@ async function finishRun(ctx, { leave = false } = {}) {
       currentRerender?.();
       return;
     }
-    announce(`Logged ${item.title || item.ex}`);
+    announce(`Logged ${nameOf(item)}`);
     // Carrying on: the receipt shows in the player while the next exercise is
     // already counting down. Leaving: the toast says it on the way out.
-    if (leave || !P.session || item.first) toast(`<b>Logged</b><br><span>${esc(item.title || item.ex)}</span>`, 'good', { key: 'player-logged' });
-    else showReceipt(item.title || item.ex);
+    if (leave || !P.session || item.first) toast(`<b>Logged</b><br><span>${esc(nameOf(item))}</span>`, 'good', { key: 'player-logged' });
+    else showReceipt(nameOf(item));
   }
   P.finishing = false;
   if (leave || !P.session) {
@@ -1594,6 +1702,10 @@ async function switchExercise(ctx, dir) {
   const pid = list[list.indexOf(run.pid) + dir];
   if (!pid) return;
   const item = ITEM[run.pid];
+  // A hold or timed bout under way keeps its seconds, exactly as Close then
+  // Save what I did keeps them (Codex audit B10). Before this, a first hold
+  // part done was dropped because nothing was "done" yet.
+  E.capturePartial(run, performance.now());
   if (E.summary(run).anyDone) {
     P.finishing = true;
     player()?.setAttribute('aria-busy', 'true');
@@ -1613,8 +1725,8 @@ async function switchExercise(ctx, dir) {
         currentRerender?.();
         return;
       }
-      announce(`Logged ${item.title || item.ex}`);
-      showReceipt(item.title || item.ex);
+      announce(`Logged ${nameOf(item)}`);
+      showReceipt(nameOf(item));
     }
     P.finishing = false;
     player()?.removeAttribute('aria-busy');
@@ -1804,6 +1916,7 @@ export function bindPlayer(root, ctx, rerender) {
       });
       return;
     }
+    if (k === 'draft-retry') { writeDraft(); return; }
     if (k === 'zoom') return openZoom(ctx, rerender);
     if (k === 'save') {
       const savedAs = saveCurrent();
@@ -1820,8 +1933,8 @@ export function bindPlayer(root, ctx, rerender) {
           toast('<b>Not saved yet</b><br><span>Your workout is kept here. Tap Save again.</span>', 'warn', { key: 'player-save' });
           return;
         }
-        announce(`Logged ${item.title || item.ex}`);
-        toast(`<b>Saved</b><br><span>${esc(item.title || item.ex)}</span>`, 'good', { key: 'player-logged' });
+        announce(`Logged ${nameOf(item)}`);
+        toast(`<b>Saved</b><br><span>${esc(nameOf(item))}</span>`, 'good', { key: 'player-logged' });
         afterSave(ctx, savedAs);
         if (P) rerender();
       });
@@ -1885,6 +1998,7 @@ export function bindPlayer(root, ctx, rerender) {
   }
   syncEffects();
   paintWake();
+  patchZoom();
 }
 
 
@@ -1917,7 +2031,7 @@ function closePlayer(ctx, rerender) {
     title: 'Stop this exercise?',
     body: `<div class="menu">
       <button class="btn" data-s="resume">Resume</button>
-      <button class="btn" data-s="later">Finish later<span class="tiny muted">keeps your progress on this device</span></button>
+      <button class="btn" data-s="later" ${draftFailed ? 'disabled' : ''}>Finish later<span class="tiny muted">${draftFailed ? 'not possible: this device cannot keep it (storage is full)' : 'keeps your progress on this device'}</span></button>
       <button class="btn" data-s="save">Save what I did<span class="tiny muted">${inProgress ? 'the part of this hold you did, marked partial' : `${sum.done} of ${sum.total} done, marked partial`}</span></button>
       <button class="btn danger" data-s="discard">Leave without recording</button>
     </div>`,
@@ -1959,6 +2073,28 @@ function zoomPauseLabel(run) {
   return run.state === 'running' ? 'Pause' : run.state === 'ready' ? 'Start' : 'Resume';
 }
 
+// The open photo zoom, so a step change can patch it (Codex audit B09: opened
+// during a rest it kept saying REST through the last hold and the finish).
+let zoomOpen = null;
+
+/** Phase and Pause follow the run; a different exercise, the finish or a save closes it. */
+function patchZoom() {
+  const z = zoomOpen;
+  if (!z) return;
+  if (!z.back.isConnected) { zoomOpen = null; return; }
+  const run = P?.run;
+  if (!run || P.phase !== 'run' || run.state === 'review' || run.runId !== z.runId) {
+    z.close({ repaint: false });
+    return;
+  }
+  const word = phaseLabel(E.step(run)?.kind);
+  const label = z.back.querySelector('[data-z-phase]');
+  if (label && label.textContent !== word) label.textContent = word;
+  const pause = z.back.querySelector('[data-z="pause"]');
+  const words = zoomPauseLabel(run);
+  if (pause && pause.textContent !== words) pause.textContent = words;
+}
+
 function openZoom(ctx, rerender) {
   const item = ITEM[P.run.pid];
   const back = document.createElement('div');
@@ -1968,9 +2104,9 @@ function openZoom(ctx, rerender) {
   back.setAttribute('aria-label', 'Step pictures');
   const opener = document.activeElement;
   back.innerHTML = `
-    <div class="p-zoom-scroll"><img src="${esc(item.img)}" alt="Step pictures: ${esc(item.title || item.ex)}"></div>
+    <div class="p-zoom-scroll"><img src="${esc(item.img)}" alt="Step pictures: ${esc(nameOf(item))}"></div>
     <div class="p-zoom-bar">
-      <span class="p-zoom-phase">${esc(phaseLabel(E.step(P.run)?.kind))} <span class="mono" data-p-clock>${E.remainingSec(P.run, performance.now()) != null ? fmtClock(E.remainingSec(P.run, performance.now())) : ''}</span></span>
+      <span class="p-zoom-phase"><span data-z-phase>${esc(phaseLabel(E.step(P.run)?.kind))}</span> <span class="mono" data-p-clock>${E.remainingSec(P.run, performance.now()) != null ? fmtClock(E.remainingSec(P.run, performance.now())) : ''}</span></span>
       <button class="btn" data-z="zoom" aria-pressed="false">Zoom</button>
       <button class="btn" data-z="pause">${zoomPauseLabel(P.run)}</button>
       <button class="btn primary" data-z="close">${I.close}Close</button>
@@ -1978,14 +2114,16 @@ function openZoom(ctx, rerender) {
   document.getElementById('modal-root').appendChild(back);
   const img = back.querySelector('img');
   let release = () => {};
-  const close = () => {
+  const close = ({ repaint = true } = {}) => {
+    if (zoomOpen?.back === back) zoomOpen = null;
     back.remove();
     release();
-    rerender();
-    const z = document.querySelector('[data-p="zoom"]') || opener;
+    if (repaint) rerender();
+    const z = document.querySelector('[data-p="zoom"]') || document.querySelector('.player [data-p="pause"]') || opener;
     try { z?.focus({ preventScroll: true }); } catch { /* ignore */ }
   };
-  release = holdFocus(back, close);
+  release = holdFocus(back, () => close());
+  zoomOpen = { back, runId: P.run.runId, close };
   const zoomBtn = back.querySelector('[data-z="zoom"]');
   const box = back.querySelector('.p-zoom-scroll');
   // Zooming in keeps the spot he tapped under his finger (the Zoom button
@@ -2007,7 +2145,7 @@ function openZoom(ctx, rerender) {
   requestAnimationFrame(() => back.querySelector('[data-z="close"]')?.focus());
   img.addEventListener('click', zoom);
   zoomBtn.addEventListener('click', zoom);
-  back.querySelector('[data-z="close"]').addEventListener('click', close);
+  back.querySelector('[data-z="close"]').addEventListener('click', () => close());
   back.querySelector('[data-z="pause"]').addEventListener('click', (e) => {
     const r = P.run;
     if (r.state === 'running') E.pause(r, performance.now(), Date.now());

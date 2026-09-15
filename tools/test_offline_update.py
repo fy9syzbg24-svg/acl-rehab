@@ -82,12 +82,17 @@ try:
           const m = await import('./js/sync/idb.js');
           const out = {};
           const a = await m.idbGetDoc();
-          const two = { days: { '2026-09-01': { entries: [{ id: 'x' }] }, '2026-09-02': { entries: [{ id: 'y' }] } } };
+          // Synthetic days on top of the document the app saved, so every other collection is still there.
+          const two = { ...(a.doc || {}), days: { '2026-09-01': { entries: [{ id: 'x' }] }, '2026-09-02': { entries: [{ id: 'y' }] } } };
           const r1 = await m.idbPutDoc(two, a.rev);
           try { await m.idbPutDoc(two, a.rev); out.stale = 'written'; } catch (e) { out.stale = e.constructor.name; out.staleHasDoc = !!e.doc; }
           try { await m.idbPutDoc({}, r1); out.empty = 'written'; } catch (e) { out.empty = e.constructor.name; }
-          const one = { days: { '2026-09-01': { entries: [{ id: 'x' }] } } };
+          const noDays = { ...two }; delete noDays.days;
+          try { await m.idbPutDoc(noDays, r1); out.bucket = 'written'; } catch (e) { out.bucket = e.constructor.name; }
+          const one = { ...two, days: { '2026-09-01': { entries: [{ id: 'x' }] } } };
           await m.idbPutDoc(one, r1);
+          const snap = await m.idbSnapshot('before-import');
+          out.snapOk = snap.ok;
           const db = await new Promise((res, rej) => { const q = indexedDB.open('rehab'); q.onsuccess = () => res(q.result); q.onerror = rej; });
           const keys = await new Promise((res) => { const q = db.transaction('snapshots').objectStore('snapshots').getAllKeys(); q.onsuccess = () => res(q.result); });
           db.close();
@@ -98,6 +103,8 @@ try:
         """)
         check('a write from a stale read is refused with the newer document', [idb.get('stale'), idb.get('staleHasDoc')], ['StaleWrite', True])
         check('an empty document never replaces records', idb.get('empty'), 'RefusedWrite')
+        check('a document missing a whole collection is refused (Codex audit)', idb.get('bucket'), 'RefusedWrite')
+        check('a verified import restore point is kept', idb.get('snapOk'), True)
         check('a save holding fewer records keeps a restore point', idb.get('reduceSnap'), True)
         check('the first save of the day keeps one too', idb.get('daySnap'), True)
         check('the store holds the latest good save', idb.get('after'), 1)

@@ -58,6 +58,7 @@ const SHELL_ASSETS = [
   './data/program.js',
   './data/questionnaires.js',
   './js/app.js',
+  './js/backup.js',
   './js/components.js',
   './js/dayring.js',
   './js/editguard.js',

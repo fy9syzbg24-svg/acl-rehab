@@ -12,7 +12,7 @@
 // as a PWA, but the phone now uses the installed PWA, not the Mac's LAN
 // server, so that path is retired.
 
-import { idbGetDoc, idbPutDoc, requestPersistence, StaleWrite, RefusedWrite } from './idb.js';
+import { idbGetDoc, idbPutDoc, idbSnapshot, requestPersistence, StaleWrite, RefusedWrite } from './idb.js';
 
 export { StaleWrite, RefusedWrite };
 
@@ -54,7 +54,9 @@ export async function writeLocalDoc(doc) {
     const headers = { 'Content-Type': 'application/json' };
     if (rev) headers['If-Match'] = rev;
     const res = await fetch('/api/data', { method: 'PUT', headers, body: JSON.stringify(doc) });
-    if (res.status === 409) {
+    // 428: this window had no revision to quote (Codex audit B13). The server
+    // hands back the saved document either way, so both merge the same way.
+    if (res.status === 409 || res.status === 428) {
       const body = await res.json();
       throw new StaleWrite(body.doc, body.rev);
     }
@@ -66,6 +68,25 @@ export async function writeLocalDoc(doc) {
   }
   rev = await idbPutDoc(doc, rev);
   return new Date().toISOString();
+}
+
+/**
+ * A verified, never-deleted restore point of the SAVED document (Codex audit
+ * B15). Mac: data/snapshots/ on the server. Phone: IndexedDB's snapshot store.
+ * Resolves to { ok, name } and never throws.
+ */
+export async function snapshotLocal(reason = 'before-import') {
+  try {
+    if (SERVER_MODE) {
+      const res = await fetch('/api/snapshot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reason }) });
+      const body = await res.json().catch(() => ({}));
+      return { ok: res.ok && body.ok === true, name: body.name || null };
+    }
+    const r = await idbSnapshot(reason);
+    return { ok: r.ok, name: r.key };
+  } catch {
+    return { ok: false, name: null };
+  }
 }
 
 /** After a StaleWrite has been merged: the revision to quote next. */

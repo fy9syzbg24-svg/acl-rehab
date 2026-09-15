@@ -1,11 +1,12 @@
 import { esc, todayIso, num } from '../util.js';
-import { state, update, load, flushSave } from '../store.js';
+import { state, update, load, flushSave, adoptImport } from '../store.js';
 import { CASE } from '../../data/history.js';
-import { toast } from '../components.js';
+import { toast, openModal, closeModal, exerciseById } from '../components.js';
+import { validateBackup, previewImport, csvReport } from '../backup.js';
 import { runSync, syncState, pendingSyncCount, DEVICE_ID } from '../store.js';
 import { getConfig, setConfig, clearConfig, isConfigured } from '../sync/config.js';
 import { ghCheckAccess } from '../sync/github.js';
-import { SERVER_MODE } from '../sync/local-store.js';
+import { SERVER_MODE, snapshotLocal } from '../sync/local-store.js';
 import { fmtDateNum } from '../util.js';
 import { MIX_KEY, mixWithOthers, soundCheck, setSession } from '../player/audio.js';
 
@@ -60,7 +61,13 @@ function syncCard() {
         Needs read and write on <span class="mono">Contents</span> for
         ${esc(c.owner)}/${esc(c.repo)}, and nothing else. Stored on this device only.
       </div>
-    </div>` : syncState.lastError ? `<div class="callout warn small" style="margin-top:.6rem">
+    </div>` : syncState.lastError?.reason === 'public-repo' ? `<div class="callout warn small" style="margin-top:.6rem">
+      <strong>Nothing was uploaded: ${esc(c.owner)}/${esc(c.repo)} is public.</strong> Your log would be
+      readable by anyone. Make the repository private on GitHub and sync again. Everything is kept on ${THIS}.</div>`
+    : syncState.lastError?.reason === 'privacy-unknown' ? `<div class="callout warn small" style="margin-top:.6rem">
+      <strong>Nothing was uploaded:</strong> GitHub did not confirm the repository is private. Everything is
+      kept on ${THIS} and uploads once it can check.</div>`
+    : syncState.lastError ? `<div class="callout warn small" style="margin-top:.6rem">
       Last sync failed (${esc(syncState.lastError.reason || 'error')}). Your data is safe here and
       will upload on the next attempt.</div>` : ''}
     <div class="tiny muted" style="margin-top:.5rem">
@@ -90,7 +97,7 @@ export function renderSettings(ctx = {}) {
     appearance: { auto: 'Automatic', light: 'Light', dark: 'Dark' }[s.theme || 'light'],
     sound: mixWithOthers() ? 'Other music keeps playing · on this device' : 'Plays with Silent on · on this device',
     units: `${s.weightUnit} · ${s.lengthUnit} · ${s.bodyweight ? `bodyweight ${s.bodyweight} ${s.weightUnit}` : 'bodyweight not set'}`,
-    data: SERVER_MODE ? 'on this Mac, with rolling backups' : 'on this device',
+    data: SERVER_MODE ? 'on this Mac, every save backed up' : 'on this device',
     sync: !isConfigured() ? `Not connected on ${THIS}`
       : syncState.lastError ? `Last sync failed (${syncState.lastError.reason || 'error'})`
       : pending ? `${pending} change${pending === 1 ? '' : 's'} waiting` : `Synced${c.lastSyncedAt ? ` ${when12(c.lastSyncedAt)}` : ''}`,
@@ -177,14 +184,18 @@ export function renderSettings(ctx = {}) {
     ${group('data', 'Your data')}
       <div class="card-body">
         <div class="row">
-          <button class="btn" data-export>Download a backup (JSON)</button>
-          <button class="btn" data-export-csv>Export training log (CSV)</button>
-          <label class="btn" style="cursor:pointer">Import a backup<input type="file" accept="application/json" data-import hidden></label>
+          <button class="btn" data-export>Download a full backup (JSON)</button>
+          <button class="btn" data-export-csv>Export a training report (CSV)</button>
+          <label class="btn" style="cursor:pointer">Import a backup<input type="file" accept="application/json,.json" data-import hidden></label>
         </div>
         <div class="tiny muted" style="margin-top:.5rem">
-          The server also keeps rolling auto-backups in <span class="mono">data/backups/</span>:
-          one per save: the newest 300, plus everything from the last 7 days.
+          The backup holds everything exactly as stored, and is the file to restore from. The report is the
+          exercise you logged, per set, for reading or sharing; it is not a backup. Importing merges a backup
+          into what is here: newer work stays, nothing is deleted, and you see what it will change first.
         </div>
+        ${SERVER_MODE ? `<div class="tiny muted" style="margin-top:.35rem">
+          The server keeps a backup of every save in <span class="mono">data/backups/</span> and never deletes one.
+        </div>` : ''}
         <div class="row" style="margin-top:.9rem">
           <button class="btn danger" data-reseed>Re-add the seeded clinic sessions</button>
         </div>
@@ -374,7 +385,11 @@ export function bindSettings(root, ctx, rerender) {
         : check.reason === 'no-repo' ? '<b>Repo not found</b><br><span>check the name, and that the token can see it</span>'
         : `<b>${esc(check.reason)}</b>`, 'warn');
     }
-    if (!check.private) toast('<b>That repo is public</b><br><span>your log would be readable. Use a private one</span>', 'warn');
+    // A public repository is refused outright (Codex audit B01): nothing is
+    // stored and nothing is sent. It used to warn and then connect anyway.
+    if (check.private !== true) {
+      return toast('<b>Not connected: that repository is public</b><br><span>Your log would be readable by anyone. Make it private on GitHub, or use a private one, then connect again.</span>', 'warn', { key: 'sync-public' });
+    }
     setConfig({ owner, repo, token, path: 'state.json' });
     const res = await runSync('connect');
     toast(res.ok ? '<b>Connected and synced</b>' : `<b>Connected, but sync failed</b><br><span>${esc(res.reason || '')}</span>`, res.ok ? '' : 'warn');
@@ -402,6 +417,9 @@ export function bindSettings(root, ctx, rerender) {
         ? '<b>That token was rejected too</b><br><span>check it has Contents read and write on this repo, and has not expired</span>'
         : check.reason === 'no-repo' ? '<b>The token cannot see that repo</b>'
         : `<b>${esc(check.reason)}</b>`, 'warn');
+    }
+    if (check.private !== true) {
+      return toast('<b>Not saved: that repository is public</b><br><span>Make it private on GitHub first. Nothing was uploaded.</span>', 'warn', { key: 'sync-public' });
     }
     setConfig({ token });
     const res = await runSync('retoken');
@@ -532,34 +550,87 @@ export function bindSettings(root, ctx, rerender) {
     download(`acl-rehab-${todayIso()}.json`, JSON.stringify(state.data, null, 2), 'application/json');
   });
 
+  // A report, not a backup (Codex audit B16): logged rows only, per set, every field escaped.
   root.querySelector('[data-export-csv]')?.addEventListener('click', () => {
-    const rows = [['date', 'exercise', 'side', 'sets', 'reps', 'load', 'unit', 'minutes', 'rpe', 'notes']];
-    for (const [date, day] of Object.entries(state.data.days).sort()) {
-      for (const e of day.entries || []) {
-        rows.push([date, e.ex, e.side || '', e.sets ?? '', e.reps ?? '', e.load ?? '', e.loadUnit ?? '', e.time ?? '', e.rpe ?? '', (e.notes || '').replace(/"/g, '""')]);
-      }
-    }
-    const csv = rows.map((r) => r.map((c) => `"${String(c)}"`).join(',')).join('\n');
-    download(`acl-training-log-${todayIso()}.csv`, csv, 'text/csv');
+    const csv = csvReport(state.data, { nameOf: (id) => exerciseById(id)?.name || id });
+    download(`acl-training-report-${todayIso()}.csv`, csv, 'text/csv;charset=utf-8');
   });
 
+  // Import (Codex audit B15): check the file, show what it would change, take a
+  // verified restore point, then merge. Never a straight replacement.
   root.querySelector('[data-import]')?.addEventListener('change', async (e) => {
-    const file = e.target.files?.[0];
+    const input = e.target;
+    const file = input.files?.[0];
+    input.value = '';   // the same file can be chosen again
     if (!file) return;
-    if (!confirm('This replaces everything currently in the app. Continue?')) return;
+    let obj;
     try {
-      const obj = JSON.parse(await file.text());
-      update((d) => { Object.assign(d, obj); });
-      rerender();
-    } catch (err) {
-      alert('That file did not parse as JSON.');
+      obj = JSON.parse(await file.text());
+    } catch {
+      toast('<b>Nothing imported</b><br><span>That file is not a JSON backup.</span>', 'warn', { key: 'import' });
+      return;
     }
+    const check = validateBackup(obj);
+    if (!check.ok) {
+      openModal({
+        title: 'This file cannot be imported',
+        body: `<p class="tiny">Nothing was changed. What is wrong with it:</p>
+          <ul class="plain tiny">${check.errors.map((x) => `<li>${esc(x)}</li>`).join('')}${check.more ? `<li>and ${check.more} more</li>` : ''}</ul>
+          <div class="row" style="margin-top:.8rem"><button class="btn primary" data-close>Close</button></div>`,
+      });
+      return;
+    }
+    const p = previewImport(state.data, obj);
+    const kinds = Object.entries(p.byKind).map(([k, n]) => `${n} ${k}`).join(', ');
+    openModal({
+      title: 'Import this backup?',
+      body: `<div class="import-preview tiny">
+          <p><b>${esc(file.name)}</b></p>
+          <ul class="plain">
+            <li><b class="mono">${p.added}</b> new record${p.added === 1 ? '' : 's'} added${kinds ? `: ${esc(kinds)}` : ''}</li>
+            <li><b class="mono">${p.changed}</b> updated, where the backup holds a newer version</li>
+            <li><b class="mono">${p.keptYours}</b> kept as they are here, because yours are newer</li>
+            <li><b class="mono">${p.same}</b> already the same</li>
+            <li><b class="mono">0</b> deleted: an import never removes anything</li>
+            ${p.ignored.length ? `<li>Left out, not part of this app: ${esc(p.ignored.join(', '))}</li>` : ''}
+          </ul>
+          <p class="muted">A restore point of what is here now is saved first.</p>
+        </div>
+        <div class="row" style="margin-top:.8rem;gap:.5rem">
+          <button class="btn" data-close>Cancel</button>
+          <button class="btn primary" data-import-go ${p.added + p.changed === 0 ? 'disabled' : ''}>${p.added + p.changed === 0 ? 'Nothing to add' : 'Merge into my log'}</button>
+        </div>`,
+      onMount(m) {
+        m.querySelector('[data-import-go]')?.addEventListener('click', async (ev) => {
+          ev.currentTarget.disabled = true;
+          const result = await applyImport(obj);
+          closeModal();
+          toast(result.html, result.ok ? 'good' : 'warn', { key: 'import', ms: 7000 });
+          rerender();
+        });
+      },
+    });
   });
 
   root.querySelector('[data-reseed]')?.addEventListener('click', () => {
     update((d) => { d.settings.seeded = false; });
     location.reload();
   });
+}
+
+/** Save what is on screen, take a verified restore point, merge, save again. */
+async function applyImport(obj) {
+  if (state.readOnly) return { ok: false, html: '<b>Nothing imported</b><br><span>This device is read only right now.</span>' };
+  if (!(await flushSave())) return { ok: false, html: '<b>Nothing imported</b><br><span>Your latest change is not saved yet. Try again in a moment.</span>' };
+  const snap = await snapshotLocal('before-import');
+  if (!snap.ok) return { ok: false, html: '<b>Nothing imported</b><br><span>A restore point could not be saved first, so nothing was changed.</span>' };
+  // Worked out again against what is saved now, in case a sync landed meanwhile.
+  const p = previewImport(state.data, obj);
+  if (p.removed) return { ok: false, html: '<b>Nothing imported</b><br><span>The merge would have removed records, so it was stopped.</span>' };
+  const ok = await adoptImport(p.doc);
+  return ok
+    ? { ok: true, html: `<b>Imported</b><br><span>${p.added} added, ${p.changed} updated, ${p.keptYours} of yours kept. Restore point saved.</span>` }
+    : { ok: false, html: '<b>Not saved yet</b><br><span>The import is on screen but could not be saved. Your restore point is kept.</span>' };
 }
 
 function download(name, text, type) {

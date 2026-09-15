@@ -43,6 +43,7 @@ VIEWPORTS = [
 ]
 SCREENS = [
     ("today", "#today", None),
+    ("today-knee", "#today", "knee"),
     ("program", "#program", None),
     ("supplements", "#supplements", None),
     ("plan", "#plan", None),
@@ -87,6 +88,12 @@ PROBE = r"""
     const lab = el.closest('label');
     if (lab && el.tagName === 'INPUT') { const lr = lab.getBoundingClientRect(); w = Math.max(w, lr.width); h = Math.max(h, lr.height); }
     if (el.matches('input[type=checkbox].tick')) { w += 16; h += 16; }
+    // An invisible hit strip (::after, absolutely placed) counts as what the pointer hits (Codex audit L01).
+    const after = getComputedStyle(el, '::after');
+    if (after.content !== 'none' && after.position === 'absolute' && getComputedStyle(el).position !== 'static') {
+      const px = (v) => (v.endsWith('px') ? parseFloat(v) : 0);
+      h = Math.max(h, r.height - Math.min(0, px(after.top)) - Math.min(0, px(after.bottom)));
+    }
     if (el.matches('.sess-row, tr[tabindex]')) continue;     // a whole row
     if (w + 0.5 < 44 || h + 0.5 < 44) {
       const k = label(el);
@@ -97,6 +104,21 @@ PROBE = r"""
   for (const el of document.querySelectorAll('button, a[href], [role=button]')) {
     if (!shown(el)) continue;
     if (!name(el)) unnamed.push(label(el) + ' ' + el.outerHTML.slice(0, 80));
+  }
+  // Form controls too (Codex audit A01): a slider or select with no name, or two in
+  // one group that say the same thing ("swelling" twice, with no left or right).
+  const fieldName = (el) => (el.getAttribute('aria-label') || [...(el.labels || [])].map((l) => l.textContent).join(' ') || el.getAttribute('title') || '').replace(/\s+/g, ' ').trim();
+  const seenNames = new Map();
+  for (const el of document.querySelectorAll('input:not([type=hidden]), select, textarea')) {
+    if (!shown(el) || el.closest('[inert], [aria-hidden="true"]')) continue;
+    const n = fieldName(el);
+    if (!n && !el.getAttribute('aria-labelledby') && !el.getAttribute('placeholder')) { unnamed.push(label(el) + ' ' + el.outerHTML.slice(0, 80)); continue; }
+    if (el.type === 'checkbox' || el.type === 'radio') continue;
+    const group = el.closest('section, details, .card, form, [role=group]') || document.body;
+    const k = n.toLowerCase();
+    const prev = seenNames.get(k);
+    if (prev && prev.group === group && n) unnamed.push(`${label(el)} same name as another field here: "${n.slice(0, 40)}"`);
+    else seenNames.set(k, { group });
   }
   const h1 = [...document.querySelectorAll('h1')].filter(shown).length;
   return { overflow: Math.max(0, Math.round(overflow)), small, unnamed, h1 };
@@ -151,7 +173,8 @@ def main():
                   document.documentElement.setAttribute('data-theme', '{theme}');
                   const s = (ms) => new Promise(r => setTimeout(r, ms));
                   const sub = {json.dumps(sub)};
-                  if (sub === 'player') {{ document.querySelector('[data-act="start"], [data-act="resume"]')?.click(); await s(1200); }}
+                  if (sub === 'knee') {{ document.querySelector('[data-panel="knees"]')?.click(); await s(700); }}
+                  else if (sub === 'player') {{ document.querySelector('[data-act="start"], [data-act="resume"]')?.click(); await s(1200); }}
                   else if (sub) {{ document.querySelector(`[data-gtab="${{sub}}"]`)?.click(); await s(700); }}
                   window.dispatchEvent(new Event('resize'));
                   await s(400);
@@ -163,8 +186,7 @@ def main():
                 key = f"{vname} {theme} {text}% {sname}"
                 report.append((key, r))
                 totals["overflow"] += 1 if r["overflow"] else 0
-                if not touch:
-                    r["small"] = []          # a mouse and trackpad page: the 44 px rule is for touch
+                # The Mac page counts too (Codex audit L01): its hit strips are measured, not assumed.
                 totals["small"] += len(r["small"])
                 totals["unnamed"] += len(r["unnamed"])
                 totals["h1"] += 1 if r["h1"] > 1 else 0

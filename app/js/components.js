@@ -175,9 +175,11 @@ export function prescriptionLine(p, band = p.band) {
 /** Small bar chart of top load per session. */
 export function loadBars(series, height = 30) {
   if (!series.length) return `<div class="bars empty-bars" style="height:${height}px"></div>`;
-  const max = Math.max(...series.map((s) => s.load));
+  // Heights in one unit (Codex audit B04): 50 lb is shorter than 30 kg.
+  const size = (s) => s.kg ?? s.load;
+  const max = Math.max(...series.map(size));
   return `<div class="bars" style="height:${height}px">${series.map((s, i) => {
-    const h = Math.max(3, Math.round((s.load / max) * height));
+    const h = Math.max(3, Math.round((size(s) / max) * height));
     const top = i === series.length - 1;
     return `<i style="height:${h}px" class="${top ? 'now' : ''}"
       title="${esc(fmtDateNum(s.date))}: ${round(s.load, 2)} ${esc(s.unit)}"></i>`;

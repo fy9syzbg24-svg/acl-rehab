@@ -93,12 +93,13 @@ export function setLogged(rows, on, now = new Date()) {
     if (on) {
       // Finishing a partial row finishes it now: the time it was part done
       // is not when it was done.
-      if (!e.doneAt || e.partial) e.doneAt = now.toISOString();
+      if (!e.doneAt || e.partial) { e.doneAt = now.toISOString(); delete e.doneAtFrom; }
       e.logged = true;
       delete e.partial;
     } else {
       e.logged = false;
       delete e.doneAt;
+      delete e.doneAtFrom;
     }
   }
 }
@@ -152,7 +153,7 @@ export function saveRun(day, { item, run, review, now = new Date() }) {
     const again = row.runId === run.runId;
     row.logged = true;
     row.runId = run.runId;
-    row.doneAt = again && row.doneAt ? row.doneAt : at;
+    if (!(again && row.doneAt)) { row.doneAt = at; delete row.doneAtFrom; }
     row.sets = s.sets ?? null;
     row.reps = s.reps ?? null;
     if (s.repsBySet?.length) row.repsBySet = s.repsBySet; else delete row.repsBySet;

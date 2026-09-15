@@ -570,7 +570,7 @@ is a test asserting no unregistered top-level keys; keep it passing.
 
 ## Tests
 
-Open `/dev-tests.html` against a running server. 355 checks on 2026-09-15 (277 at the ring design, 262 before it): the merge
+Open `/dev-tests.html` against a running server. 430 checks on 2026-09-15 night (355 that morning, 277 at the ring design, 262 before it): the merge
 rules and the sync engine (`dev-merge.js`, `dev-engine.js`), the timing model
 (`dev-timing.js`), completion and run saving (`dev-logging.js`), the player's
 state machine with fake clocks (`dev-player.js`) and the plan streak
@@ -578,8 +578,8 @@ state machine with fake clocks (`dev-player.js`) and the plan streak
 conflicts, deletions propagating, stale devices failing to resurrect deleted
 records, backend outages and interrupted writes.
 
-`python3 tools/test_pa_import.py`: 41 assertions on the PhysiApp import rules. `python3 tools/test_server_guards.py`: 12.
-`python3 tools/test_offline_update.py`: 37. The dev suites are local files (`app/dev-*.js`, not in this repository).
+`python3 tools/test_pa_import.py`: 41 assertions on the PhysiApp import rules. `python3 tools/test_server_guards.py`: 27.
+`python3 tools/test_offline_update.py`: 39. `python3 tools/test_flows.py`: workouts run to their end in real time. The dev suites are local files (`app/dev-*.js`, not in this repository).
 `python3 tools/qa_crawl.py` (add `--desktop` for the Mac page) presses every kind of control on every screen; see
 "His five animations, and the bug crawl".
 
@@ -1033,3 +1033,51 @@ supplement day the time falls in. It pops in, in neutral ink. A suggestion only:
 show on Today. Checked: a morning tick hints the evening row; last night's 9 PM dose hints this morning's row and
 not tonight's; tonight's dose hints nothing today; unticking clears it.
 
+
+## Codex audit fixes (2026-09-15, night)
+
+Codex's experience, motion and bug audit of edebb17 (26 findings). Record with every disposition, the evidence and the
+coverage matrix: `CODEX-AUDIT-BUILD-2026-09-15.local.md` (gitignored). Revert point: tag `pre-codex-audit-2026-09-15`.
+
+**Data safety.**
+- Sync uploads nothing unless GitHub says, at that sync, that the repository is private (`engine.js`, `checkAccess`).
+  A public repo, or a check that cannot be answered, stops the upload with `public-repo` or `privacy-unknown`; Settings
+  refuses to connect to a public repo at all. A sync with nothing to send makes no extra request.
+- The Mac server refuses a write without `If-Match` once the file exists (428, with the saved document, which the app
+  merges exactly like a 409). A page left open from an older build is told to reload.
+- A write missing a whole collection key the file holds (days, measurements, program and the rest) is refused on the
+  Mac (422) and on the phone (`missingBuckets` in `idb.js`). Emptying a collection is still an edit, with the restore
+  point before a reduction.
+- **No backup is ever deleted.** `data/backups/` keeps a copy of every save and only grows.
+- A workout draft that cannot be written (storage full) is said on screen with Retry; Finish later is dimmed with the
+  reason, and Save what I did still logs it.
+- **Import merges, never replaces** (`app/js/backup.js`). The file is validated (types, ids, dates, sync times from the
+  future), shown as what it would add, update and keep, a verified restore point is taken (`/api/snapshot` on the Mac,
+  IndexedDB's snapshot store on the phone), then it is merged with the sync merge using the backup's own stamps: newer
+  work on the device stays, the backup's deletions are not applied, unknown keys are listed and left out.
+- The CSV is a **training report**, not a backup: logged rows only, reps per set and holds per hold as recorded, the
+  source and run id, every cell quoted and formula-safe. The JSON download is the full backup.
+
+**Records.**
+- Cardio from the player stores its minutes from the seconds of work (`workMinutes`): get ready, rest and time away are
+  never exercise. A bout is not a set. The next target is the last bout done in full (`lastCardioMinutes`).
+- Heaviest load, the load series, prefill and insights read logged rows only and compare in one unit. What you did
+  counts logged work, reps per set, in the Settings unit, and exercises once each (`dayWork`).
+- Bodyweight bests are reps, seconds or minutes as done, per side (`effortOf`).
+- A supplement time from midnight to 4:59 AM belongs to the next calendar date (`suppDoseDate`).
+- Melbourne: a bilateral ratio or grade needs both legs; symmetry pairs a left and right from the same day
+  (`latestPair`); MRSS is met only with every part answered (IKDC may miss two, as the guide allows) and both hurdles
+  passed.
+- A swipe or the arrows keep a part-done hold, like Close. The photo zoom follows the phase and closes when the
+  exercise changes. Tabs of the app share one draft: a tab adopts a newer draft another tab wrote and never writes its
+  stale copy over it. The wake status says the real state (running, paused, refused, stopped).
+- A tendon time set from the collagen time carries `doneAtFrom: 'collagen'`; a tick or a player run clears it. Nothing
+  shown changes; it keeps an inferred time from passing for a real one.
+- The arc paints frames only while a timed step moves; under Reduce Motion it steps with the clock.
+
+**Public code.** The as-needed medication seed is empty; a fresh device receives the real list by sync.
+
+Tests: `app/dev-codex.js` in `/dev-tests.html`; `tools/test_server_guards.py` (26); `tools/test_offline_update.py`
+(39); `tools/test_flows.py`, the workout flows run to their end in real time (tendon 8 minutes, cardio 21, reps, manual,
+timed, holds, partial by arrows, swipe and Close, pause, a frozen page, two tabs). `tools/perf_motion.py` now reports
+median and p95 frame gaps and layout, style and paint work, and takes `--motion full|lite`.

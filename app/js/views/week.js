@@ -1,4 +1,4 @@
-import { esc, todayIso, addDays, weekStart, weekDays, fmtDate, fromIso, pct, num } from '../util.js';
+import { esc, todayIso, addDays, weekStart, weekDays, fmtDate, fromIso, pct, num, toKg, fromKg } from '../util.js';
 import { state, update, getDay, hasCheckin, weeklyTargetInfo, setWeeklyTarget } from '../store.js';
 import { monthForDate } from '../../data/plan.js';
 import { CATEGORIES } from '../../data/measurements.js';
@@ -91,7 +91,7 @@ export function renderWeekPanel(ctx) {
       </span>
       <span class="tcount">
         <strong class="mono small">${hit} /</strong>
-        <input type="number" min="0" max="14" value="${goal}" data-target="${esc(t.id)}" class="in-num">
+        <input type="number" min="0" max="14" value="${goal}" data-target="${esc(t.id)}" class="in-num" aria-label="${esc(t.label)}: sessions this week">
       </span>
       <div class="bar ${p >= 100 ? 'good' : ''}"><i style="--p:${Math.min(100, p) / 100}"></i></div>
       ${t.note ? `<div class="tiny muted tnote">${esc(t.note)}</div>` : ''}
@@ -154,16 +154,16 @@ export function renderWeekPanel(ctx) {
       <div class="ov-head"><h2>What you did</h2><span class="ov-sub">Tap a day to open it</span></div>
       <div class="scroll-x">
         <table class="tbl" style="min-width:640px">
-          <thead><tr><th>Day</th><th>Categories</th><th class="num">Exercises</th><th class="num">Load volume</th><th>Notes</th></tr></thead>
+          <thead><tr><th>Day</th><th>Categories</th><th class="num">Exercises</th><th class="num">Load volume (${esc(state.data.settings.weightUnit || 'kg')})</th><th>Notes</th></tr></thead>
           <tbody>
             ${days.map((iso) => {
               const d = getDay(iso);
               const cats = [...dayCategories(iso)];
-              const vol = (d?.entries || []).reduce((a, e) => a + (num(e.sets) || 1) * (num(e.reps) || 0) * (num(e.load) || 0), 0);
+              const { vol, exCount } = dayWork(d?.entries);
               return `<tr>
                 <td><button class="btn sm ghost" data-openday="${iso}">${esc(fmtDate(iso, 'dow'))} ${esc(fmtDate(iso, 'short'))}</button></td>
                 <td>${cats.length ? cats.map((k) => `<span class="pill" style="background:color-mix(in srgb, ${CATEGORIES[k]?.color || '#888'} 16%, transparent);color:${CATEGORIES[k]?.color || '#888'}">${esc(CATEGORIES[k]?.label || k)}</span>`).join(' ') : '<span class="muted tiny">rest / not logged</span>'}</td>
-                <td class="num mono">${(d?.entries || []).length || '·'}</td>
+                <td class="num mono">${exCount || '·'}</td>
                 <td class="num mono">${vol ? Math.round(vol) : '·'}</td>
                 <td class="tiny muted">${esc((d?.notes || '').slice(0, 60))}</td>
               </tr>`;
@@ -172,6 +172,34 @@ export function renderWeekPanel(ctx) {
         </table>
       </div>
     </section>`;
+}
+
+/**
+ * One day's work for "What you did" (Codex audit B03): logged rows only, reps
+ * as done per set, loads in the Settings unit, and exercises counted once each
+ * (two legs are one exercise, not two).
+ */
+export function dayWork(entries) {
+  const logged = (entries || []).filter((e) => e && e.logged);
+  return {
+    vol: logged.reduce((a, e) => a + repsDone(e) * loadIn(e), 0),
+    exCount: new Set(logged.map((e) => e.ex)).size,
+  };
+}
+
+/** Reps actually done on a row: per set when recorded, else sets times reps. */
+export function repsDone(e) {
+  const bySet = Array.isArray(e.repsBySet) ? e.repsBySet.map(num).filter((x) => x != null && x > 0) : [];
+  if (bySet.length) return bySet.reduce((a, b) => a + b, 0);
+  return (num(e.sets) || 1) * (num(e.reps) || 0);
+}
+
+/** A row's load in the Settings unit, 0 when there is none. */
+function loadIn(e) {
+  const l = num(e.load);
+  if (!l) return 0;
+  const unit = state.data.settings.weightUnit || 'kg';
+  return fromKg(toKg(l, e.loadUnit || unit), unit);
 }
 
 /** Every program exercise against the seven days, with your own weekly target. */

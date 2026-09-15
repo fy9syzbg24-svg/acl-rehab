@@ -65,7 +65,7 @@ function makeDevice(id, doc) {
     async (merged) => { dev.doc = merged; dev.writes += 1; },
     {
       deviceId: id,
-      getFile: server.getFile, putFile: server.putFile,
+      getFile: server.getFile, putFile: server.putFile, checkAccess: async () => ({ ok: true, private: true }),
       config: dev.cfg, setConfig: (patch) => Object.assign(dev.cfg, patch),
     },
   );

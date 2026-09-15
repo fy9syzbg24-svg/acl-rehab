@@ -21,7 +21,7 @@
 
 import { parse, morph } from '../morph.js';
 import { growIn, foldAway, insertBody, patchHead } from '../fold.js';
-import { esc, todayIso, currentDayIso, uid, fmtDate, onTimePicked, addDays } from '../util.js';
+import { esc, todayIso, currentDayIso, uid, fmtDate, onTimePicked, addDays, DAY_ROLLOVER_HOUR } from '../util.js';
 import { state, update, ensureDay, getDay } from '../store.js';
 import { renderDatePill, bindDatePill, openModal, closeModal, toast } from '../components.js';
 
@@ -42,7 +42,10 @@ export const PRN_PRESETS = [
   ['Ibuprofen', '600mg', 6],
   ['Aspirin', '81mg', 12],
 ];
-const PRN_SEED = ['Naproxen', 'Tylenol', 'Ibuprofen'];
+// Nothing is seeded any more (Codex audit K01): three of these with doses was a
+// real person's as-needed list, in public code. A fresh device starts empty and
+// receives the real list by sync, exactly like the supplement list (DEFAULTS).
+const PRN_SEED = [];
 
 export function seedPrnMeds(d) {
   if (d.settings?.prnSeeded) return false;
@@ -146,6 +149,17 @@ const time12 = (d) => d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '
  * count; a suggestion, never a rule.
  */
 const doseKey = (s) => (Number(s.gapHours) > 0 ? String(s.name).trim().toLowerCase() : null);
+
+/**
+ * The moment a time on a supplement day means (Codex audit B06). The day runs
+ * to 5am, so 1:00 AM on the 15th's list is 1:00 AM on the 16th. Built from the
+ * calendar date and the clock, so a daylight saving change lands on the right
+ * wall time.
+ */
+export function suppDoseDate(iso, h, m) {
+  const [y, mo, d] = iso.split('-').map(Number);
+  return new Date(y, mo - 1, d + (h < DAY_ROLLOVER_HOUR ? 1 : 0), h, m, 0, 0);
+}
 
 export function nextDoseAt(s, iso) {
   const key = doseKey(s);
@@ -374,8 +388,7 @@ export function bindSuppGroups(root, iso, ctx, rerender) {
     onTimePicked(inp, (v) => {
       if (!/^\d{2}:\d{2}$/.test(v)) return;
       const [h, m] = v.split(':').map(Number);
-      const at = new Date(iso + 'T00:00:00');
-      at.setHours(h, m, 0, 0);
+      const at = suppDoseDate(iso, h, m);
       update(() => {
         const day = ensureDay(iso);
         day.supps = { ...(day.supps || {}) };

@@ -8,7 +8,7 @@
 // the control that changes the arrangement; the strip only reads it.
 
 import { esc, fmtDate, round, fmtDateNum, todayIso, num } from '../util.js';
-import { state, update, maxLoad, loadSeries, lastEntry } from '../store.js';
+import { state, update, maxLoad, loadSeries, lastEntry, lastCardioMinutes } from '../store.js';
 import { REHAB_PROGRAM, GYM_PROGRAM, PROGRAM_SOURCE, GYM_SOURCE, THERABAND, BAND_BY_ID, DAYS, DAY_NAME, dayKeyOf } from '../../data/program.js';
 import { exerciseById, openPicture, thumb, prescriptionLine, loadBars, goButton } from '../components.js';
 import { minutesFor, fmtMins, fmtDayTotal } from '../timing.js';
@@ -44,7 +44,7 @@ function onDay(pid, key) {
   return d === null || d.includes(key);
 }
 function rowMinutes(item, ex = exerciseById(item.ex)) {
-  const last = ex?.cardio ? num(lastEntry(item.ex, 'B')?.time) : null;
+  const last = ex?.cardio ? lastCardioMinutes(item.ex) : null;
   return minutesFor(item, ex, state.data, last, runsFor(state.data, state.rev, item.id));
 }
 
@@ -153,11 +153,13 @@ function scheduleMatrix(todayKey) {
 const CHECK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12.5l4 4L18 8"/></svg>';
 
 /** Seven toggles. Always all seven, on or off; the control never changes shape. */
-function dayChips(pid) {
+function dayChips(pid, exName = '') {
   const days = daysOf(pid);
-  return `<span class="daychips" role="group" aria-label="Days of the week">
+  // The letters stay short on screen; each is named in full for VoiceOver,
+  // with the exercise (Codex audit A02): "Bridges on Tuesday", not "T".
+  return `<span class="daychips" role="group" aria-label="${esc(exName ? `Days for ${exName}` : 'Days of the week')}">
     ${DAYS.map(([k, name, letter]) => `<button class="daychip ${days === null || days.includes(k) ? 'on' : ''}"
-      data-pday="${esc(pid)}" data-day="${k}" title="${esc(name)}" aria-pressed="${days === null || days.includes(k)}">${letter}</button>`).join('')}
+      data-pday="${esc(pid)}" data-day="${k}" title="${esc(name)}" aria-label="${esc(exName ? `${exName} on ${name}` : name)}" aria-pressed="${days === null || days.includes(k)}">${letter}</button>`).join('')}
   </span>
   ${days === null ? '<span class="tiny muted">every day</span>' : days.length === 0 ? '<span class="tiny muted">not planned</span>' : ''}`;
 }
@@ -183,7 +185,7 @@ function progRow(p, ctx) {
     <div class="prog-head">
       <span class="prog-n">${p.n ?? ''}</span>
       ${p.thumb
-        ? `<button class="prog-shot" data-bigpic="${esc(p.id)}" title="Show it bigger"><img src="${esc(p.thumb)}" alt="" decoding="async"></button>`
+        ? `<button class="prog-shot" data-bigpic="${esc(p.id)}" title="Show it bigger" aria-label="Show the pictures for ${esc(name)} larger"><img src="${esc(p.thumb)}" alt="" decoding="async"></button>`
         : `<span class="prog-shot plain">${thumb(p.ex, 43)}</span>`}
       <button class="prog-main" data-popen="${esc(p.id)}" aria-expanded="${open}" aria-controls="pbody-${esc(p.id)}">
         <span class="prog-title">${esc(name)}</span>
@@ -191,7 +193,7 @@ function progRow(p, ctx) {
           .filter(Boolean).join('<span class="dot">·</span>')}${ex?.aka ? `<span class="muted"><em>${esc(ex.aka)}</em></span>` : ''}</span>
         <span class="prog-chev" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 9.5l6 6 6-6"/></svg></span>
       </button>
-      <div class="prog-days">${dayChips(p.id)}</div>
+      <div class="prog-days">${dayChips(p.id, name)}</div>
     </div>
     ${open ? `<div class="crow-body" id="pbody-${esc(p.id)}"><div class="crow-body-clip"><div class="prog-body">
       ${goButton({ attrs: `data-timer="${esc(p.id)}" ${p.notYet ? 'disabled' : ''}`, label: 'Begin', cls: 'row-begin' })}

@@ -204,7 +204,7 @@ export function renderTrend(ctx, { key = 'overview', width = 640, compact = fals
       const off = same.length > 1 ? (k - (same.length - 1) / 2) * 7 : 0;
       const id = recId(r, i);
       const on = r.date === st.sel && (!st.rec || st.rec === id || !pts.some((x, j) => recId(x, j) === st.rec));
-      return `<circle class="tr-pt ${on ? 'sel' : ''}" data-tr-pt="${esc(r.date)}" data-tr-rec="${esc(id)}" cx="${(px(r.date) + off).toFixed(1)}" cy="${py(r.value).toFixed(1)}" r="${on ? 6 : 4}"/>`;
+      return `<circle class="tr-pt ${on ? 'sel' : ''}" data-tr-pt="${esc(r.date)}" data-tr-rec="${esc(id)}" cx="${(px(r.date) + off).toFixed(1)}" cy="${py(r.value).toFixed(1)}" r="4"/>`;
     }).join('');
     return `<g class="tr-series ${cls}">
       ${d.includes('L') ? `<path class="tr-line" d="${d.trim()}"/>` : ''}
@@ -325,7 +325,6 @@ function selectDate(root, key, iso, { pin = true, rec = null } = {}) {
     g.querySelectorAll('.tr-pt').forEach((p) => {
       const on = p.dataset.trPt === iso && (!mine || p.dataset.trRec === rec);
       p.classList.toggle('sel', on);
-      p.setAttribute('r', on ? 6 : 4);
     });
   });
   const ro = wrap.querySelector('[data-tr-readout]');

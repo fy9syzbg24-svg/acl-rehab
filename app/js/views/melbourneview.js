@@ -1,5 +1,5 @@
 import { esc, todayIso, round, lsi as calcLsi, fmtDateNum, uid, toKg } from '../util.js';
-import { state, update, latest, best } from '../store.js';
+import { state, update, latest, best, measurementsFor } from '../store.js';
 import { MELBOURNE_PHASES, MRSS_PART_A, MRSS_PART_D, MRSS_PART_F, lsiPoints } from '../../data/melbourne.js';
 import { MEASURE_BY_ID, UNIT_LABEL } from '../../data/measurements.js';
 import { ACL_RSI, TSK11, IKDC, scoreAclRsi, scoreTsk11, scoreIkdc } from '../../data/questionnaires.js';
@@ -12,7 +12,7 @@ const BILATERAL_NOTE =
 const bothReconstructed = () => !!(state.data.settings?.surgeryLeft && state.data.settings?.surgeryRight);
 
 // --------------------------------------------------------------- scoring ---
-function measureState(row) {
+export function measureState(row) {
   const g = row.goal || {};
   const store = state.data.melbourne.measures[row.id] || {};
   const m = row.measure ? MEASURE_BY_ID[row.measure] : null;
@@ -27,8 +27,20 @@ function measureState(row) {
   if (g.kind === 'mrss') {
     const a = latestMrss();
     if (!a) return { status: 'none', text: 'not scored yet' };
-    const s = mrssTotal(a).final;
-    return { status: s >= g.target ? 'pass' : 'fail', text: `${round(s, 1)} / 100` };
+    const t = mrssTotal(a);
+    const s = t.final;
+    // Met only with every part answered and both pass/fail hurdles passed (C,
+    // TSK-11, and E, fitness), as the guide describes the score (Codex audit
+    // B08). A total alone never reads as met.
+    const parts = mrssProgress(a);
+    // IKDC may be scored with up to two items missing (the guide's own rule, scoreIkdc).
+    const open = parts.reduce((n, x) => n + Math.max(0, x.total - x.done - (x.id === 'mrss-ikdc' ? 2 : 0)), 0);
+    const text = `${round(s, 1)} / 100`;
+    if (t.tskPass === false || (a.partE?.t1 && a.partE?.t2 && !t.fitnessPass)) {
+      return { status: 'fail', text: `${text} · ${t.tskPass === false ? 'TSK-11' : 'fitness'} hurdle not passed` };
+    }
+    if (open) return { status: 'none', text: `${text} · ${open} question${open === 1 ? '' : 's'} unanswered`, missing: 'unfinished' };
+    return { status: s >= g.target && t.tskPass === true && t.fitnessPass ? 'pass' : 'fail', text };
   }
   if (!m) return { status: 'none', text: '·' };
 
@@ -37,10 +49,14 @@ function measureState(row) {
     const bw = bodyweightKg();
     if (!bw) return { status: 'none', text: 'set bodyweight in settings' };
     const legs = m.perLeg ? ['L', 'R'] : [null];
-    const vals = legs.map((l) => best(row.measure, l)).filter(Boolean)
-      .map((r) => toKg(r.value, r.unit || state.data.settings.weightUnit) / bw);
-    if (!vals.length) return { status: 'none', text: 'not tested' };
-    const worst = Math.min(...vals);
+    const recs = legs.map((l) => best(row.measure, l));
+    const ratio = (r) => toKg(r.value, r.unit || state.data.settings.weightUnit) / bw;
+    if (!recs.some(Boolean)) return { status: 'none', text: 'not tested' };
+    // Both legs or not scored (Codex audit B07): one leg passing is not the criterion.
+    if (m.perLeg && !(recs[0] && recs[1])) {
+      return { status: 'none', text: `L ${recs[0] ? `${round(ratio(recs[0]), 2)}x` : '·'} · R ${recs[1] ? `${round(ratio(recs[1]), 2)}x` : '·'} BW`, missing: recs[0] ? 'right' : 'left' };
+    }
+    const worst = Math.min(...recs.map(ratio));
     return { status: worst >= g.target ? 'pass' : 'fail', text: `${round(worst, 2)}x BW` };
   }
 
@@ -57,30 +73,47 @@ function measureState(row) {
   const L = latest(row.measure, 'L');
   const R = latest(row.measure, 'R');
   if (!L && !R) return { status: 'none', text: 'not tested' };
+  const missing = !L ? 'left' : !R ? 'right' : null;
 
   if (g.kind === 'grade') {
-    const bad = [L, R].filter(Boolean).some((r) => !g.allowed.includes(r.value));
-    return { status: bad ? 'fail' : 'pass', text: `L ${L?.value ?? '·'} · R ${R?.value ?? '·'}` };
+    const text = `L ${L?.value ?? '·'} · R ${R?.value ?? '·'}`;
+    // Both legs graded, or not scored (Codex audit B07).
+    if (missing) return { status: 'none', text, missing };
+    const bad = [L, R].some((r) => !g.allowed.includes(r.value));
+    return { status: bad ? 'fail' : 'pass', text };
   }
 
   const text = `L ${L ? round(L.value, 1) : '·'} · R ${R ? round(R.value, 1) : '·'} ${u}`.trim();
-  const lsiVals = L && R ? [calcLsi(L.value, R.value), calcLsi(R.value, L.value)] : [];
-  const worstLsi = lsiVals.length ? Math.min(...lsiVals) : null;
 
-  if (g.kind === 'lsi') {
-    if (worstLsi === null) return { status: 'none', text, lsi: worstLsi };
-    return { status: worstLsi >= g.target ? 'pass' : 'fail', text, lsi: worstLsi };
+  if (g.kind === 'lsi' || g.kind === 'hurdle_lsi') {
+    // Symmetry compares a left and a right tested on the SAME day (Codex audit
+    // B08): the newest date holding both. A newer single-leg result is shown
+    // but never paired with an older one.
+    const pair = latestPair(row.measure);
+    if (!pair) return { status: 'none', text, missing: missing || 'same-day' };
+    const worstLsi = Math.min(calcLsi(pair.L.value, pair.R.value), calcLsi(pair.R.value, pair.L.value));
+    const older = pair.date !== [L?.date, R?.date].filter(Boolean).sort().pop();
+    const ptext = older ? `L ${round(pair.L.value, 1)} · R ${round(pair.R.value, 1)} ${u} on ${fmtDateNum(pair.date)}`.replace(/\s+on/, ' on') : text;
+    if (g.kind === 'lsi') return { status: worstLsi >= g.target ? 'pass' : 'fail', text: ptext, lsi: worstLsi };
+    const hurdleOk = pair.L.value >= g.hurdle && pair.R.value >= g.hurdle;
+    return { status: hurdleOk && worstLsi >= g.lsi ? 'pass' : 'fail', text: ptext, lsi: worstLsi, hurdleOk };
   }
-  if (g.kind === 'hurdle_lsi') {
-    if (!L || !R) return { status: 'none', text, lsi: worstLsi };
-    const hurdleOk = L.value >= g.hurdle && R.value >= g.hurdle;
-    const lsiOk = worstLsi != null && worstLsi >= g.lsi;
-    return { status: hurdleOk && lsiOk ? 'pass' : 'fail', text, lsi: worstLsi, hurdleOk };
+  // absolute, both legs: each leg's latest result against the target.
+  if (missing) return { status: 'none', text, missing };
+  const ok = [L, R].every((r) => (g.cmp === '<=' ? r.value <= g.target : r.value >= g.target));
+  return { status: ok ? 'pass' : 'fail', text };
+}
+
+/** The newest date with both a left and a right result, the last of each that day. */
+function latestPair(measureId) {
+  const byDate = {};
+  for (const r of measurementsFor(measureId)) {
+    if (r.leg !== 'L' && r.leg !== 'R') continue;
+    if (typeof r.value !== 'number' || !Number.isFinite(r.value)) continue;
+    (byDate[r.date] ||= {})[r.leg] = r;
   }
-  // absolute, both legs
-  const ok = [L, R].filter(Boolean).every((r) => (g.cmp === '<=' ? r.value <= g.target : r.value >= g.target));
-  const complete = L && R;
-  return { status: complete ? (ok ? 'pass' : 'fail') : 'none', text, lsi: worstLsi };
+  const date = Object.keys(byDate).filter((d) => byDate[d].L && byDate[d].R).sort().pop();
+  return date ? { date, L: byDate[date].L, R: byDate[date].R } : null;
 }
 
 function bodyweightKg() {
@@ -161,17 +194,17 @@ function criterionRows(rows) {
     const how = row.how || MEASURE_BY_ID[row.measure]?.how;
     return `<details class="mrow crit ${cls}" data-key="crit:${esc(row.label)}">
       <summary>
-        <span class="mrow-name">${esc(row.label)}<span class="mrow-date${st.status !== 'none' && /\d/.test(st.text) ? ' mono' : ''}">${st.status === 'none'
+        <span class="mrow-name">${esc(row.label)}<span class="mrow-date${st.status !== 'none' && /\d/.test(st.text) ? ' mono' : ''}">${st.status === 'none' && !st.missing
           ? esc(row.goalText || '')
           : `${esc(st.text)}${st.lsi != null ? ` · LSI ${esc(round(st.lsi, 0))}%` : ''}`}</span></span>
-        <span class="crit-state">${st.status === 'none' ? '<span class="pill">not tested</span>' : `<span class="pill ${cls}">${st.status === 'pass' ? 'met' : 'not yet'}</span>`}</span>
+        <span class="crit-state">${critPill(st, cls)}</span>
       </summary>
       <div class="mrow-body">
         ${row.goalText ? `<div class="exh-line"><span class="exh-k">Goal</span><span class="exh-v">${esc(row.goalText)}</span></div>` : ''}
         ${how ? `<div class="tiny" style="margin:.2rem 0">${esc(how)}</div>` : ''}
         <div class="row" style="gap:.4rem;margin-top:.3rem">
           ${st.manual ? `<label class="row tiny" style="gap:.25rem"><input type="checkbox" data-mmanual="${esc(row.id)}" ${state.data.melbourne.measures[row.id]?.pass ? 'checked' : ''}> done</label>` : ''}
-          ${st.rating ? `<select data-mrating="${esc(row.id)}" class="sel-sm">
+          ${st.rating ? `<select data-mrating="${esc(row.id)}" class="sel-sm" aria-label="${esc(row.label)}: rating">
               <option value="">·</option>${row.goal.options.map((o) => `<option ${state.data.melbourne.measures[row.id]?.rating === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}
             </select>` : ''}
           ${row.measure ? `<button class="btn sm" data-record="${esc(row.measure)}">Record</button>` : ''}
@@ -179,6 +212,13 @@ function criterionRows(rows) {
       </div>
     </details>`;
   }).join('')}</div>`;
+}
+
+/** Met, not yet, or what is missing: never "not tested" when one leg was. */
+function critPill(st, cls) {
+  if (st.status !== 'none') return `<span class="pill ${cls}">${st.status === 'pass' ? 'met' : 'not yet'}</span>`;
+  const words = { left: 'left leg not tested', right: 'right leg not tested', 'same-day': 'needs both legs on one day', unfinished: 'unfinished' }[st.missing] || 'not tested';
+  return `<span class="pill">${words}</span>`;
 }
 
 function measureTable(rows) {
@@ -198,10 +238,10 @@ function measureTable(rows) {
       <td class="tiny muted">${esc(row.goalText || '')}</td>
       <td class="tiny${/\d/.test(st.text) ? ' mono' : ''}">${esc(st.text)}</td>
       <td class="num mono tiny" title="Less meaningful with two reconstructed knees">${st.lsi != null ? esc(round(st.lsi, 0)) + '%' : ''}</td>
-      <td>${st.status === 'none' ? '<span class="pill">not tested</span>' : `<span class="pill ${cls}">${st.status === 'pass' ? 'met' : 'not yet'}</span>`}</td>
+      <td>${critPill(st, cls)}</td>
       <td class="num nowrap">
         ${st.manual ? `<label class="row tiny" style="gap:.25rem"><input type="checkbox" data-mmanual="${esc(row.id)}" ${state.data.melbourne.measures[row.id]?.pass ? 'checked' : ''}> done</label>` : ''}
-        ${st.rating ? `<select data-mrating="${esc(row.id)}" class="sel-sm">
+        ${st.rating ? `<select data-mrating="${esc(row.id)}" class="sel-sm" aria-label="${esc(row.label)}: rating">
             <option value="">·</option>${row.goal.options.map((o) => `<option ${state.data.melbourne.measures[row.id]?.rating === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}
           </select>` : ''}
         ${row.measure ? `<button class="btn sm" data-record="${esc(row.measure)}">Record</button>` : ''}
