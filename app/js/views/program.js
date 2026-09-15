@@ -16,6 +16,21 @@ import { runsFor } from '../logging.js';
 import { recordScheduleVersion } from '../planstreak.js';
 import { renderHistory, bindHistory } from './exhistory.js';
 import { startExercise } from '../player/player.js';
+import { growIn, foldAway, insertBody } from '../fold.js';
+
+// The week matrix only shows in a container 760px wide or more (styles.css);
+// narrower, it is not built at all (Fable B9: 25 rows of 7 buttons each, drawn
+// for nothing on a phone). A resize across the line repaints the page.
+const MATRIX_MIN = 760;
+const viewWidth = () => document.getElementById('view')?.getBoundingClientRect().width || window.innerWidth;
+let matrixBuilt = null;
+let lastRerender = null;
+if (typeof window !== 'undefined') {
+  window.addEventListener('resize', () => {
+    if (matrixBuilt === null || !lastRerender || !document.querySelector('.program-page')) return;
+    if ((viewWidth() >= MATRIX_MIN) !== matrixBuilt) lastRerender();
+  });
+}
 
 const ALL_ITEMS = REHAB_PROGRAM.concat(GYM_PROGRAM);
 
@@ -48,7 +63,7 @@ export function renderProgram(ctx) {
       ${src.videos ? `<div class="prog-source">${esc(src.title)} · videos at <strong>${esc(src.videos)}</strong>${src.code ? ' · access code in Settings' : ''}</div>` : ''}
     </header>
 
-    ${scheduleMatrix(todayKey)}
+    ${(matrixBuilt = viewWidth() >= MATRIX_MIN) ? scheduleMatrix(todayKey) : ''}
 
     <section class="card prog-days-card">
       <div class="card-body tight">
@@ -177,7 +192,7 @@ function progRow(p, ctx) {
       </button>
       <div class="prog-days">${dayChips(p.id)}</div>
     </div>
-    ${open ? `<div class="prog-body" id="pbody-${esc(p.id)}">
+    ${open ? `<div class="crow-body" id="pbody-${esc(p.id)}"><div class="crow-body-clip"><div class="prog-body">
       ${goButton({ attrs: `data-timer="${esc(p.id)}" ${p.notYet ? 'disabled' : ''}`, label: 'Begin', cls: 'row-begin' })}
       ${renderHistory(state.data, p, todayIso())}
       ${p.notYet ? `<div class="notice" style="margin-bottom:.5rem">${esc(p.notYetNote)}</div>` : ''}
@@ -214,8 +229,17 @@ function progRow(p, ctx) {
         </div>` : ''}
 
       ${isGym ? gymBoards(p, ex) : ''}
-    </div>` : ''}
+    </div></div></div>` : ''}
   </div>`;
+}
+
+function closeProgRow(row, pid, ctx, clear = true) {
+  const body = row.querySelector(':scope > .crow-body');
+  row.querySelector(`[data-popen="${CSS.escape(pid)}"]`)?.setAttribute('aria-expanded', 'false');
+  if (clear && ctx.popen === pid) ctx.popen = null;
+  if (!body) { row.classList.remove('open'); return; }
+  row.classList.add('closing');
+  foldAway(body, 240, () => { body.remove(); row.classList.remove('open', 'closing'); });
 }
 
 /** Working resistance for a gym lift: heaviest ever per side, and the last twelve sessions. */
@@ -252,6 +276,7 @@ function gymBoards(item, ex) {
 }
 
 export function bindProgram(root, ctx, rerender) {
+  lastRerender = rerender;
   bindHistory(root);
   root.querySelectorAll('[data-timer]').forEach((b) => b.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -265,9 +290,22 @@ export function bindProgram(root, ctx, rerender) {
   root.querySelectorAll('[data-popen]').forEach((h) => h.addEventListener('click', (e) => {
     // The day chips and the picture inside the head are their own controls.
     if (e.target.closest('[data-pday], [data-bigpic]')) return;
+    // Open and close in place, like Today's rows (Fable B9).
     const pid = h.dataset.popen;
-    ctx.popen = ctx.popen === pid ? null : pid;
-    rerender();
+    const row = h.closest('.prog-row');
+    const page = h.closest('.program-page') || document;
+    if (ctx.popen === pid && row?.querySelector(':scope > .crow-body')) { closeProgRow(row, pid, ctx); return; }
+    const was = ctx.popen;
+    const other = was && was !== pid ? page.querySelector(`[data-popen="${CSS.escape(was)}"]`)?.closest('.prog-row') : null;
+    ctx.popen = pid;
+    const item = ALL_ITEMS.find((p) => p.id === pid);
+    const body = row && item && insertBody(row, progRow(item, ctx), '.crow-body');
+    if (!body) { rerender(); return; }
+    bindProgram(body, ctx, rerender);
+    row.classList.add('just-open');
+    setTimeout(() => row.classList.remove('just-open'), 320);
+    growIn(body, 280);
+    if (other) closeProgRow(other, was, ctx, false);
   }));
   root.querySelectorAll('[data-bigpic]').forEach((b) => b.addEventListener('click', (e) => {
     e.stopPropagation();

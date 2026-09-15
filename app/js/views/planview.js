@@ -45,7 +45,7 @@ export function renderPlan(ctx) {
           aria-pressed="${on}" ${x.id === current?.id ? 'aria-current="date"' : ''}
           aria-label="${esc(monthLong(x))}: markers ${c.goalScore}% of the way to target${x.id === current?.id ? ', current month' : ''}">
           <span class="mt-name">${esc(monthShort(x))}</span>
-          <span class="mt-row"><b>${c.goalScore}%</b><i class="mt-bar"><i style="width:${c.goalScore}%"></i></i></span>
+          <span class="mt-row"><b>${c.goalScore}%</b><i class="mt-bar"><i style="--p:${c.goalScore / 100}"></i></i></span>
         </button>`;
       }).join('')}
     </div>

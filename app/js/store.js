@@ -83,10 +83,14 @@ export function subscribe(fn) {
   listeners.add(fn);
   return () => listeners.delete(fn);
 }
+let themeApplied = null;
 function emit() {
   state.rev++;
-  // A sync pull can replace caseFile or the theme, so repoint first.
-  applyTheme(state.data.settings?.theme || 'light');
+  // A sync pull can replace caseFile or the theme, so repoint first. The theme
+  // only when it changed (Fable B2): setting data-theme again, even to the
+  // same value, restyled the whole page after every tick.
+  const theme = state.data.settings?.theme || 'light';
+  if (theme !== themeApplied) { applyTheme(theme); themeApplied = theme; }
   hydrateCase(state.data);
   hydrateProgramSource(state.data);
   for (const fn of listeners) fn();

@@ -285,8 +285,13 @@ a { color: var(--accent); }
 
 .bar { height: 6px; border-radius: 4px; background: var(--line-2); overflow: hidden; }
 .bar > i {
-  display: block; height: 100%; border-radius: 4px; transition: width .25s;
+  display: block; height: 100%; border-radius: 4px;
   background: var(--ink-2);
+}
+/* Fill bars move by transform, not width (Fable B12): no layout per frame. */
+.bar > i, .mt-bar > i, .mk-bar > i, .prnfill {
+  width: 100%; transform: scaleX(var(--p, 0)); transform-origin: left center;
+  transition: transform .25s var(--ease);
 }
 .bar.good > i { background: var(--good); }
 .bar.warn > i { background: var(--warn); }
@@ -388,6 +393,11 @@ table.tbl td.num, table.tbl th.num { text-align: right; font-variant-numeric: ta
   box-shadow: 0 20px 60px rgba(0, 0, 0, .3); width: min(680px, 100%);
   max-height: min(86vh, 900px); display: flex; flex-direction: column; overflow: hidden;
 }
+/* Dialogs and sheets fade in over 120 ms and out over 100 ms (Fable B4), never a slide. */
+.modal-back { animation: modalin 120ms var(--ease) both; }
+.modal-back.leaving { animation: modalout 100ms linear both; pointer-events: none; }
+@keyframes modalin { from { opacity: 0; } }
+@keyframes modalout { to { opacity: 0; } }
 .modal > header { padding: .8rem .9rem; border-bottom: 1px solid var(--line-2); display: flex; justify-content: space-between; align-items: center; gap: .5rem; }
 .modal > .mbody { padding: .9rem; overflow-y: auto; }
 .modal > footer { padding: .7rem .9rem; border-top: 1px solid var(--line-2); display: flex; gap: .5rem; justify-content: flex-end; }
@@ -708,7 +718,7 @@ table.gridtbl th:first-child { text-align: left; }
 .panel-title .sub em { font-style: normal; opacity: .8; }
 .chev {
   flex: none; color: var(--ink-3); font-size: 1.1rem; line-height: 1;
-  transition: transform .18s; transform-origin: center;
+  transition: transform var(--chev-ms) var(--ease); transform-origin: center;
 }
 .panel.open .chev { transform: rotate(180deg); }
 
@@ -975,10 +985,11 @@ ol.steps li { font-size: .82rem; margin: .18rem 0; }
 /* as-needed: one stable grid, plus a fill that slides as the wait elapses */
 .prnrow { position: relative; overflow: hidden; }
 .prnfill {
-  position: absolute; inset: 0 auto 0 0; z-index: 0;
+  position: absolute; inset: 0; z-index: 0;
   background: color-mix(in srgb, var(--warn) 13%, transparent);
-  transition: width 1.2s linear; pointer-events: none;
+  pointer-events: none;
 }
+.prnrow .prnfill { transition: transform 1.2s linear; }
 /* The fill exists to show time REMAINING. Once clear there is nothing to
    show, and a full-width wash read as "this row is selected". */
 .prnrow.clear .prnfill { opacity: 0; }
@@ -1273,7 +1284,7 @@ details.fold > summary {
 details.fold > summary::-webkit-details-marker { display: none; }
 details.fold > summary::before {
   content: '›'; display: inline-block; width: .8em; color: var(--ink-3);
-  font-size: 1.05rem; line-height: 1; transition: transform .15s;
+  font-size: 1.05rem; line-height: 1; transition: transform var(--chev-ms) var(--ease);
 }
 details.fold[open] > summary::before { transform: rotate(90deg); }
 details.fold > summary .good { color: var(--good); }
@@ -1393,7 +1404,7 @@ button.prog-main:focus-visible { outline: 2px solid var(--accent); outline-offse
 }
 .prog-sub .dot { opacity: .6; }
 .prog-days { margin-top: .1rem; display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; }
-.prog-chev { flex: none; color: var(--ink-3); font-size: 1.1rem; line-height: 1; padding-top: .35rem; transition: transform .15s; }
+.prog-chev { flex: none; color: var(--ink-3); font-size: 1.1rem; line-height: 1; padding-top: .35rem; transition: transform var(--chev-ms) var(--ease); }
 .prog-row.open .prog-chev { transform: rotate(180deg); }
 .prog-body { padding: .55rem 0 .2rem calc(1.3em + .6rem); }
 .prog-body .section-title { margin-top: .6rem; }
@@ -1521,7 +1532,7 @@ details.mrow[open] > summary .mrow-name { color: var(--accent); }
 .pill.warn { background: var(--warn-soft); color: var(--warn); }
 .mnav {
   position: sticky; top: 0; z-index: 6; display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px;
-  padding: .35rem; border-radius: 12px; background: color-mix(in srgb, var(--bg) 92%, transparent); backdrop-filter: blur(10px);
+  padding: .35rem; border-radius: 12px; background: var(--bg);   /* solid, no blur (Fable B12) */
 }
 body.mobile .mnav { top: var(--mtop-real, calc(var(--mtop-h) + var(--safe-t))); }
 .mnav-btn {
@@ -1711,8 +1722,15 @@ table.tbl { font-size: .9rem; }
 .p-content.p-enter { animation: pfade var(--phase-ms) var(--ease) both; }
 @keyframes pfade { from { opacity: 0; } to { opacity: 1; } }
 .p-title { font-size: clamp(22px, 6.6vw, 26px); font-weight: 760; line-height: 1.15; letter-spacing: -.015em; overflow-wrap: anywhere; margin-top: .1rem; }
+/* Two lines are kept for the title on a phone (Fable B7): swiping, the arrows
+   and carrying on to a shorter title never move the photo or the dial. */
+@media (max-width: 699px) { .player .p-title { min-height: 2.3em; } }
 .p-status { min-height: 1.5em; margin: .3rem 0 .1rem; font-size: 1rem; color: var(--ink-2); font-variant-numeric: tabular-nums; }
-.p-logged { display: inline-flex; align-items: flex-start; gap: .4rem; color: var(--good); font-weight: 600; }
+.p-logged { display: inline-flex; align-items: flex-start; gap: .4rem; color: var(--good); font-weight: 600; max-width: 100%; }
+/* One line in the status slot (Fable B7), so the photo under it never moves;
+   the full title is in the label. */
+.p-logged > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.p-status { overflow: hidden; }
 .p-logged svg { width: 20px; height: 20px; flex: none; margin-top: .05em; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .p-logged.fresh svg path { stroke-dasharray: 14; animation: checkdraw var(--receipt-ms) var(--ease-settle) both; }
 .p-logged.fresh > span { animation: pfade var(--receipt-ms) var(--ease) both; }
@@ -1774,8 +1792,17 @@ table.tbl { font-size: .9rem; }
 .p-seg.done, .p-iseg.done { stroke: var(--good); }
 .p-seg.part, .p-iseg.part { stroke: var(--ink-2); }
 .p-iseg.todo { stroke: color-mix(in srgb, var(--track) 70%, transparent); }
-.p-seg.just, .p-iseg.just { animation: segin var(--set-ms) var(--ease) both; }
+.p-seg.just, .p-iseg.just { animation: segdraw var(--set-ms) var(--ease) both; }
 @keyframes segin { from { stroke: var(--track); } }
+/* A confirmed set draws its green along the segment, a short check stroke (Fable B12). */
+@keyframes segdraw { from { stroke-dasharray: 0 var(--c, 999); } }
+.p-arc.enter { animation: arcin var(--phase-ms) var(--ease) both; }
+@keyframes arcin { from { opacity: 0; } }
+/* Begin, Set done and Pause: the drawn icon takes the press, the label and
+   the hit box stay still (Fable B12). */
+.player .p-row1 .btn:not(:disabled):active { transform: none; }
+.player .p-row1 .btn svg { transition: transform var(--release-ms) var(--ease); }
+.player .p-row1 .btn:not(:disabled):active svg { transform: scale(.94); transition-duration: var(--press-ms); }
 .p-mark { fill: var(--cat, var(--ink)); }
 .p-center { position: absolute; inset: 22px; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 0 4px; }
 /* The numeral must clear the inner ring. The clear circle inside it is about
@@ -1788,6 +1815,9 @@ table.tbl { font-size: .9rem; }
 .p-num.reps { font-size: 40px; }
 .p-num.words { font-size: 18px; }
 .p-cap { margin-top: .3rem; font-size: .78rem; color: var(--ink-2); line-height: 1.2; max-width: 84px; }
+/* Two lines are always kept for the caption (Fable B6), so "Starts by itself"
+   wrapping never moves the numeral above it. */
+.p-center .p-cap { min-height: 2.4em; }
 
 /* choose the exercise: swipe the title and pictures, or these arrows */
 .p-swipe { touch-action: pan-y; }
@@ -2143,6 +2173,21 @@ button.recovery-line span { color: var(--ink); text-decoration: underline; text-
 }
 .today .crow.open.closing .crow-chev { transform: none; }
 @keyframes bodyfade { from { opacity: 0; } to { opacity: 1; } }
+
+/* Folds that open in place (2026-09-15, Fable B5): the knee check-in, the
+   supplement groups and the two folds under the list. The same 0fr to 1fr grid
+   as a row, on the shorter fold durations; the chevron turns on --chev-ms. */
+.fold-body { display: grid; grid-template-rows: 1fr; }
+.fold-body.shut { grid-template-rows: 0fr; }
+.fold-body.animating { transition: grid-template-rows var(--open-ms) var(--ease-panel); }
+.fold-body.animating.closing { transition-duration: var(--close-ms); }
+.fold-body > .fold-clip { min-height: 0; overflow: hidden; }
+.fold-body.fading > .fold-clip > * { animation: bodyfade 100ms linear 80ms both; }
+details.fold.closing > summary::before { transform: none; }
+.suppgroup > .fold-body { margin-top: 0; }
+/* Date to date the head keeps its height: the ring's slot is there on a day
+   with nothing planned too (B3), so the list does not jump. */
+.dayring-slot { flex: none; width: 88px; height: 88px; }
 .row-begin { min-height: 54px; }
 .row-cat { font-size: .85rem; font-weight: 750; letter-spacing: .05em; text-transform: uppercase; color: var(--cat); }
 .row-photo { position: relative; display: block; width: 100%; padding: 0; border: 0; border-radius: var(--radius-img); background: #fff; overflow: hidden; cursor: zoom-in; }
@@ -2426,6 +2471,7 @@ button.pc-cell { min-height: 44px; }
 .tr-split { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; margin-top: .6rem; }
 @container (min-width: 900px) { .tr-split { grid-template-columns: minmax(0, 1fr) var(--panel-w); } }
 .tr-plot { border-radius: 12px; outline-offset: 3px; }
+.tr-enter { animation: bodyfade var(--open-ms) var(--ease) both; }
 .tr-svg { display: block; width: 100%; height: auto; overflow: visible; }
 .tr-grid { stroke: var(--line-2); stroke-width: 1; }
 .tr-ylab, .tr-xlab { fill: var(--ink-2); font-size: 12px; font-family: var(--font); font-variant-numeric: tabular-nums; }
@@ -2600,6 +2646,23 @@ details.disc[open] > summary { margin-bottom: .2rem; }
 .dayfilter button { border-radius: 14px; background: var(--panel-2); border-color: transparent; }
 .dayfilter button.today .fn::after { background: var(--ink); }
 .program-page .prog-row { padding: .75rem .1rem; }
+/* An open Program row, Fable B9: the same outline as Today, with margin,
+   border and padding adding up to a closed row's, so the head does not move
+   (it moved 2.6px), and the same eased fold in both directions. */
+.program-page .prog-row.open {
+  margin: .4rem calc(-.25rem - 1px) .5rem;
+  padding: .35rem .35rem .4rem;
+}
+.program-page .prog-row.open.just-open { animation: rowoutline var(--panel-open-ms) var(--ease-panel); }
+.program-page .prog-row.open.just-open .prog-chev { animation: chevup var(--chev-ms) var(--ease); }
+.program-page .prog-row.open.closing {
+  margin-bottom: 0; padding-bottom: calc(.75rem - 1px);
+  border-color: transparent; border-top-color: var(--line-2); background-color: transparent;
+  transition: margin var(--panel-close-ms) var(--ease-panel), padding var(--panel-close-ms) var(--ease-panel),
+    border-color var(--panel-close-ms) var(--ease-panel), background-color var(--panel-close-ms) var(--ease-panel);
+}
+.program-page .prog-row.open.closing .prog-chev { transform: none; }
+.program-page .prog-row > .crow-body .prog-body { padding-top: .55rem; }
 .program-page .prog-title { font-size: 1.02rem; font-weight: 650; }
 .program-page .prog-sub { font-size: .88rem; color: var(--ink-2); }
 .program-page .prog-shot { background: #fff; border: 0; border-radius: 8px; width: 76px; height: 50px; }
@@ -2647,3 +2710,22 @@ details.disc[open] > summary { margin-bottom: .2rem; }
 .focusitem { border-radius: 10px; }
 .mx thead th:not(.mx-name), .mx td { width: 64px; }
 .mx .mx-name { width: auto; }
+
+/* ------------------------------------------------------ Reduce Motion ---- */
+/* One block, last in the file, so no later declaration undoes it (2026-09-15,
+   Fable B11; the earlier blocks above stay, this one is the guarantee). With
+   Reduce Motion on nothing moves or fades: no press scale, no chevron turning,
+   no toast slide or scale, no tick pop, no folds (the JS skips those too), and
+   document.getAnimations() stays empty after a tick, a fold, a toast and a
+   phase change. States still change; they just do not animate. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  .btn:active, .btn:not(:disabled):active, .btn.go:not(:disabled):active .go-play, .dayfilter button:active, .daychip:active,
+  .supprow:active, .rowlink:active, .list-add:active, .stagestep:active, .goalhead:active, .weekcat.tappable:active,
+  .msync:active, .mtabs button:active, .tabs button:active, .p-tool:not(:disabled):active, .p-tool:not(:disabled):active svg,
+  .p-adj:not(:disabled):active svg, .player .p-row1 .btn:not(:disabled):active svg, .catrow:active, .monthstrip .kpi:active,
+  input[type=checkbox].tick:active, .crow-head:active, button.ov-card:active, .ovs-ms:active, .wgoal:active, .mtile:active,
+  .mk-add:active, .mx-cell:active { transform: none !important; }
+  .jr-node:active .jr-dot { transform: translate(-50%, -50%) !important; }
+  .toast, .toast.in { transform: none !important; }
+}

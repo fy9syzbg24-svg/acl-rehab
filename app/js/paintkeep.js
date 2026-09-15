@@ -50,8 +50,9 @@ export function restore(root, snap) {
     const on = el.querySelector('.on, [aria-current="page"]');
     if (on) {
       // Reveal the selected tab inside the strip only; the page does not move.
-      const l = on.offsetLeft - 16;
-      const r = on.offsetLeft + on.offsetWidth + 16 - el.clientWidth;
+      // At least the edge fade's width (40px) clear, so it is never faded (B10).
+      const l = on.offsetLeft - 40;
+      const r = on.offsetLeft + on.offsetWidth + 40 - el.clientWidth;
       if (el.scrollLeft > l) el.scrollLeft = Math.max(0, l);
       else if (el.scrollLeft < r) el.scrollLeft = r;
     }

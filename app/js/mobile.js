@@ -18,7 +18,8 @@ import {
   surgeryDate, saveOutstanding,
 } from './store.js';
 import { guardPaint, whenIdle } from './editguard.js';
-import { capture, restore, scrollTop } from './paintkeep.js';
+import { capture, restore, scrollTop, edgeCues } from './paintkeep.js';
+import { morphView } from './morph.js';
 import { chipState } from './status.js';
 import { todayIso, postOp, applyStoredTheme, applyTheme, THEME_KEY } from './util.js';
 import { renderToday, bindToday } from './views/today.js';
@@ -104,8 +105,19 @@ document.addEventListener('visibilitychange', () => {
 // or a native picker is in use waits until he leaves it (editguard.js). A
 // change of tab is never held back.
 const paint = guardPaint(viewEl, rawPaint, () => ctx.view !== lastView);
+// For the measurement and consistency harnesses only (tools/perf_motion.py):
+// with ?probe in the address they can render a view afresh and compare it
+// with what an in-place patch left on screen.
+if (new URLSearchParams(location.search).has('probe')) window.__rehabProbe = { ctx, VIEWS, viewEl };
 
-function rawPaint() {
+function rawPaint(opts = {}) {
+  // A small change (a tick, a time, a fold's count) is patched into the page
+  // that is already there, when the view asks for it and the patch needs no new
+  // control (Fable B2, morph.js). Anything else repaints in full below.
+  if (opts.soft && ctx.view === lastView && VIEWS[ctx.view]) {
+    flushEdits();
+    if (morphView(viewEl, VIEWS[ctx.view][0](ctx))) { edgeCues(viewEl); return; }
+  }
   const y = window.scrollY;      // the document scrolls now, not an inner box
   const [render, bind] = VIEWS[ctx.view] || VIEWS.today;
   document.body.classList.toggle('in-player', ctx.view === 'player');
@@ -186,7 +198,16 @@ function paintChrome() {
   if (label.textContent !== c.label) label.textContent = c.label;
   document.getElementById('sync-btn')?.setAttribute('title', c.title);
   document.getElementById('sync-btn')?.setAttribute('aria-label', `${c.label}. ${c.title}`);
-  fitHeader();
+  fitHeaderSoon();
+}
+
+// Measured at the next frame, once for any number of changes (Fable B2): every
+// save emits, and measuring there forced a layout inside the tap, 6 ms at 6x.
+let fitQueued = false;
+function fitHeaderSoon() {
+  if (fitQueued) return;
+  fitQueued = true;
+  requestAnimationFrame(() => { fitQueued = false; fitHeader(); });
 }
 
 /**

@@ -57,6 +57,20 @@ export function cuesState() {
 }
 
 /** Call from a tap. Safe to call repeatedly. */
+/**
+ * Build the audio context ahead of the tap that starts sound (Fable B6):
+ * called on the first finger down in the player, so Start itself only has to
+ * resume it. Creating one cost about 90 ms of that tap at 6x CPU.
+ */
+export function prepareAudio() {
+  if (ctx || !audioAvailable()) return;
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    ctx = new AC();
+    cueState = ctx.state;
+  } catch { /* unlockAudio tries again on the tap */ }
+}
+
 export function unlockAudio() {
   if (!audioAvailable()) return false;
   try {

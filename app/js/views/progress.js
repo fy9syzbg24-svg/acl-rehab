@@ -120,7 +120,7 @@ function renderHistoryPanel(ctx) {
             return `<div style="margin-bottom:.55rem">
               <div class="row between tiny"><span>${esc(m.name)} · ${esc(m.monthLabel)} ${now ? '<span class="pill accent">now</span>' : ''}</span>
                 <span class="mono">${c.goalScore}% goals · ${c.focusDone}/${c.focusTotal} focus</span></div>
-              <div class="bar"><i style="width:${c.goalScore}%"></i></div>
+              <div class="bar"><i style="--p:${c.goalScore / 100}"></i></div>
             </div>`;
           }).join('')}
         </div>

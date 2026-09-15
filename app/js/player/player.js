@@ -682,7 +682,7 @@ function statusLine(run) {
   if (r && Date.now() < r.until) {
     const fresh = !r.shown;
     r.shown = true;
-    return `<span class="p-logged ${fresh ? 'fresh' : ''}">${I.checkCircle}<span>Logged · ${esc(r.title)}</span></span>`;
+    return `<span class="p-logged ${fresh ? 'fresh' : ''}" role="status" aria-label="Logged ${esc(r.title)}">${I.checkCircle}<span aria-hidden="true">Logged · ${esc(r.title)}</span></span>`;
   }
   if (run.state === 'interrupted') return '<span class="p-note">Paused while you were away. Nothing was counted.</span>';
   return esc(unitLine(run, E.step(run)));
@@ -734,7 +734,7 @@ function segArcs(units, r, stroke, cls, gapPx) {
     const state = u.result ? (u.result.full === false || u.result.short ? 'part' : 'done') : 'todo';
     const just = P.justDone && P.justDone.runId === P.run.runId && P.justDone.i === u.i;
     out += `<circle class="${cls} ${state} ${just ? 'just' : ''}" cx="${mid}" cy="${mid}" r="${r}" stroke-width="${stroke}"
-      stroke-dasharray="${len.toFixed(2)} ${(c - len).toFixed(2)}" stroke-dashoffset="${(-start).toFixed(2)}" transform="rotate(-90 ${mid} ${mid})"/>`;
+      stroke-dasharray="${len.toFixed(2)} ${(c - len).toFixed(2)}" stroke-dashoffset="${(-start).toFixed(2)}" transform="rotate(-90 ${mid} ${mid})"${just ? ` style="--c:${c.toFixed(2)}"` : ''}/>`;
     if (u.current && cls === 'p-seg') {
       const ang = (start / c) * 2 * Math.PI - Math.PI / 2;
       out += `<circle class="p-mark" cx="${(mid + r * Math.cos(ang)).toFixed(2)}" cy="${(mid + r * Math.sin(ang)).toFixed(2)}" r="${stroke * 0.55}"/>`;
@@ -759,8 +759,14 @@ function ringSvg(run, st, now) {
   } else {
     const frac = arcDash(run, st, now);
     body = `<circle class="p-track" cx="${mid}" cy="${mid}" r="${r}" stroke-width="${stroke}"/>`;
+    // A new step's arc fades in over the phase token (Fable B12): a stroke
+    // cannot animate from the work gradient to the rest colour, so the change
+    // is a crossfade. Only when the step changed, never on a repaint.
+    const stepNow = `${run.runId}:${run.i}`;
+    const enter = P.arcStep !== undefined && P.arcStep !== stepNow;
+    P.arcStep = stepNow;
     if (frac != null) {
-      body += `<circle class="p-arc" data-p-arc cx="${mid}" cy="${mid}" r="${r}" stroke-width="${stroke}"
+      body += `<circle class="p-arc ${enter ? 'enter' : ''}" data-p-arc cx="${mid}" cy="${mid}" r="${r}" stroke-width="${stroke}"
         stroke-dasharray="${(frac * c).toFixed(2)} ${c.toFixed(2)}" transform="rotate(-90 ${mid} ${mid})" ${frac <= 0 ? 'style="opacity:0"' : ''}/>`;
     }
     // The inner ring: confirmed sets, green only once confirmed.
@@ -841,7 +847,9 @@ function paintArc() {
     const frac = arcDash(run, st, performance.now());
     if (frac != null) {
       el.setAttribute('stroke-dasharray', `${(frac * RING.c).toFixed(2)} ${RING.c.toFixed(2)}`);
-      el.style.opacity = frac <= 0 ? '0' : '';
+      // Opacity only when it changes (Fable B8): the dash is the one write a frame.
+      const hide = frac <= 0;
+      if (el.__hidden !== hide) { el.style.opacity = hide ? '0' : ''; el.__hidden = hide; }
     }
   }
   paintClock(performance.now());
@@ -1527,6 +1535,10 @@ export function bindPlayer(root, ctx, rerender) {
   };
 
   bindSwipe(player?.querySelector('[data-p-swipe]'), ctx);
+  // The audio context is built while nothing is moving, a moment after the
+  // player opens (Fable B6), so Start only resumes it and a swipe or an arrow
+  // never waits on it.
+  setTimeout(A.prepareAudio, 400);
   player?.addEventListener('click', (ev) => {
     const b = ev.target.closest('[data-p]');
     if (!b || b.disabled || !player.contains(b)) return;

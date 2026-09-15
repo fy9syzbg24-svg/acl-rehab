@@ -24,6 +24,8 @@ import { dayRing, ringLegend } from '../dayring.js';
 import { renderSuppGroups, bindSuppGroups, suppScore, prnSummary, suppTime, onSuppTime } from './supplements.js';
 import { itemStatus, isDone, sidesFor, setLogged, newEntriesFor as makeEntries, runsFor } from '../logging.js';
 import { startExercise, startWorkout, resumePlayer, draftInfo, workoutQueue, readyAfter, fmtTime12 } from '../player/player.js';
+import { growIn, foldAway, insertBody, patchHead } from '../fold.js';
+import { parse, morph } from '../morph.js';
 
 const EFFUSION = ['', 'Zero', 'Trace', '1+', '2+', '3+'];
 const ALL_ITEMS = REHAB_PROGRAM.concat(GYM_PROGRAM);
@@ -43,9 +45,17 @@ function restItems(iso) {
 }
 
 /** Minutes for a row: his number, else the estimate; cardio uses last time. */
+const minsMemo = { rev: -1, byId: new Map() };
 function rowMinutes(item, ex = exerciseById(item.ex)) {
+  // Once per item per document revision: the head, the row and the fold all
+  // ask, and a tick patches all three (B2).
+  if (minsMemo.rev !== state.rev) { minsMemo.rev = state.rev; minsMemo.byId.clear(); }
+  const hit = minsMemo.byId.get(item.id);
+  if (hit) return hit;
   const last = ex?.cardio ? num(lastEntry(item.ex, 'B')?.time) : null;
-  return minutesFor(item, ex, state.data, last, runsFor(state.data, state.rev, item.id));
+  const m = minutesFor(item, ex, state.data, last, runsFor(state.data, state.rev, item.id));
+  minsMemo.byId.set(item.id, m);
+  return m;
 }
 
 /** Green means every required side confirmed. See itemStatus in logging.js. */
@@ -191,14 +201,13 @@ function dayHead(iso, planned, extras, entries, ctx) {
         ${est ? `<div class="sum-est">${esc(est)}${plan.clinic ? ` · ${esc(plan.sub)}` : ''}</div>` : ''}
         ${planned.length > 12 ? ringLegend(planned) : ''}
       </div>
-      ${planned.length ? ring.html : ''}
+      ${planned.length ? ring.html : '<span class="dayring-slot" aria-hidden="true"></span>'}
     </div>
   </header>
   ${workoutButton(iso)}
   ${statusLine(iso, planned, entries, ctx)}`;
 }
 
-const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 const cap = (t) => (t ? t[0].toUpperCase() + t.slice(1) : t);
 
 /**
@@ -430,14 +439,19 @@ function extraRow(e, iso, ctx) {
   </div>`;
 }
 
+/** The fold's one line, on its own so a tick can patch it (B2). */
+function restSummary(rows, entries, label) {
+  const done = rows.filter((p) => isLogged(p, entries)).length;
+  return `<summary>${esc(label)} · ${rows.length}${done ? ` <span class="good">${done} done</span>` : ''}</summary>`;
+}
+
 /** The folded group under the list. Open state lives on ctx so a tick does not close it. */
 function restGroup(rows, iso, entries, ctx, label) {
   if (!rows.length) return '';
-  const done = rows.filter((p) => isLogged(p, entries)).length;
   return `
   <details class="fold" data-rest="openRest" ${ctx.openRest ? 'open' : ''}>
-    <summary>${esc(label)} · ${rows.length}${done ? ` <span class="good">${done} done</span>` : ''}</summary>
-    <div class="checklist">${rows.map((p) => checkRow(p, iso, entries, ctx)).join('')}</div>
+    ${restSummary(rows, entries, label)}
+    <div class="fold-body"><div class="fold-clip"><div class="checklist">${rows.map((p) => checkRow(p, iso, entries, ctx)).join('')}</div></div></div>
   </details>`;
 }
 
@@ -561,17 +575,20 @@ function entryChips(mine) {
  * Month 3 the plan asks for landing, running and dance work that no program
  * row holds, and this is where that gets logged.
  */
+function goalsSummary(groups) {
+  return `<summary>This week's targets · ${groups.filter((g) => g.met).length}/${groups.length} met</summary>`;
+}
+
 function goalsGroup(iso, entries, ctx) {
   const groups = goalGroups(iso);
   if (!groups.length) return '';
   const month = monthForDate(iso);
-  const met = groups.filter((g) => g.met).length;
   const openKey = ctx.openGoal === undefined ? (groups.find((g) => !g.met)?.t.id ?? null) : ctx.openGoal;
 
   return `
   <details class="fold" data-rest="openGoals" ${ctx.openGoals ? 'open' : ''}>
-    <summary>This week's targets · ${met}/${groups.length} met</summary>
-    <div class="goalbox">
+    ${goalsSummary(groups)}
+    <div class="fold-body"><div class="fold-clip"><div class="goalbox">
     ${groups.map((g) => {
       const open = openKey === g.t.id;
       const all = allExercises().filter((x) => g.t.tagged ? x.tag === g.t.tagged : g.t.cats.includes(x.cat));
@@ -609,7 +626,7 @@ function goalsGroup(iso, entries, ctx) {
         </div>` : ''}
       </div>`;
     }).join('')}
-    </div>
+    </div></div></div>
   </details>`;
 }
 
@@ -651,7 +668,7 @@ function kneeCard(c, ctx) {
         <span class="sub">${kneeSummary(c)}</span></span>
       <span class="chev">⌄</span>
     </button>
-    ${ctx.openKnees ? `<div class="card-body">
+    ${ctx.openKnees ? `<div class="fold-body"><div class="fold-clip"><div class="card-body">
       ${legBlock('L', 'Left', c)}
       ${legBlock('R', 'Right', c)}
       <div class="row" style="margin-top:.5rem">
@@ -667,7 +684,7 @@ function kneeCard(c, ctx) {
       <label class="fld" style="margin-top:.5rem">Notes
         <textarea data-ck="notes" placeholder="How it felt, anything that flared, sleep, mood">${esc(c.notes || '')}</textarea>
       </label>
-    </div>` : ''}
+    </div></div></div>` : ''}
   </section>`;
 }
 
@@ -899,7 +916,17 @@ function entryFields(e, ex) {
  * The most recent earlier day with something LOGGED from the program, so
  * "Same as last time" copies a real session, not a day that was only looked at.
  */
+const lastSessionMemo = { rev: -1, iso: null, value: null };
 function lastSessionFor(iso) {
+  // Read once per document revision (Fable B4): the day menu was scanning
+  // every day's entries on each open, 30 ms at 6x CPU.
+  if (lastSessionMemo.rev === state.rev && lastSessionMemo.iso === iso) return lastSessionMemo.value;
+  lastSessionMemo.value = lastSessionScan(iso);
+  lastSessionMemo.rev = state.rev;
+  lastSessionMemo.iso = iso;
+  return lastSessionMemo.value;
+}
+function lastSessionScan(iso) {
   const ids = new Set(ALL_ITEMS.map((p) => p.id));
   const prev = Object.keys(state.data.days)
     .filter((k) => k < iso && (state.data.days[k].entries || []).some((e) => e.logged && ids.has(e.pid)))
@@ -1134,11 +1161,133 @@ function editReadyTime(iso, rerender) {
   });
 }
 
+// ---------------------------------------------------------- patch a tick ----
+/**
+ * After a tick, patch only what a tick can change (Fable B2): the head (count,
+ * estimate, ring), Start, the status line, the ticked rows, the recovery line,
+ * the two fold summaries and the foot. Each is rendered on its own and morphed
+ * into place; rendering the whole page to find them cost 20 ms at 6x CPU.
+ * Returns false when any piece cannot be patched; the caller then patches the
+ * whole view (or repaints it).
+ *
+ * The ticked row is patched in the tap; everything else once that frame has
+ * been drawn, so the tick itself shows at once (tickPatch).
+ */
+function patchToday(page, iso, ctx, keys, { rows = true, rest = true } = {}) {
+  if (!page || !page.isConnected || (ctx.date || todayIso()) !== iso) return false;
+  const day = getDay(iso);
+  const entries = day?.entries || [];
+  const planned = plannedItems(iso);
+  const extras = entries.filter((e) => !e.pid);
+  const pairs = [];
+  const one = (html) => parse(html).firstElementChild;
+
+  if (rows) {
+    for (const key of keys) {
+      const item = ALL_ITEMS.find((p) => p.id === key);
+      const live = item
+        ? page.querySelector(`.crow[data-pid="${CSS.escape(key)}"]`)
+        : page.querySelector(`[data-etoggle="${CSS.escape(key)}"]`)?.closest('.crow');
+      const e = item ? null : entries.find((x) => x.id === key);
+      if (!live || (!item && !e)) return false;
+      pairs.push([live, one(item ? checkRow(item, iso, entries, ctx) : extraRow(e, iso, ctx))]);
+    }
+  }
+  if (!rest) {
+    for (const [live, tpl] of pairs) if (!tpl || !morph(live, tpl)) return false;
+    return true;
+  }
+
+  const head = page.querySelector(':scope > header.today-head');
+  const headTpl = [...parse(dayHead(iso, planned, extras, entries, ctx)).children];
+  const liveHead = [head, head?.nextElementSibling, head?.nextElementSibling?.nextElementSibling];
+  if (headTpl.length !== 3 || liveHead.some((x) => !x)) return false;
+  headTpl.forEach((t, i) => pairs.push([liveHead[i], t]));
+
+  const first = planned.find((p) => p.first);
+  const rec = page.querySelector(':scope > .recovery-line');
+  if (first && planned.some((p) => !p.first)) {
+    if (!rec) return false;
+    pairs.push([rec, one(recoveryLine(first, iso, planned, entries))]);
+  } else if (rec) return false;
+
+  // The fold summaries are plain text; render them without their rows.
+  const restLive = page.querySelector('details[data-rest="openRest"] > summary');
+  if (restLive) {
+    const label = planned.length ? 'Not planned today' : 'All exercises';
+    pairs.push([restLive, one(`<details>${restSummary(restItems(iso), entries, label)}</details>`)?.firstElementChild]);
+  }
+  const goalsLive = page.querySelector('details[data-rest="openGoals"] > summary');
+  if (goalsLive) {
+    // An open goal group lists rows that a tick may change: patch the view.
+    if (goalsLive.parentElement.open) return false;
+    pairs.push([goalsLive, one(`<details>${goalsSummary(goalGroups(iso))}</details>`)?.firstElementChild]);
+  }
+  const footLive = page.querySelector(':scope > .today-foot');
+  const footTpl = one(weekFoot(iso) || '<i></i>');
+  if (!!footLive !== (footTpl?.tagName === 'BUTTON')) return false;
+  if (footLive) pairs.push([footLive, footTpl]);
+
+  for (const [live, tpl] of pairs) if (!tpl || !morph(live, tpl)) return false;
+  return true;
+}
+
+function tickPatch(page, iso, ctx, key, rerender) {
+  if (!patchToday(page, iso, ctx, [key], { rest: false })) { rerender({ soft: true }); return; }
+  requestAnimationFrame(() => setTimeout(() => {
+    if (!page.isConnected || (ctx.date || todayIso()) !== iso) return;
+    if (!patchToday(page, iso, ctx, [], { rows: false })) rerender({ soft: true });
+  }, 0));
+}
+
+// ------------------------------------------------------- open in place ----
+const PANEL_OPEN_MS = 280;
+const PANEL_CLOSE_MS = 240;
+const FOLD_OPEN_MS = 220;
+const FOLD_CLOSE_MS = 180;
+
+/** Open a row where it is: render it alone, patch its head, grow its body. */
+function openRow(row, key, item, iso, ctx, rerender) {
+  const entries = getDay(iso)?.entries || [];
+  let html;
+  if (item) html = checkRow(item, iso, entries, ctx);
+  else {
+    const e = entries.find((x) => x.id === key);
+    if (!e) return false;
+    html = extraRow(e, iso, ctx);
+  }
+  const body = insertBody(row, html, '.crow-body');
+  if (!body) return false;
+  bindToday(body, ctx, rerender);
+  row.classList.add('just-open');                // outline and chevron ease in
+  setTimeout(() => row.classList.remove('just-open'), PANEL_OPEN_MS + 40);
+  growIn(body, PANEL_OPEN_MS);
+  return true;
+}
+
+/**
+ * Fold a row's body away, then take it out in place. No repaint at the end
+ * (2026-09-15, "choppier when closing"): the outline eases back to exactly a
+ * plain row's spacing, so the last frame and the plain row are identical.
+ */
+function closeRow(row, key, ctx, clear = true) {
+  const body = row.querySelector(':scope > .crow-body');
+  row.querySelector(':scope > .crow-head [data-rowclick]')?.setAttribute('aria-expanded', 'false');
+  if (clear && ctx.editing === key) ctx.editing = null;
+  if (!body) { row.classList.remove('open', 'editing'); return; }
+  row.classList.add('closing');
+  foldAway(body, PANEL_CLOSE_MS, () => {
+    body.remove();
+    row.classList.remove('open', 'editing', 'closing');
+  });
+}
+
 // ---------------------------------------------------------------- bind ----
 export function bindToday(root, ctx, rerender) {
   const iso = ctx.date || todayIso();
   // One-shot animation flags: consumed by this render, gone for the next.
   ctx.pop = null;
+
 
   if (ctx.flash) {
     const el = root.querySelector('.crow.flash');
@@ -1156,6 +1305,7 @@ export function bindToday(root, ctx, rerender) {
     scrollToEl(root.querySelector('[data-rest="openGoals"]'));
   }
 
+  // Another date repaints in full: every handler here is bound to the date.
   root.querySelectorAll('[data-nav]').forEach((b) => b.addEventListener('click', () => {
     const v = b.dataset.nav;
     ctx.date = v === 'today' ? todayIso() : addDays(iso, Number(v));
@@ -1202,9 +1352,21 @@ export function bindToday(root, ctx, rerender) {
     e.stopPropagation();
     openPicture(b.dataset.bigpic);
   }));
+  // The knee check-in opens and closes in place (Fable B5).
   root.querySelectorAll('[data-panel="knees"]').forEach((b) => b.addEventListener('click', () => {
+    const card = b.closest('.kneerow');
     ctx.openKnees = !ctx.openKnees;
-    rerender();
+    const html = kneeCard(getDay(iso)?.checkin || {}, ctx);
+    if (ctx.openKnees) {
+      const body = card && insertBody(card, html, '.fold-body');
+      if (!body) { rerender(); return; }
+      bindToday(body, ctx, rerender);
+      growIn(body, FOLD_OPEN_MS);
+      return;
+    }
+    const body = card?.querySelector(':scope > .fold-body');
+    if (!body || !patchHead(card, html, '.fold-body')) { rerender(); return; }
+    foldAway(body, FOLD_CLOSE_MS, () => { if (!ctx.openKnees) body.remove(); });
   }));
 
   root.querySelectorAll('[data-ck]').forEach((inp) => {
@@ -1244,8 +1406,11 @@ export function bindToday(root, ctx, rerender) {
     });
     if (cb.checked) testToast(recordAsTests(iso, ensureDay(iso).entries.filter((e) => e.pid === pid)));
     // A tick never folds a row he has open to correct (ring design decision 2).
+    // Patched in place (Fable B2): the row, the count, the ring, Start and the
+    // status line change; nothing is rebuilt, so no photo decodes again.
     ctx.pop = cb.checked ? pid : null;
-    rerender();
+    tickPatch(cb.closest('.today'), iso, ctx, pid, rerender);
+    ctx.pop = null;
   }));
 
   // Same for a row he added himself.
@@ -1259,33 +1424,24 @@ export function bindToday(root, ctx, rerender) {
       testToast(e ? recordAsTests(iso, [e]) : []);
     }
     ctx.pop = cb.checked ? cb.dataset.etoggle : null;
-    rerender();
+    tickPatch(cb.closest('.today'), iso, ctx, cb.dataset.etoggle, rerender);
+    ctx.pop = null;
   }));
 
   // Tapping the name opens the row for numbers, or closes it again. Closing
   // this way does not mark it done.
+  //
+  // Both happen in place (Fable B1). Opening renders just this row, patches
+  // its head and puts the body in under it, so nothing else on the page is
+  // rebuilt and no photo decodes again; another open row folds away at the
+  // same time. Closing folds the body away and takes it out.
   root.querySelectorAll('[data-rowclick]').forEach((el) => el.addEventListener('click', () => {
     const key = el.dataset.rowclick;
     const item = ALL_ITEMS.find((p) => p.id === key);
     const row = el.closest('.crow');
-    const body = row?.querySelector('.crow-body');
-    const closing = ctx.editing === key;
-    if (closing && body && !reducedMotion()) {
-      // Fold up (180 ms) while the outline eases back to a plain row and the
-      // chevron turns back, then take the body out in place. No repaint of the
-      // page at the end (2026-09-15, "choppier when closing"): the old version
-      // redrew everything as the fold finished, and the outline's spacing
-      // vanished in that frame, so every row below jumped up at once.
-      el.setAttribute('aria-expanded', 'false');
-      row.classList.add('closing');
-      body.classList.add('animating', 'closing');
-      requestAnimationFrame(() => body.classList.add('shut'));
-      setTimeout(() => {
-        if (ctx.editing !== key) return;
-        ctx.editing = null;
-        body.remove();
-        row.classList.remove('open', 'editing', 'closing');
-      }, 260);
+    const page = el.closest('.today') || document;
+    if (ctx.editing === key && row?.querySelector(':scope > .crow-body')) {
+      closeRow(row, key, ctx);
       return;
     }
     const d = ensureDay(iso);
@@ -1293,33 +1449,29 @@ export function bindToday(root, ctx, rerender) {
     if (item && !has) {
       update(() => { d.entries.push(...newEntriesFor(item, exerciseById(item.ex), false)); });
     }
-    ctx.editing = closing ? null : key;
-    ctx.justOpened = closing ? null : key;
+    const was = ctx.editing;
+    const other = was && was !== key
+      ? page.querySelector(`.crow.open > .crow-head [data-rowclick="${CSS.escape(was)}"]`)?.closest('.crow')
+      : null;
+    ctx.editing = key;
+    if (row && openRow(row, key, item, iso, ctx, rerender)) {
+      if (other) closeRow(other, was, ctx, false);
+      return;
+    }
+    ctx.justOpened = key;
     rerender();
   }));
-  // The row that just opened grows from under its summary (220 ms).
-  //
-  // 2026-09-15, "a bit choppy" on his iPhone. Measured: the old version read
-  // the body's height before the exercise photo had loaded, animated to that
-  // (307px), then snapped to the real height (477px) when the photo arrived.
-  // Now the body is a one-row grid going from 0fr to 1fr: the row tracks the
-  // content itself, so a photo that loads mid-way just carries on growing, and
-  // nothing is measured or snapped.
+  // A full repaint that opened a row (a fallback, or a row opened from
+  // elsewhere) grows it the same way.
   if (ctx.justOpened) {
     const key = ctx.justOpened;
     ctx.justOpened = null;
     const body = [...root.querySelectorAll('.crow.open .crow-body')].find((b) => b.id === `row-${key}`);
-    if (body && !reducedMotion()) {
+    if (body) {
       const row = body.closest('.crow');
-      row?.classList.add('just-open');              // outline and chevron ease in
-      setTimeout(() => row?.classList.remove('just-open'), 300);
-      body.classList.add('shut');
-      void body.offsetHeight;                       // start from closed
-      body.classList.add('animating', 'fading');
-      requestAnimationFrame(() => {
-        body.classList.remove('shut');
-        setTimeout(() => body.classList.remove('animating', 'fading'), 300);
-      });
+      row?.classList.add('just-open');
+      setTimeout(() => row?.classList.remove('just-open'), 320);
+      growIn(body, PANEL_OPEN_MS);
     }
   }
 
@@ -1336,6 +1488,24 @@ export function bindToday(root, ctx, rerender) {
 
   root.querySelectorAll('[data-rest]').forEach((d) => d.addEventListener('toggle', () => {
     ctx[d.dataset.rest] = d.open;
+  }));
+  // The two folds under the list open and close like everything else (B5).
+  root.querySelectorAll('details[data-rest] > summary').forEach((sum) => sum.addEventListener('click', (ev) => {
+    const d = sum.parentElement;
+    const body = d.querySelector(':scope > .fold-body');
+    if (!body || d.classList.contains('closing')) { if (body) ev.preventDefault(); return; }
+    ev.preventDefault();
+    if (!d.open) {
+      d.open = true;
+      growIn(body, FOLD_OPEN_MS);
+      return;
+    }
+    d.classList.add('closing');
+    foldAway(body, FOLD_CLOSE_MS, () => {
+      d.open = false;
+      d.classList.remove('closing');
+      body.classList.remove('animating', 'closing', 'shut');
+    });
   }));
 
   root.querySelectorAll('[data-entry] [data-f]').forEach((inp) => {

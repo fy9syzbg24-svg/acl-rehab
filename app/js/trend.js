@@ -15,6 +15,7 @@
 // pin. A selection change patches the chart in place; nothing re-renders, so
 // the values update at once while the guide glides over 160 ms.
 
+import { parse } from './morph.js';
 import { esc, round, fmtDate, fromIso, toKg, fromKg } from './util.js';
 import { state, measurementsFor } from './store.js';
 import { MEASURES, MEASURE_BY_ID, UNIT_LABEL } from '../data/measurements.js';
@@ -119,7 +120,9 @@ const recId = (r, i) => String(r.id || `${r.date}:${i}`);
  * The chart, its controls and its selected-record panel.
  * opts: { key, width, compact, measures }
  */
+const lastOpts = {};   // key -> the options it was last drawn with, to redraw it alone
 export function renderTrend(ctx, { key = 'overview', width = 640, compact = false, measures = null } = {}) {
+  lastOpts[key] = { key, width, compact, measures };
   const list = chartableMeasures(measures);
   ctx.trend ||= {};
   const st = (ctx.trend[key] ||= {});
@@ -350,7 +353,20 @@ export function bindTrend(root, ctx, rerender, { onOpen, onRecord } = {}) {
       const hit = e.target.closest('[data-tr-date]');
       if (hit) { pin(hit.dataset.trDate); return; }
       const rb = e.target.closest('[data-tr-range]');
-      if (rb) { st.range = rb.dataset.trRange; rerender(); return; }
+      if (rb) {
+        // A new range redraws this chart only, fading in on the open token
+        // (Fable B10); the page around it stays as it is.
+        st.range = rb.dataset.trRange;
+        const next = lastOpts[key] && parse(renderTrend(ctx, lastOpts[key])).firstElementChild;
+        if (!next || !wrap.parentElement) { rerender(); return; }
+        const holder = wrap.parentElement;
+        const focused = document.activeElement === rb;
+        wrap.replaceWith(next);
+        next.querySelector('.tr-plot, .tr-empty')?.classList.add('tr-enter');
+        bindTrend(holder, ctx, rerender, { onOpen, onRecord });
+        if (focused) next.querySelector(`[data-tr-range="${CSS.escape(st.range)}"]`)?.focus({ preventScroll: true });
+        return;
+      }
       const b = e.target.closest('[data-tr-open]');
       if (b && onOpen) onOpen(b.dataset.trOpen, b.dataset.trOpeniso);
     });

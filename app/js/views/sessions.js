@@ -9,6 +9,8 @@
 // the same record in the same editor Today uses; nothing here is a second
 // editable copy.
 
+import { parse } from '../morph.js';
+import { growIn, foldAway } from '../fold.js';
 import { esc, round, num, fmtDate, todayIso } from '../util.js';
 import { state } from '../store.js';
 import { REHAB_PROGRAM, GYM_PROGRAM, BAND_BY_ID } from '../../data/program.js';
@@ -139,14 +141,14 @@ export function renderSessions(ctx, { limit = null } = {}) {
   if (limit && !shown.length) return '<div class="sess-empty">No sessions recorded yet</div>';
   const sel = limit ? null : (shown.find((s) => s.id === h.sel) || null);
   const row = (s) => `
-    <tr class="sess-row ${sel?.id === s.id ? 'sel' : ''}" data-sess="${esc(s.id)}" data-focus-key="sess:${esc(s.id)}" tabindex="0" aria-selected="${sel?.id === s.id}">
+    <tr class="sess-row ${sel?.id === s.id ? 'sel' : ''}" data-sess="${esc(s.id)}" data-focus-key="sess:${esc(s.id)}" tabindex="0"${sel?.id === s.id ? ' aria-current="true"' : ''}>
       <td class="sess-date"><span class="sess-k">Date</span><span class="sess-v">${esc(fmtDate(s.iso, 'short'))}${s.iso === todayIso() ? ' <span class="sess-today">today</span>' : ''}</span></td>
       <td class="sess-name"><span class="sess-k">Exercise</span><span class="sess-v">${esc(s.name)}</span></td>
       <td class="sess-work"><span class="sess-k">Actual work</span><span class="sess-v">${esc(sessionWork(s))}</span></td>
       <td class="sess-time ${s.timing ? '' : 'none'}"><span class="sess-k">Work + rest</span><span class="sess-v">${esc(timeText(s.timing))}</span></td>
       <td class="sess-src"><span class="sess-k">Source</span><span class="sess-v">${esc(s.source)}</span></td>
     </tr>
-    ${sel?.id === s.id ? `<tr class="sess-inline"><td colspan="5"><div class="sess-detail">${detail(s)}</div></td></tr>` : ''}`;
+    ${sel?.id === s.id ? `<tr class="sess-inline"><td colspan="5"><div class="fold-body"><div class="fold-clip"><div class="sess-detail">${detail(s)}</div></div></div></td></tr>` : ''}`;
   const table = `<table class="sess-table">
       <thead><tr><th>Date</th><th>Exercise</th><th>Actual work</th><th>Work + rest</th><th>Source</th></tr></thead>
       <tbody>${shown.map(row).join('')}</tbody></table>`;
@@ -193,32 +195,87 @@ export function bindSessions(root, ctx, rerender, { onEdit } = {}) {
     rerender();
     root.querySelector('[data-hist="src"]')?.focus({ preventScroll: true });
   });
-  root.querySelector('[data-sess-more]')?.addEventListener('click', () => {
+  // Show more and a selection are patched into the table in place (Fable
+  // B10): the rows already there keep their nodes and the page does not move.
+  const fresh = () => parse(renderSessions(ctx)).firstElementChild;
+  const bindMore = (btn) => btn?.addEventListener('click', () => {
     h.pages = (h.pages || 1) + 1;
-    rerender();
+    const sess = btn.closest('.sess');
+    const next = sess && fresh();
+    const body = sess?.querySelector('.sess-table tbody');
+    const nextBody = next?.querySelector('.sess-table tbody');
+    const more = sess?.querySelector('.sess-more');
+    const nextMore = next?.querySelector('.sess-more');
+    if (!body || !nextBody || !more || !nextMore) { rerender(); return; }
+    const have = new Set([...body.querySelectorAll('[data-sess]')].map((tr) => tr.dataset.sess));
+    const added = [...nextBody.children].filter((tr) => {
+      const id = tr.dataset.sess || tr.previousElementSibling?.dataset.sess;
+      return !have.has(id);
+    });
+    const firstNew = added.find((tr) => tr.dataset.sess);
+    added.forEach((tr) => body.appendChild(tr));
+    added.filter((tr) => tr.dataset.sess).forEach(bindRow);
+    added.forEach((tr) => tr.querySelectorAll('[data-sess-edit]').forEach(bindEdit));
+    more.replaceWith(nextMore);
+    bindMore(nextMore.querySelector('[data-sess-more]'));
+    firstNew?.focus({ preventScroll: true });
   });
-  const pick = (id) => { h.sel = h.sel === id ? null : id; rerender(); };
-  root.querySelectorAll('.sess:not(.compact) [data-sess]').forEach((tr) => {
+  bindMore(root.querySelector('[data-sess-more]'));
+  const pick = (id) => {
+    h.sel = h.sel === id ? null : id;
+    const sess = root.closest?.('.sess') || root.querySelector('.sess:not(.compact)') || document.querySelector('.sess:not(.compact)');
+    const next = sess && fresh();
+    const body = sess?.querySelector('.sess-table tbody');
+    const panel = sess?.querySelector('.sess-panel');
+    const nextPanel = next?.querySelector('.sess-panel');
+    if (!body || !panel || !nextPanel) { rerender(); return; }
+    body.querySelectorAll('.sess-inline:not(.sess-leaving)').forEach((tr) => {
+      const fb = tr.querySelector('.fold-body');
+      tr.classList.add('sess-leaving');
+      foldAway(fb, 180, () => tr.remove());
+    });
+    body.querySelectorAll('[data-sess]').forEach((tr) => {
+      const on = tr.dataset.sess === h.sel;
+      tr.classList.toggle('sel', on);
+      if (on) tr.setAttribute('aria-current', 'true'); else tr.removeAttribute('aria-current');
+    });
+    if (h.sel) {
+      const liveRow = body.querySelector(`[data-sess="${CSS.escape(h.sel)}"]`);
+      const inline = next.querySelector(`[data-sess="${CSS.escape(h.sel)}"]`)?.nextElementSibling;
+      if (liveRow && inline?.classList.contains('sess-inline')) {
+        liveRow.after(inline);
+        inline.querySelectorAll('[data-sess-edit]').forEach(bindEdit);
+        growIn(inline.querySelector('.fold-body'), 220);
+      }
+    }
+    panel.replaceWith(nextPanel);
+    nextPanel.querySelectorAll('[data-sess-edit]').forEach(bindEdit);
+  };
+  function bindRow(tr) {
     tr.addEventListener('click', () => pick(tr.dataset.sess));
     tr.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(tr.dataset.sess); }
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
         e.preventDefault();
-        const rows = [...root.querySelectorAll('.sess:not(.compact) [data-sess]')];
+        const rows = [...tr.closest('tbody').querySelectorAll('[data-sess]')];
         const i = rows.indexOf(tr) + (e.key === 'ArrowDown' ? 1 : -1);
         rows[Math.max(0, Math.min(rows.length - 1, i))]?.focus();
       }
     });
-  });
+  }
+  root.querySelectorAll('.sess:not(.compact) [data-sess]').forEach(bindRow);
   // A recent session on Overview opens History with it selected.
   root.querySelectorAll('.sess.compact [data-sess]').forEach((tr) => {
     const go = () => { h.sel = tr.dataset.sess; h.src = 'all'; h.ex = 'all'; ctx.gtab = 'history'; rerender(); };
     tr.addEventListener('click', go);
     tr.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
   });
-  root.querySelectorAll('[data-sess-edit]').forEach((b) => b.addEventListener('click', (e) => {
-    e.stopPropagation();
-    const s = collectSessions(state.data).find((x) => x.id === b.dataset.sessEdit);
-    if (s && onEdit) onEdit(s);
-  }));
+  function bindEdit(b) {
+    b.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const s = collectSessions(state.data).find((x) => x.id === b.dataset.sessEdit);
+      if (s && onEdit) onEdit(s);
+    });
+  }
+  root.querySelectorAll('[data-sess-edit]').forEach(bindEdit);
 }

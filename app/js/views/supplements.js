@@ -19,6 +19,8 @@
 // kept all twenty. Anything seeded independently on multiple devices must
 // derive its id from its content so every device produces the same record.
 
+import { parse, morph } from '../morph.js';
+import { growIn, foldAway, insertBody, patchHead } from '../fold.js';
 import { esc, todayIso, currentDayIso, uid, fmtDate, onTimePicked } from '../util.js';
 import { state, update, ensureDay, getDay } from '../store.js';
 import { renderDatePill, bindDatePill, openModal, closeModal, toast } from '../components.js';
@@ -208,9 +210,9 @@ export function renderSuppGroups(iso, ctx, { edit = false } = {}) {
           <span class="sg-count ${done ? 'good' : ''}">${done ? `${checkSvg}All taken` : `${taken} of ${rows.length}`}</span>
           <span class="sg-chev" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 9.5l6 6 6-6"/></svg></span>
         </button>
-        ${open ? `<div class="supplist ${edit ? 'editing' : ''}" data-dropzone="${key}">
+        ${open ? `<div class="fold-body"><div class="fold-clip"><div class="supplist ${edit ? 'editing' : ''}" data-dropzone="${key}">
           ${rows.map((s) => suppRow(s, iso, ticks, ctx, edit)).join('')}
-        </div>` : ''}
+        </div></div></div>` : ''}
       </section>`;
   };
   if (!list.length) return '<div class="tiny muted">Nothing on the list for this day.</div>';
@@ -248,11 +250,28 @@ function suppRow(s, iso, ticks, ctx, edit) {
 
 /** Tick and fold handlers for the shared rows. */
 export function bindSuppGroups(root, iso, ctx, rerender) {
+  // A group folds and unfolds in place (Fable B5); while reordering, the
+  // whole list repaints so the drag handles are bound.
   root.querySelectorAll('[data-suppgroup]').forEach((b) => b.addEventListener('click', () => {
     const k = b.dataset.suppgroup;
     ctx.suppOpen = { ...(ctx.suppOpen || {}) };
     ctx.suppOpen[k] = !(ctx.suppOpen[k] ?? true);
-    rerender();
+    const sec = b.closest('.suppgroup');
+    const edit = !!sec?.querySelector('.supplist.editing') || !!(ctx.suppEdit && b.closest('.supps-page'));
+    if (!sec || edit) { rerender(); return; }
+    const tpl = [...parse(`<div>${renderSuppGroups(iso, ctx)}</div>`).firstElementChild.children]
+      .find((x) => x.querySelector(`[data-suppgroup="${CSS.escape(k)}"]`));
+    if (!tpl) { rerender(); return; }
+    if (ctx.suppOpen[k]) {
+      const body = insertBody(sec, tpl, '.fold-body');
+      if (!body) { rerender(); return; }
+      bindSuppGroups(body, iso, ctx, rerender);
+      growIn(body, 220);
+      return;
+    }
+    const body = sec.querySelector(':scope > .fold-body');
+    if (!body || !patchHead(sec, tpl, '.fold-body')) { rerender(); return; }
+    foldAway(body, 180, () => { if (!(ctx.suppOpen?.[k] ?? true)) body.remove(); });
   }));
 
   // The time wheel on a ticked row: when he actually took it, for the mornings
@@ -275,7 +294,7 @@ export function bindSuppGroups(root, iso, ctx, rerender) {
         if (day.supps[inp.dataset.supptime]) day.supps[inp.dataset.supptime] = at.toISOString();
         suppTimeHook?.(iso, inp.dataset.supptime, at);
       });
-      rerender();
+      rerender({ soft: true });
     });
   });
 
@@ -291,9 +310,18 @@ export function bindSuppGroups(root, iso, ctx, rerender) {
       // clock on yesterday's list. He can set the real time with the chip.
       else day.supps[id] = iso === currentDayIso() ? new Date().toISOString() : true;
     });
+    // Patched in place (Fable B2): the row in the tap, so the tick shows at
+    // once; the group count, All taken and the page's own totals once that
+    // frame is drawn.
     ctx.suppPop = on ? id : null;    // one render's worth of pop
-    rerender();
+    const row = cb.closest('.supprow');
+    const edit = !!row?.closest('.supplist.editing');
+    const tpl = row && parse(`<div>${renderSuppGroups(iso, ctx, { edit })}</div>`).firstElementChild
+      .querySelector(`.supprow[data-row="${CSS.escape(id)}"]`);
+    const ok = !!tpl && morph(row, tpl);
+    if (!ok) rerender({ soft: true });
     ctx.suppPop = null;
+    if (ok) requestAnimationFrame(() => setTimeout(() => { if (cb.isConnected) rerender({ soft: true }); }, 0));
   }));
 }
 
@@ -379,7 +407,7 @@ function renderPrn(ctx, iso) {
           : Math.max(0, Math.min(100, 100 - (st.msLeft / ((Number(m.waitHours) || 1) * 3600e3)) * 100));
         return `
         <div class="prnrow ${st.clear ? 'clear' : 'waiting'}" data-prn-row="${esc(m.id)}">
-          <i class="prnfill" style="width:${pctElapsed.toFixed(1)}%"></i>
+          <i class="prnfill" style="--p:${(pctElapsed / 100).toFixed(3)}"></i>
           <div class="prngrid">
             <span class="prnname">${esc(m.name)}</span>
             <span class="prndose tiny muted">${esc(m.dose || '')}${m.waitHours ? ` · ${esc(String(m.waitHours))}h` : ''}</span>
@@ -522,7 +550,7 @@ function startPrnTicker(root) {
       const status = el.querySelector('[data-prn-status]');
       const pct = (!st.last || st.clear) ? 0
         : Math.max(0, Math.min(100, 100 - (st.msLeft / ((Number(med.waitHours) || 1) * 3600e3)) * 100));
-      if (fill) fill.style.width = `${pct.toFixed(1)}%`;
+      if (fill) fill.style.setProperty('--p', (pct / 100).toFixed(3));
       el.classList.toggle('clear', st.clear || !st.last);
       el.classList.toggle('waiting', !!st.last && !st.clear);
       if (status) {

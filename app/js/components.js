@@ -238,7 +238,7 @@ export function announce(text) {
 // and focus goes back to what opened it.
 let modalReturn = null;
 export function openModal({ title, body, footer, wide = false, onMount }) {
-  closeModal({ restore: false });
+  closeModal({ restore: false, fade: false });
   modalReturn = document.activeElement;
   const id = `m${Math.random().toString(36).slice(2, 8)}`;
   const back = el(`
@@ -306,9 +306,20 @@ function modalKeys(e) {
   else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
 }
 
-export function closeModal({ restore = true } = {}) {
+export function closeModal({ restore = true, fade = true } = {}) {
   const root = document.getElementById('modal-root');
   const had = !!root?.childElementCount;
+  // A dialog fades out over 100 ms (Fable B4), never slides. It leaves the
+  // modal root at once, so nothing treats it as open while it fades.
+  const leaving = fade && had && !matchMedia('(prefers-reduced-motion: reduce)').matches ? root.firstElementChild : null;
+  if (leaving) {
+    leaving.remove();
+    leaving.classList.add('leaving');
+    leaving.setAttribute('aria-hidden', 'true');
+    leaving.inert = true;
+    document.body.appendChild(leaving);
+    setTimeout(() => leaving.remove(), 110);
+  }
   if (root) root.innerHTML = '';
   document.removeEventListener('keydown', modalKeys);
   setInert(false);

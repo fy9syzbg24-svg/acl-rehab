@@ -1,6 +1,7 @@
 import { load, state, update, flushEdits, recoverEdits, subscribe, runSync, syncState, pendingSyncCount, onRemoteChange, surgeryDate, flushSave, saveOutstanding } from './store.js';
 import { guardPaint, whenIdle } from './editguard.js';
-import { capture, restore, scrollTop } from './paintkeep.js';
+import { capture, restore, scrollTop, edgeCues } from './paintkeep.js';
+import { morphView } from './morph.js';
 import { chipState } from './status.js';
 import { esc, todayIso, postOp, applyStoredTheme, applyTheme, THEME_KEY } from './util.js';
 import { isConfigured } from './sync/config.js';
@@ -72,7 +73,14 @@ document.addEventListener('visibilitychange', () => {
 // Repaints wait while a field is in use (editguard.js); a change of tab does not.
 const paint = guardPaint(viewEl, rawPaint, () => ctx.view !== lastView);
 
-function rawPaint() {
+function rawPaint(opts = {}) {
+  // A small change (a tick, a time, a fold's count) is patched into the page
+  // that is already there, when the view asks for it and the patch needs no new
+  // control (Fable B2, morph.js). Anything else repaints in full below.
+  if (opts.soft && ctx.view === lastView && VIEWS[ctx.view]) {
+    flushEdits();
+    if (morphView(viewEl, VIEWS[ctx.view][0](ctx))) { edgeCues(viewEl); return; }
+  }
   const y = window.scrollY;
   const [render, bind] = VIEWS[ctx.view] || VIEWS.today;
   document.body.classList.toggle('in-player', ctx.view === 'player');

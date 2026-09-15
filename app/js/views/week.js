@@ -91,7 +91,7 @@ export function renderWeekPanel(ctx) {
         <strong class="mono small">${hit} /</strong>
         <input type="number" min="0" max="14" value="${goal}" data-target="${esc(t.id)}" class="in-num">
       </span>
-      <div class="bar ${p >= 100 ? 'good' : ''}"><i style="width:${p}%"></i></div>
+      <div class="bar ${p >= 100 ? 'good' : ''}"><i style="--p:${Math.min(100, p) / 100}"></i></div>
       ${t.note ? `<div class="tiny muted tnote">${esc(t.note)}</div>` : ''}
     </div>`;
   }).join('');

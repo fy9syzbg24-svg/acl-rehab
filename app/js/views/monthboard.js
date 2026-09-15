@@ -100,7 +100,7 @@ export function markerCards(goals, el, { title = 'Markers for this month', days 
         <div class="mk-main">
           <div class="mk-title">${esc(g.text)}</div>
           ${detail ? `<div class="mk-vals">${detail}</div>` : ''}
-          <div class="mk-bar ${p.done ? 'good' : ''}" role="img" aria-label="${Math.min(100, Math.round(p.p || 0))}% of the target"><i style="width:${Math.min(100, p.p || 0)}%"></i></div>
+          <div class="mk-bar ${p.done ? 'good' : ''}" role="img" aria-label="${Math.min(100, Math.round(p.p || 0))}% of the target"><i style="--p:${Math.min(100, p.p || 0) / 100}"></i></div>
           ${pace.label ? `<div class="mk-state ${pace.cls}">${p.done ? CHECK : ''}${esc(pace.label)}</div>` : ''}
         </div>
         <button class="mk-add" data-marker="${esc(g.id)}" data-action="${action}"
