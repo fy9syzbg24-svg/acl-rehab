@@ -4,7 +4,8 @@
 // Per set, per side, as recorded: "12 + 10", never sets multiplied by the
 // best set. Work plus recovery is the player's own time; time away is kept
 // separate, in the detail. The source says where a record came from (the
-// player, a tick or typed numbers, or a PhysiApp import). The detail opens
+// player, a PhysiApp import, or "Entered here": a tick or typed numbers, which
+// older records cannot tell apart, so neither is guessed; revision 3 F45). The detail opens
 // the same record in the same editor Today uses; nothing here is a second
 // editable copy.
 
@@ -19,8 +20,10 @@ const ITEM = Object.fromEntries(REHAB_PROGRAM.concat(GYM_PROGRAM).map((p) => [p.
 function sourceOf(rows) {
   if (rows.some((e) => e.timing?.runId)) return 'Player';
   if (rows.some((e) => e.via === 'physiapp')) return 'PhysiApp';
-  return 'Manual';
+  return 'Entered here';
 }
+
+const PAGE = 50;
 
 /** One row per exercise per day (per run, when the player ran it twice). */
 export function collectSessions(doc) {
@@ -33,6 +36,7 @@ export function collectSessions(doc) {
       if (!groups.has(k)) groups.set(k, []);
       groups.get(k).push(e);
     }
+    const day = [];
     for (const [k, rows] of groups) {
       const e0 = rows[0];
       const item = e0.pid ? ITEM[e0.pid] : null;
@@ -40,8 +44,13 @@ export function collectSessions(doc) {
       const t = rows.find((e) => e.timing)?.timing || null;
       const order = { L: 0, R: 1, B: 2 };
       rows.sort((a, b) => (order[a.side || 'B'] - order[b.side || 'B']));
-      out.push({ id: `${iso}|${k}`, iso, pid: e0.pid || null, ex: e0.ex, entryId: e0.id, name, rows, timing: t, source: sourceOf(rows) });
+      const at = rows.map((e) => e.doneAt).filter(Boolean).sort().pop() || '';
+      day.push({ id: `${iso}|${k}`, iso, at, pid: e0.pid || null, ex: e0.ex, entryId: e0.id, name, rows, timing: t, source: sourceOf(rows) });
     }
+    // Within one date the order is fixed (F28): latest finish first, then by
+    // name, then by id, so a repaint or a sort change never reshuffles a day.
+    day.sort((a, b) => b.at.localeCompare(a.at) || a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
+    out.push(...day);
   }
   return out;
 }
@@ -108,28 +117,33 @@ function detail(s) {
 /**
  * The table (or labelled rows on a narrow screen) and the selected record.
  * opts.limit shows only the newest few, with no filters and no panel.
+ *
+ * Revision 3: the filters are always drawn, so an empty result can be undone
+ * where it happened (F04); Show more reaches every session, and the count
+ * reads "Showing N of M" whatever the sort (F28); each row carries a stable
+ * focus key, so choosing one keeps keyboard focus on it (F30).
  */
 export function renderSessions(ctx, { limit = null } = {}) {
-  const h = (ctx.hist ||= { sort: 'new', src: 'all', ex: 'all', sel: null });
-  let list = collectSessions(state.data);
-  const exOptions = [...new Map(list.map((s) => [s.pid || `ex:${s.ex}`, s.name])).entries()].sort((a, b) => a[1].localeCompare(b[1]));
+  const h = (ctx.hist ||= { sort: 'new', src: 'all', ex: 'all', sel: null, pages: 1 });
+  const all = collectSessions(state.data);
+  let list = all;
+  const exOptions = [...new Map(all.map((s) => [s.pid || `ex:${s.ex}`, s.name])).entries()].sort((a, b) => a[1].localeCompare(b[1]));
+  const filtered = !limit && (h.src !== 'all' || h.ex !== 'all');
   if (!limit) {
     if (h.src !== 'all') list = list.filter((s) => s.source === h.src);
     if (h.ex !== 'all') list = list.filter((s) => (s.pid || `ex:${s.ex}`) === h.ex);
     if (h.sort === 'old') list = list.slice().reverse();
-    if (h.sort === 'name') list = list.slice().sort((a, b) => a.name.localeCompare(b.name) || (a.iso < b.iso ? 1 : -1));
+    if (h.sort === 'name') list = list.slice().sort((a, b) => a.name.localeCompare(b.name) || (a.iso < b.iso ? 1 : -1) || a.id.localeCompare(b.id));
   }
-  const shown = limit ? list.slice(0, limit) : list.slice(0, 400);
-  if (!shown.length) {
-    return `<div class="sess-empty">${list.length || limit ? 'No sessions match' : 'No sessions recorded yet'}</div>`;
-  }
+  const shown = limit ? list.slice(0, limit) : list.slice(0, PAGE * (h.pages || 1));
+  if (limit && !shown.length) return '<div class="sess-empty">No sessions recorded yet</div>';
   const sel = limit ? null : (shown.find((s) => s.id === h.sel) || null);
   const row = (s) => `
-    <tr class="sess-row ${sel?.id === s.id ? 'sel' : ''}" data-sess="${esc(s.id)}" tabindex="0" aria-selected="${sel?.id === s.id}">
+    <tr class="sess-row ${sel?.id === s.id ? 'sel' : ''}" data-sess="${esc(s.id)}" data-focus-key="sess:${esc(s.id)}" tabindex="0" aria-selected="${sel?.id === s.id}">
       <td class="sess-date"><span class="sess-k">Date</span><span class="sess-v">${esc(fmtDate(s.iso, 'short'))}${s.iso === todayIso() ? ' <span class="sess-today">today</span>' : ''}</span></td>
       <td class="sess-name"><span class="sess-k">Exercise</span><span class="sess-v">${esc(s.name)}</span></td>
       <td class="sess-work"><span class="sess-k">Actual work</span><span class="sess-v">${esc(sessionWork(s))}</span></td>
-      <td class="sess-time"><span class="sess-k">Work + rest</span><span class="sess-v">${esc(timeText(s.timing))}</span></td>
+      <td class="sess-time ${s.timing ? '' : 'none'}"><span class="sess-k">Work + rest</span><span class="sess-v">${esc(timeText(s.timing))}</span></td>
       <td class="sess-src"><span class="sess-k">Source</span><span class="sess-v">${esc(s.source)}</span></td>
     </tr>
     ${sel?.id === s.id ? `<tr class="sess-inline"><td colspan="5"><div class="sess-detail">${detail(s)}</div></td></tr>` : ''}`;
@@ -137,6 +151,15 @@ export function renderSessions(ctx, { limit = null } = {}) {
       <thead><tr><th>Date</th><th>Exercise</th><th>Actual work</th><th>Work + rest</th><th>Source</th></tr></thead>
       <tbody>${shown.map(row).join('')}</tbody></table>`;
   if (limit) return `<div class="sess compact">${table}</div>`;
+  const results = shown.length ? `${table}
+      <div class="sess-more">
+        <span class="sess-count">Showing ${shown.length} of ${list.length}</span>
+        ${list.length > shown.length ? `<button class="btn sm" data-sess-more>Show ${Math.min(PAGE, list.length - shown.length)} more</button>` : ''}
+      </div>`
+    : `<div class="sess-empty" role="status">
+        <b>${all.length ? 'No sessions match' : 'No sessions recorded yet'}</b>
+        ${filtered ? '<button class="btn sm" data-sess-clear>Clear filters</button>' : ''}
+      </div>`;
   return `
   <div class="sess">
     <div class="sess-tools">
@@ -145,25 +168,35 @@ export function renderSessions(ctx, { limit = null } = {}) {
         <option value="old" ${h.sort === 'old' ? 'selected' : ''}>Oldest first</option>
         <option value="name" ${h.sort === 'name' ? 'selected' : ''}>Exercise name</option></select></label>
       <label class="fld">Source<select data-hist="src">
-        ${['all', 'Player', 'Manual', 'PhysiApp'].map((v) => `<option value="${v}" ${h.src === v ? 'selected' : ''}>${v === 'all' ? 'Every source' : v}</option>`).join('')}</select></label>
+        ${['all', 'Player', 'Entered here', 'PhysiApp'].map((v) => `<option value="${v}" ${h.src === v ? 'selected' : ''}>${v === 'all' ? 'Every source' : v}</option>`).join('')}</select></label>
       <label class="fld wide">Exercise<select data-hist="ex">
         <option value="all">Every exercise</option>
         ${exOptions.map(([k, n]) => `<option value="${esc(k)}" ${h.ex === k ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></label>
     </div>
     <div class="sess-split">
-      <div class="sess-main">${table}${list.length > shown.length ? `<div class="tiny muted">Showing the newest ${shown.length} of ${list.length}.</div>` : ''}</div>
+      <div class="sess-main">${results}</div>
       <aside class="sess-panel">${sel ? `<div class="sess-detail">${detail(sel)}</div>` : '<div class="sess-hint">Select a session to see every set.</div>'}</aside>
     </div>
   </div>`;
 }
 
 export function bindSessions(root, ctx, rerender, { onEdit } = {}) {
-  const h = (ctx.hist ||= { sort: 'new', src: 'all', ex: 'all', sel: null });
+  const h = (ctx.hist ||= { sort: 'new', src: 'all', ex: 'all', sel: null, pages: 1 });
   root.querySelectorAll('[data-hist]').forEach((sel) => sel.addEventListener('change', () => {
     h[sel.dataset.hist] = sel.value;
-    h.sel = null;
+    // A sort keeps the selection; a filter that hides it lets it go.
+    if (sel.dataset.hist !== 'sort') h.pages = 1;
     rerender();
   }));
+  root.querySelector('[data-sess-clear]')?.addEventListener('click', () => {
+    h.src = 'all'; h.ex = 'all'; h.pages = 1;
+    rerender();
+    root.querySelector('[data-hist="src"]')?.focus({ preventScroll: true });
+  });
+  root.querySelector('[data-sess-more]')?.addEventListener('click', () => {
+    h.pages = (h.pages || 1) + 1;
+    rerender();
+  });
   const pick = (id) => { h.sel = h.sel === id ? null : id; rerender(); };
   root.querySelectorAll('.sess:not(.compact) [data-sess]').forEach((tr) => {
     tr.addEventListener('click', () => pick(tr.dataset.sess));

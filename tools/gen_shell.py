@@ -43,9 +43,23 @@ def graph():
     return sorted(seen)
 
 
+def css_assets():
+    """Images the stylesheets point at (the dial and journey art, 2026-09-14):
+    missed here, the timer dial and the plan ribbon draw blank offline."""
+    found = set()
+    for sheet in ("styles.css", "mobile.css"):
+        text = (APP / sheet).read_text(encoding="utf-8")
+        for m in re.finditer(r"""url\(\s*['"]?\./([^'")]+)['"]?\s*\)""", text):
+            if (APP / m.group(1)).exists():
+                found.add(f"./{m.group(1)}")
+            else:
+                print(f"  !! stylesheet points at a missing file: {m.group(1)}", file=sys.stderr)
+    return sorted(found)
+
+
 def main():
     mods = graph()
-    listed = STATIC + [f"./{m}" for m in mods]
+    listed = STATIC + css_assets() + [f"./{m}" for m in mods]
     block = "const SHELL_ASSETS = [\n" + "".join(f"  '{u}',\n" for u in listed) + "];"
 
     sw = APP / "sw.js"

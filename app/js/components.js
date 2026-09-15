@@ -7,6 +7,16 @@ import { REHAB_PROGRAM, BAND_BY_ID } from '../data/program.js';
 import { ICONS, iconNameFor } from '../data/icons.js';
 import { state } from './store.js';
 
+/** The primary action: a turquoise rectangle, a play symbol in a circle, the label, an arrow. */
+export function goButton({ attrs = '', label, cls = '' }) {
+  return `<button class="btn go primary ${cls}" ${attrs}>
+    <span class="go-play" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9.5 7.5v9l7-4.5z"/></svg></span>
+    <span class="go-label">${esc(label)}</span>
+    <span class="go-arrow" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12h13M13 6l6 6-6 6"/></svg></span>
+  </button>`;
+}
+
+
 // ------------------------------------------------------------- pictures ----
 const IMG_BY_EX = {};
 for (const p of REHAB_PROGRAM) {
@@ -175,30 +185,66 @@ export function loadBars(series, height = 30) {
 }
 
 // ----------------------------------------------------------------- toast ---
-/** A small self-dismissing notice, bottom-right. For good news, mostly. */
-export function toast(html, kind = 'good') {
+/**
+ * A small self-dismissing notice. 2026-09-14 revision 3 (F01): notices never
+ * stack. One with the same key (by default its text) replaces the one on
+ * screen and restarts its timer, so a double tap shows one notice, not three.
+ * The phone keeps them clear of the tab bar and, in the player, of the dock.
+ */
+const toasts = new Map();
+export function toast(html, kind = 'good', { key = null, ms = 4200 } = {}) {
   let root = document.getElementById('toast-root');
   if (!root) {
     root = document.createElement('div');
     root.id = 'toast-root';
+    root.setAttribute('role', 'status');
     document.body.appendChild(root);
   }
+  const k = key || `${kind}|${html}`;
+  const had = toasts.get(k);
+  if (had) {
+    clearTimeout(had.timer);
+    had.el.innerHTML = html;
+    had.timer = setTimeout(() => dismiss(k), ms);
+    return;
+  }
+  // At most two on screen: the oldest goes first.
+  if (toasts.size >= 2) dismiss(toasts.keys().next().value, true);
   const t = el(`<div class="toast ${kind}">${html}</div>`);
   root.appendChild(t);
   requestAnimationFrame(() => t.classList.add('in'));
-  setTimeout(() => {
-    t.classList.remove('in');
-    setTimeout(() => t.remove(), 350);
-  }, 4200);
+  toasts.set(k, { el: t, timer: setTimeout(() => dismiss(k), ms) });
+}
+function dismiss(k, now = false) {
+  const t = toasts.get(k);
+  if (!t) return;
+  toasts.delete(k);
+  clearTimeout(t.timer);
+  t.el.classList.remove('in');
+  setTimeout(() => t.el.remove(), now ? 0 : 350);
+}
+
+/** Say something once to a screen reader, from a region that survives repaints (F10). */
+export function announce(text) {
+  const r = document.getElementById('live-root');
+  if (!r) return;
+  r.textContent = '';
+  requestAnimationFrame(() => { r.textContent = text; });
 }
 
 // ----------------------------------------------------------------- modal ---
+// 2026-09-14 revision 3 (F19): a real dialog. Named by its title, the page
+// behind it inert, Tab kept inside, Escape and the close button still work,
+// and focus goes back to what opened it.
+let modalReturn = null;
 export function openModal({ title, body, footer, wide = false, onMount }) {
-  closeModal();
+  closeModal({ restore: false });
+  modalReturn = document.activeElement;
+  const id = `m${Math.random().toString(36).slice(2, 8)}`;
   const back = el(`
     <div class="modal-back">
-      <div class="modal" style="${wide ? 'width:min(880px,100%)' : ''}">
-        <header><h2>${esc(title)}</h2><button class="icon-btn" data-close>✕</button></header>
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="${id}" tabindex="-1" style="${wide ? 'width:min(880px,100%)' : ''}">
+        <header><h2 id="${id}">${esc(title)}</h2><button class="icon-btn" data-close aria-label="Close">✕</button></header>
         <div class="mbody"></div>
         ${footer ? '<footer></footer>' : ''}
       </div>
@@ -209,18 +255,46 @@ export function openModal({ title, body, footer, wide = false, onMount }) {
     if (e.target === back || e.target.closest('[data-close]')) closeModal();
   });
   document.getElementById('modal-root').appendChild(back);
-  document.addEventListener('keydown', escClose);
+  setInert(true);
+  document.addEventListener('keydown', modalKeys);
   if (onMount) onMount(back);
+  const first = back.querySelector('input, select, textarea, button:not([data-close])') || back.querySelector('.modal');
+  requestAnimationFrame(() => { try { (document.activeElement && back.contains(document.activeElement) ? null : first)?.focus({ preventScroll: true }); } catch { /* ignore */ } });
   return back;
 }
 
-function escClose(e) {
-  if (e.key === 'Escape') closeModal();
+function setInert(on) {
+  for (const sel of ['#view', '.mtop', '.topbar', '#mtabs', '#tabs']) {
+    const n = document.querySelector(sel);
+    if (!n) continue;
+    if (on) n.setAttribute('inert', ''); else n.removeAttribute('inert');
+  }
 }
 
-export function closeModal() {
-  document.getElementById('modal-root').innerHTML = '';
-  document.removeEventListener('keydown', escClose);
+function modalKeys(e) {
+  const root = document.getElementById('modal-root');
+  if (!root || !root.childElementCount) return;
+  if (e.key === 'Escape') { e.preventDefault(); closeModal(); return; }
+  if (e.key !== 'Tab') return;
+  const f = [...root.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')]
+    .filter((x) => !x.disabled && x.offsetParent !== null);
+  if (!f.length) return;
+  const first = f[0];
+  const last = f[f.length - 1];
+  if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+}
+
+export function closeModal({ restore = true } = {}) {
+  const root = document.getElementById('modal-root');
+  const had = !!root?.childElementCount;
+  if (root) root.innerHTML = '';
+  document.removeEventListener('keydown', modalKeys);
+  setInert(false);
+  if (had && restore && modalReturn && document.contains(modalReturn)) {
+    try { modalReturn.focus({ preventScroll: true }); } catch { /* ignore */ }
+  }
+  if (had) modalReturn = null;
 }
 
 // -------------------------------------------------------- exercise picker --

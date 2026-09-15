@@ -6,7 +6,7 @@
      the home indicator, and what makes env(safe-area-inset-*) return real
      numbers instead of zero. -->
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-<meta name="theme-color" content="#F5F5F8">
+<meta name="theme-color" content="#F3F5F6">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Rehab">
@@ -21,11 +21,14 @@
 <header class="mtop">
   <div class="mtop-in">
     <button class="msync" id="sync-btn" aria-label="Sync now">
-      <span class="msync-dot" id="sync-dot"></span>
+      <span class="msync-dot" id="sync-dot" aria-hidden="true"></span>
       <span id="sync-label">·</span>
     </button>
+    <button class="mback" id="nav-back" hidden aria-label="Back to Today">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg><span id="nav-back-label">Today</span>
+    </button>
     <div class="mtitle-wrap">
-      <h1 class="mtitle" id="app-title">Rehab</h1>
+      <h1 class="app-title" id="app-title">Rehab</h1>
       <span class="mpostop" id="postop-strip"></span>
     </div>
     <button class="micon" id="nav-settings" aria-label="Settings">
@@ -65,6 +68,7 @@
 </nav>
 
 <div id="modal-root"></div>
+<div id="live-root" class="sr-only" aria-live="polite"></div>
 
 <script type="module" src="./js/mobile.js"></script>
 </body>

@@ -19,19 +19,50 @@ export const COARSE = typeof matchMedia === 'function' && matchMedia('(pointer: 
 const TYPING = new Set(['text', 'number', 'email', 'search', 'tel', 'url', 'password', '']);
 const PICKERS = new Set(['date', 'time', 'datetime-local', 'month', 'week']);
 
-/** The control in `root` that a redraw would interrupt right now, or null. */
-export function editingIn(root) {
-  const a = typeof document !== 'undefined' ? document.activeElement : null;
-  if (!a || !root || !root.contains(a)) return null;
-  if (a.tagName === 'TEXTAREA') return a;
-  if (a.tagName === 'SELECT') return COARSE ? a : null;
+// 2026-09-14 revision 3 (F17). Also held back:
+//   a slider while it is being dragged (pointer down to pointer up)
+//   a select or date or time picker on a mouse or trackpad too, until its
+//     value has been chosen (a change event); on touch, until it is left,
+//     because iOS fires change while the wheel is still turning
+//   a field in an open sheet or dialog, not only in the view
+let dragging = null;
+const committed = new WeakSet();
+if (typeof document !== 'undefined') {
+  document.addEventListener('pointerdown', (e) => {
+    const r = e.target?.closest?.('input[type=range]');
+    if (r) dragging = r;
+  }, true);
+  const endDrag = () => {
+    if (!dragging) return;
+    const was = dragging;
+    dragging = null;
+    was.dispatchEvent(new Event('rehab-drag-end'));
+  };
+  document.addEventListener('pointerup', endDrag, true);
+  document.addEventListener('pointercancel', endDrag, true);
+  document.addEventListener('focusin', (e) => { if (e.target) committed.delete(e.target); }, true);
+  document.addEventListener('change', (e) => { if (e.target) committed.add(e.target); }, true);
+}
+
+function inUse(a) {
+  if (a.tagName === 'TEXTAREA') return true;
+  if (a.tagName === 'SELECT') return COARSE || !committed.has(a);
   if (a.tagName === 'INPUT') {
     const type = (a.getAttribute('type') || '').toLowerCase();
-    if (TYPING.has(type)) return a;
-    if (PICKERS.has(type)) return COARSE ? a : null;
+    if (TYPING.has(type)) return true;
+    if (PICKERS.has(type)) return COARSE || !committed.has(a);
   }
-  if (a.isContentEditable) return a;
-  return null;
+  return !!a.isContentEditable;
+}
+
+/** The control in `root` (or an open sheet) that a redraw would interrupt right now, or null. */
+export function editingIn(root) {
+  if (dragging && root && root.contains(dragging)) return dragging;
+  const a = typeof document !== 'undefined' ? document.activeElement : null;
+  if (!a || !root) return null;
+  const modal = document.getElementById('modal-root');
+  if (!root.contains(a) && !(modal && modal.contains(a))) return null;
+  return inUse(a) ? a : null;
 }
 
 /**
@@ -49,12 +80,15 @@ export function guardPaint(root, paint, mustPaintNow = () => false) {
     }
     if (waiting === busy) return undefined;
     waiting = busy;
-    busy.addEventListener('blur', () => {
+    const go = () => {
       if (waiting !== busy) return;
       waiting = null;
       // After the blur settles, so a tap that caused it is handled first.
       setTimeout(() => guarded(...args), 0);
-    }, { once: true });
+    };
+    busy.addEventListener('blur', go, { once: true });
+    busy.addEventListener('rehab-drag-end', go, { once: true });
+    busy.addEventListener('change', () => { if (!COARSE) go(); }, { once: true });
     return undefined;
   };
   return guarded;

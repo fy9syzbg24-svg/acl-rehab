@@ -24,7 +24,8 @@ import { esc, uid, todayIso, num, fmtDate, toKg, fromKg, round, addDays } from '
 import { state, update, ensureDay, getDay, lastEntry, flushSave } from '../store.js';
 import { REHAB_PROGRAM, GYM_PROGRAM, THERABAND, BAND_BY_ID, plannedOn } from '../../data/program.js';
 import { CATEGORIES } from '../../data/measurements.js';
-import { exerciseById, thumb, openModal, closeModal, toast } from '../components.js';
+import { exerciseById, thumb, openModal, closeModal, toast, announce } from '../components.js';
+import { dayRing } from '../dayring.js';
 import { fmtClock, fmtMins, timerPrefs, minutesFor } from '../timing.js';
 import { itemStatus, saveRun, rowsFingerprint, runsFor } from '../logging.js';
 import { planStreak, dayComplete } from '../planstreak.js';
@@ -97,7 +98,7 @@ function clearDraft() {
 P = readDraft();
 
 // Which songs this device can play; the player repaints once it knows.
-S.loadSongs().then((list) => { if (list.length) currentRerender?.(); });
+S.loadSongs().then(() => { if (P?.phase === 'run') refresh(); });
 
 export function hasDraft() { return !!P; }
 export function draftInfo() {
@@ -272,14 +273,19 @@ function paintWake() {
   }[wakeState];
 }
 
-function stopEffects() {
+/** Stop the clock's own effects: the tick, scheduled cues, the arc, the wake lock. */
+function stopClock() {
   stopArc();
   clearTimeout(tickTimer);
   tickTimer = null;
   A.cancelAll();
+  dropWake();
+}
+
+function stopEffects() {
+  stopClock();
   if (P) P.songPos = S.songPosition() || P.songPos || 0;
   S.pauseSong();
-  dropWake();
 }
 
 /** Start or stop everything that belongs to a running clock. */
@@ -287,13 +293,10 @@ function syncEffects() {
   A.cancelAll();
   const run = P?.run;
   if (!run || run.state !== 'running' || P.phase !== 'run') {
-    // Keep playing carries the music over the review and the screen between
-    // exercises, so momentum is not lost while he confirms and moves on.
+    // Keep playing carries the music over the save and the screen between
+    // exercises, so momentum is not lost while the next one opens.
     if (run && songFor(run.pid) && songThroughOn(run.pid) && (run.state === 'review' || P.phase === 'between')) {
-      clearTimeout(tickTimer);
-      tickTimer = null;
-      A.cancelAll();
-      dropWake();
+      stopClock();
       return;
     }
     stopEffects();
@@ -307,11 +310,11 @@ function syncEffects() {
   if (st?.kind === 'work' && run.pace && metronomeOn(run.pid) && rem != null) A.startMetronome(run.pace, rem);
   // His song plays through the work bouts and waits, where it stopped,
   // through rest and pause. With Keep playing on it carries on through rest,
-  // side switches and get ready too, moving to another track when one ends;
-  // only Pause, an interruption or closing stops it.
+  // side switches and get ready too. The queue always moves on when a track
+  // ends (2026-09-14, revision 3), and Skip is always there.
   const song = songFor(run.pid);
   const through = !!song && songThroughOn(run.pid);
-  S.setContinuous(through ? songsAtPace(run.pid) : null, (t) => { if (P) { P.songSha = t.sha; P.songPos = 0; writeDraft(); } });
+  if (song) S.setQueue(songsAtPace(run.pid), (t) => { if (P) { P.songSha = t.sha; P.songPos = 0; writeDraft(); paintNow(); } });
   if (song && (st?.kind === 'work' || through)) {
     const token = S.playTokenNow();
     const pid = run.pid;
@@ -347,10 +350,10 @@ function loop() {
   lastTick = now;
   const events = E.tick(run, now, Date.now());
   if (events.length) {
-    announce(events);
+    announceEvents(events);
     writeDraft();
     if (run.state === 'review' && P.phase === 'run' && currentCtx) { finishRun(currentCtx); return; }
-    currentRerender?.();
+    refresh();
     return;
   }
   paintClock(now);
@@ -358,12 +361,11 @@ function loop() {
   tickTimer = setTimeout(loop, 200);
 }
 
-function announce(events) {
-  const el = document.querySelector('[data-p-live]');
-  if (!el) return;
+function announceEvents(events) {
   const last = events[events.length - 1];
-  if (last.type === 'review') el.textContent = 'All sets done. Logged.';
-  else if (last.type === 'step') el.textContent = phaseLabel(E.step(P.run)?.kind);
+  // "Logged" is said only after the save is durable (F10), in finishRun.
+  if (last.type === 'review') announce('Sets complete. Saving.');
+  else if (last.type === 'step') announce(phaseLabel(E.step(P.run)?.kind));
 }
 
 document.addEventListener('visibilitychange', () => {
@@ -373,7 +375,7 @@ document.addEventListener('visibilitychange', () => {
     stopEffects();
     writeDraft();
   } else {
-    currentRerender?.();
+    refresh();
   }
 });
 window.addEventListener('pagehide', () => { if (P) writeDraft(); });
@@ -479,22 +481,33 @@ const I = {
   zoom: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M10 20H4v-6M20 4l-6.5 6.5M4 20l6.5-6.5"/></svg>',
   close: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>',
   list: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 6.5h10M10 12h10M10 17.5h10"/><path d="M3.5 6.5l1.5 1.5 2.5-2.5M3.5 12l1.5 1.5 2.5-2.5M3.5 17.5l1.5 1.5 2.5-2.5"/></svg>',
+  minus: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12h12"/></svg>',
+  plus: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6v12M6 12h12"/></svg>',
+  skipSong: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5.5v13l9-6.5z"/><path d="M18 5v14"/></svg>',
   checkCircle: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12.3l2.8 2.8L16.2 9.6"/></svg>',
 };
 
 // -------------------------------------------------------------- render ----
-// 2026-09-14 ring design (ChatGPT revision 2, settled): the whole photo grid
-// on top, one ring in the same place for every phase, the phase and the leg
-// named outside it, the next step in one line under it, four sound controls,
-// and the transport dock pinned above the tab bar. The ring tells the truth:
-// a timed step drains with the engine clock; a reps step shows confirmed sets
-// and never animates reps or time it cannot know.
+// 2026-09-14 revision 3 (turquoise kit), on the ring design's structure.
+// Order: the workout line (count, day, wake), the full title, one status
+// line (the set, or Logged after a save), the whole photo grid, the phase and
+// leg, the dial (a textured instrument panel with a bezel, the live ring and
+// the rep wells), the next step, what is playing with Skip, the four sound
+// switches, then the transport dock.
+//
+// One skeleton per run. A step change patches the slots in place (refresh),
+// so buttons under his finger are never replaced and nothing re-renders on a
+// tick. A different exercise, the finish or the retry screen renders fresh.
 
-const RING = { size: 164, stroke: 7 };
-RING.r = (RING.size - RING.stroke) / 2;
+const RING = { size: 160, stroke: 9, inner: 3.5 };
+RING.r = RING.size / 2 - 17;
 RING.c = 2 * Math.PI * RING.r;
+RING.ri = RING.r - 12;
+RING.ci = 2 * Math.PI * RING.ri;
 
-let lastContentKey = null;   // which exercise the content region last showed
+let lastContentKey = null;   // which run the screen last showed
+
+const stepKey = (run) => `${run.runId}:${run.i}:${run.state}`;
 
 export function renderPlayer(ctx) {
   if (!P) {
@@ -510,75 +523,128 @@ export function renderPlayer(ctx) {
   const ex = exerciseById(item.ex);
   if (run.state === 'review') return renderReview(ctx, run, item, ex);
 
-  const st = E.step(run);
-  const now = performance.now();
-  const kind = st?.kind || 'ready';
-  const cat = CATEGORIES[ex?.cat]?.color || 'var(--ink-2)';
-  const isWork = E.WORK.has(kind);
-  const canSkip = ['rest', 'switch', 'ready'].includes(kind);
   const title = item.title || ex?.name || item.ex;
-  const metro = !!run.pace;
-  const metroIsOn = metro && metronomeOn(run.pid);
-  // The content crossfades once when a different exercise opens, never on a tick.
-  const key = `${run.runId}`;
-  const enter = lastContentKey !== null && lastContentKey !== key;
-  lastContentKey = key;
-  const count = P.session ? `<span class="p-count-word">Workout · </span>${P.session.pos + 1} of ${P.session.queue.length}` : 'Exercise';
-  const side = sideOfStep(run, st);
+  const enter = lastContentKey !== null && lastContentKey !== run.runId;
+  lastContentKey = run.runId;
+  const cat = CATEGORIES[ex?.cat]?.color || 'var(--ink-2)';
+  const catEnd = ex?.cat === 'strength' ? 'var(--cat-strength-end)' : cat;
 
   return `
-  <div class="player" data-player data-kind="${esc(kind)}" data-state="${esc(run.state)}"
-    style="--cat:${cat};${run.pace ? `--beat:${(60 / run.pace).toFixed(3)}s;` : ''}">
+  <div class="player" data-player data-run="${esc(run.runId)}" style="--cat:${cat};--cat-end:${catEnd}">
     <div class="p-eyebrow">
       ${backBtn(ctx)}
-      <span class="p-count">${count}${run.iso !== todayIso() ? ` · <span class="warnish">${esc(fmtDate(run.iso, 'dow'))}</span>` : ''}</span>
-      <span class="p-wake" data-p-wake data-state="${wakeState}" aria-hidden="true">${I.wake}</span>
+      <span class="p-count" data-slot="count">${countLine(run)}</span>
+      <span class="p-wake" data-p-wake data-state="${wakeState}" role="img" aria-label="${esc(wakeText())}">${I.wake}<span class="p-wake-note">${wakeState === 'lost' ? 'Screen may lock' : ''}</span></span>
     </div>
-    ${receiptSlot(run)}
     <div class="p-content ${enter ? 'p-enter' : ''}">
       <h2 class="p-title">${esc(title)}</h2>
+      <div class="p-status" data-slot="status">${statusLine(run)}</div>
       ${item.img
         ? `<button class="p-img" data-p="zoom" aria-label="Show the step pictures larger">
             <img src="${esc(item.img)}" alt="Step pictures: ${esc(title)}" decoding="async">
             <span class="p-expand">${I.zoom}</span></button>
            ${item.photoNote ? `<div class="p-photonote">${esc(item.photoNote)}</div>` : ''}`
         : `<div class="p-img plain">${thumb(item.ex, 90)}</div>`}
-      <div class="p-phaserow">
-        <span class="p-label">${esc(phaseLabel(kind))}${kind === 'rest' && st.restSrc === 'default' ? '<span class="p-default">default</span>' : ''}</span>
-        <span class="p-side ${side}">${side === 'L' ? 'Left leg' : side === 'R' ? 'Right leg' : 'Both legs'}</span>
+      <div class="p-phaserow" data-slot="phase">${phaseRow(run)}</div>
+      <div class="p-dial">
+        <span class="p-dial__bezel" aria-hidden="true"></span>
+        <button class="p-adj" data-p="reps-" data-step="${stepKey(run)}" aria-label="One fewer rep this set" ${repsEditable(run) ? '' : 'disabled'}>${I.minus}</button>
+        <div class="p-ring" role="group" aria-label="Current step" data-slot="ring">${ringInner(run)}</div>
+        <button class="p-adj" data-p="reps+" data-step="${stepKey(run)}" aria-label="One more rep this set" ${repsEditable(run) ? '' : 'disabled'}>${I.plus}</button>
       </div>
-      <div class="p-ringrow">
-        ${repsAdjust(run, st, 'minus')}
-        <div class="p-ring" role="group" aria-label="Current step">
-          ${ringSvg(run, st, now)}
-          <div class="p-center">${ringCenter(run, st, now)}</div>
-          ${metro ? `<i class="p-beat ${metroIsOn && kind === 'work' && run.state === 'running' ? 'on' : ''}" aria-hidden="true"></i>` : ''}
-        </div>
-        ${repsAdjust(run, st, 'plus')}
-      </div>
-      <div class="p-next">${esc(nextLine(run))}</div>
+      <div class="p-next" data-slot="next">${esc(nextLine(run))}</div>
+      <div class="p-now" data-slot="now">${nowPlaying(run)}</div>
+      <div class="p-sound" role="group" aria-label="Sound" data-slot="tools">${soundTools(run)}</div>
     </div>
-
-    <div class="p-sound" role="group" aria-label="Sound">
-      <button class="p-tool ${metroIsOn ? 'on' : ''}" data-p="metro" ${metro ? '' : 'disabled'} aria-pressed="${metroIsOn}"
-        aria-label="Metronome${metro ? ` at ${run.pace} beats per minute` : ', no pace prescribed'}">${I.metro}<span>Metronome</span></button>
-      ${songTools(run)}
-      <button class="p-tool ${cuesOn() ? 'on' : ''}" data-p="cues" aria-pressed="${cuesOn()}" aria-label="Countdown cues">${I.cues}<span>Cues</span></button>
-    </div>
-
-    <div class="p-actions">
+    <div class="p-actions" data-p-dock>
       <div class="p-row1">
-        <button class="btn big p-pause" data-p="pause">${run.state === 'running' ? `${I.pause}Pause` : `${I.play}${run.state === 'ready' ? 'Start' : 'Resume'}`}</button>
-        <button class="btn big primary" data-p="done" ${isWork ? '' : 'disabled'}>${I.check}Set done</button>
+        <button class="btn big p-pause" data-p="pause" data-step="${stepKey(run)}">${pauseLabel(run)}</button>
+        <button class="btn big primary" data-p="done" data-step="${stepKey(run)}" ${E.WORK.has(E.step(run)?.kind) ? '' : 'disabled'}>${I.check}<span>Set done</span></button>
       </div>
       <div class="p-row2">
-        <button class="btn p-link" data-p="prev" ${run.i > 0 ? '' : 'disabled'}>${I.prev}Previous</button>
-        <button class="btn p-link" data-p="skip" ${canSkip ? '' : 'disabled'}>${I.skip}Skip rest</button>
-        <button class="btn p-link" data-p="next">${I.next}Next</button>
+        <button class="btn p-link" data-p="prev" data-step="${stepKey(run)}" ${run.i > 0 ? '' : 'disabled'}>${I.prev}<span>Previous</span></button>
+        <button class="btn p-link" data-p="skip" data-step="${stepKey(run)}" ${['rest', 'switch', 'ready'].includes(E.step(run)?.kind) ? '' : 'disabled'}>${I.skip}<span>Skip rest</span></button>
+        <button class="btn p-link" data-p="next" data-step="${stepKey(run)}">${I.next}<span>Next</span></button>
       </div>
     </div>
-    <div class="sr-only" aria-live="polite" data-p-live></div>
   </div>`;
+}
+
+/**
+ * Patch the open run's slots in place: status, phase, ring, next, playing,
+ * sound switches and the transport's states. Falls back to a full render when
+ * the screen is not this run's skeleton.
+ */
+function refresh() {
+  const run = P?.run;
+  const root = document.querySelector('.player[data-player]');
+  if (!run || P.phase !== 'run' || run.state === 'review' || !root || root.dataset.run !== run.runId || root.classList.contains('review')) {
+    currentRerender?.();
+    return;
+  }
+  const put = (slot, html) => {
+    const el = root.querySelector(`[data-slot="${slot}"]`);
+    if (el && el.innerHTML !== html) el.innerHTML = html;
+  };
+  put('count', countLine(run));
+  put('status', statusLine(run));
+  put('phase', phaseRow(run));
+  put('ring', ringInner(run));
+  put('next', esc(nextLine(run)));
+  paintNow();
+  patchTools(root, run);
+  const key = stepKey(run);
+  const kind = E.step(run)?.kind;
+  const set = (k, attrs) => {
+    const b = root.querySelector(`[data-p="${k}"]`);
+    if (!b) return;
+    b.dataset.step = key;
+    if ('disabled' in attrs) b.disabled = !!attrs.disabled;
+    if (attrs.html != null && b.innerHTML !== attrs.html) b.innerHTML = attrs.html;
+  };
+  set('pause', { html: pauseLabel(run) });
+  set('done', { disabled: !E.WORK.has(kind) });
+  set('prev', { disabled: !(run.i > 0) });
+  set('skip', { disabled: !['rest', 'switch', 'ready'].includes(kind) });
+  set('next', {});
+  set('reps-', { disabled: !repsEditable(run) });
+  set('reps+', { disabled: !repsEditable(run) });
+  paintWake();
+}
+
+/** What is playing, patched on its own when the song's state changes. */
+function paintNow() {
+  const run = P?.run;
+  const el = document.querySelector('.player [data-slot="now"]');
+  if (!run || !el) return;
+  const html = nowPlaying(run);
+  if (el.innerHTML !== html) el.innerHTML = html;
+}
+S.onSongStatus(() => paintNow());
+
+function countLine(run) {
+  const bits = [P.session ? `<span class="p-count-word">Workout</span> ${P.session.pos + 1} of ${P.session.queue.length}` : 'Exercise'];
+  if (run.iso !== todayIso()) bits.push(`<span class="p-day">${esc(fmtDate(run.iso, 'dow'))}</span>`);
+  return bits.join(' · ');
+}
+
+function wakeText() {
+  return {
+    on: 'The screen stays awake while this runs',
+    off: 'The screen may lock while paused',
+    unavailable: 'This browser cannot keep the screen awake',
+    lost: 'The screen may lock: keeping it awake was refused',
+  }[wakeState] || '';
+}
+
+function pauseLabel(run) {
+  return run.state === 'running' ? `${I.pause}<span>Pause</span>`
+    : `${I.play}<span>${run.state === 'ready' ? 'Start' : 'Resume'}</span>`;
+}
+
+function repsEditable(run) {
+  const st = E.step(run);
+  return !!st && (st.kind === 'reps' || st.kind === 'manual') && st.reps != null;
 }
 
 /** The side a step belongs to: a switch names the side it switches TO. */
@@ -590,44 +656,40 @@ function sideOfStep(run, st) {
   return s === 'L' || s === 'R' ? s : 'B';
 }
 
+function phaseRow(run) {
+  const st = E.step(run);
+  const kind = st?.kind || 'ready';
+  const side = sideOfStep(run, st);
+  const neutral = ['rest', 'ready', 'switch'].includes(kind);
+  return `<span class="p-label ${neutral ? 'neutral' : ''}">${esc(phaseLabel(kind))}${kind === 'rest' && st.restSrc === 'default' ? '<span class="p-default">default</span>' : ''}</span>
+    <span class="p-side ${side}">${side === 'L' ? 'Left leg' : side === 'R' ? 'Right leg' : 'Both legs'}</span>`;
+}
+
 /**
- * The reserved receipt slot. After a durable save, "Logged · full title" shows
- * here for about a second and a half while the next exercise is already
- * counting down. It never holds a button, so nothing below it moves under a
- * finger. An interruption notice uses the same slot.
+ * The one status line under the title: the set in hand, "Logged" with the
+ * previous exercise's full title for a moment after a durable save (while the
+ * next get ready already runs), or the interruption note. No empty banner.
  */
-function receiptSlot(run) {
+function statusLine(run) {
   const r = P.receipt;
   if (r && Date.now() < r.until) {
     const fresh = !r.shown;
     r.shown = true;
-    return `<div class="p-receipt on ${fresh ? 'fresh' : ''}" aria-hidden="true">${I.checkCircle}<span>Logged · ${esc(r.title)}</span></div>`;
+    return `<span class="p-logged ${fresh ? 'fresh' : ''}">${I.checkCircle}<span>Logged · ${esc(r.title)}</span></span>`;
   }
-  if (run.state === 'interrupted') {
-    return '<div class="p-receipt note" aria-hidden="true"><span>Paused while you were away. Nothing was counted.</span></div>';
-  }
-  return '<div class="p-receipt" aria-hidden="true"></div>';
-}
-
-function songTools(run) {
-  const pool = songsAtPace(run.pid);
-  const usable = pool.length > 0;
-  const on = usable && songOn(run.pid);
-  const now = on ? songFor(run.pid) : null;
-  const label = !run.pace ? 'Music: no pace prescribed, so no song'
-    : !usable ? 'Music: no song at this pace on this device'
-    : on ? `Music on: ${now?.name || ''}` : `Music: play one of your ${pool.length} song${pool.length === 1 ? '' : 's'} during the work`;
-  const through = on && songThroughOn(run.pid);
-  const tLabel = on ? (through ? 'Keep playing through rest: on' : 'Keep playing through rest: off') : 'Keep playing through rest (turn music on first)';
-  return `<button class="p-tool ${on ? 'on' : ''}" data-p="song" ${usable ? '' : 'disabled'} aria-pressed="${on}"
-      aria-label="${esc(label)}" title="${esc(label)}">${I.song}<span>Music</span></button>
-    <button class="p-tool ${through ? 'on' : ''}" data-p="songthrough" ${on ? '' : 'disabled'} aria-pressed="${through}"
-      aria-label="${esc(tLabel)}" title="${esc(tLabel)}">${I.loop}<span>Keep playing</span></button>`;
+  if (run.state === 'interrupted') return '<span class="p-note">Paused while you were away. Nothing was counted.</span>';
+  return esc(unitLine(run, E.step(run)));
 }
 
 function backBtn(ctx) {
   const to = ctx.playerFrom === 'program' ? 'My Program' : 'Today';
   return `<button class="p-back" data-p="close" aria-label="Back to ${to}">${I.back}<span>${to}</span></button>`;
+}
+
+/** The phone header's back button calls this (mobile.js). */
+export function playerBack(ctx) {
+  if (currentRerender) closePlayer(ctx, currentRerender);
+  else ctx.go(ctx.playerFrom || 'today');
 }
 
 function currentReps(run) {
@@ -636,80 +698,71 @@ function currentReps(run) {
   return st?.reps ?? '';
 }
 
-function repsAdjust(run, st, which) {
-  const show = st && (st.kind === 'reps' || st.kind === 'manual') && st.reps != null;
-  if (!show) return '<span class="p-adj-spacer" aria-hidden="true"></span>';
-  return which === 'minus'
-    ? '<button class="p-adj" data-p="reps-" aria-label="One fewer rep this set">&minus;</button>'
-    : '<button class="p-adj" data-p="reps+" aria-label="One more rep this set">+</button>';
-}
-
-/** Arc length for a timed step: the remaining fraction, drawn from 12 o'clock. */
+/** Arc fraction for a timed step: the time remaining, from 12 o'clock. */
 function arcDash(run, st, now) {
   const rem = E.remainingSec(run, now);
   if (rem == null || !st?.secs) return null;
-  const frac = Math.max(0, Math.min(1, rem / st.secs));
-  return frac;
+  return Math.max(0, Math.min(1, rem / st.secs));
 }
 
-function ringSvg(run, st, now) {
-  const { size, stroke, r, c } = RING;
-  const mid = size / 2;
-  const repsLike = st && (st.kind === 'reps' || st.kind === 'manual');
-  // Several sets draw their own pieces (with gaps); one set or a timer sits on the full track.
-  const pieces = repsLike && E.progress(run).filter((p) => (p.side || 'B') === (st.side || 'B')).length > 1;
-  const base = pieces ? '' : `<circle class="p-track" cx="${mid}" cy="${mid}" r="${r}" stroke-width="${stroke}"/>`;
-  let marks = '';
-  if (repsLike) {
-    marks = setSegments(run, st);
-  } else {
-    const frac = arcDash(run, st, now);
-    if (frac != null) {
-      const on = frac * c;
-      marks = `<circle class="p-arc" data-p-arc cx="${mid}" cy="${mid}" r="${r}" stroke-width="${stroke}"
-        stroke-dasharray="${on.toFixed(2)} ${c.toFixed(2)}" transform="rotate(-90 ${mid} ${mid})" ${frac <= 0 ? 'style="opacity:0"' : ''}/>`;
-    }
-  }
-  return `<svg class="p-ringsvg" viewBox="0 0 ${size} ${size}" aria-hidden="true">${base}${marks}</svg>`;
+function ringInner(run) {
+  const st = E.step(run);
+  const now = performance.now();
+  return `${ringSvg(run, st, now)}<div class="p-center">${ringCenter(run, st, now)}</div>
+    ${run.pace ? `<i class="p-beat ${metronomeOn(run.pid) && st?.kind === 'work' && run.state === 'running' ? 'on' : ''}" aria-hidden="true"></i>` : ''}`;
 }
 
-/**
- * Confirmed sets for the side in progress, one segment each. Neutral until a
- * set is confirmed, green once it is, a small category mark on the one he is
- * doing. Left and right never share segments: finishing the left set does not
- * paint the right one.
- */
-function setSegments(run, st) {
-  const { size, stroke, r, c } = RING;
+function segArcs(units, r, stroke, cls, gapPx) {
+  const { size } = RING;
   const mid = size / 2;
-  const side = st.side || 'B';
-  const units = E.progress(run).filter((p) => (p.side || 'B') === side);
+  const c = 2 * Math.PI * r;
   const n = units.length;
   if (!n) return '';
-  const gap = n > 1 ? 10 : 0;
+  const gap = n > 1 ? gapPx : 0;
   const seg = c / n;
-  const just = P.justDone && P.justDone.runId === run.runId ? P.justDone.i : null;
-  P.justDone = null;   // one render only: a later repaint never replays it
   let out = '';
   units.forEach((u, k) => {
     const len = Math.max(1, seg - gap);
     const start = k * seg + gap / 2;
-    const res = u.result;
-    const cls = res ? (res.full === false || res.short ? 'part' : 'done') : '';
-    if (cls) {
-      out += `<circle class="p-seg ${cls} ${u.i === just ? 'just' : ''}" cx="${mid}" cy="${mid}" r="${r}" stroke-width="${stroke}"
-        stroke-dasharray="${len.toFixed(2)} ${(c - len).toFixed(2)}" stroke-dashoffset="${(-start).toFixed(2)}" transform="rotate(-90 ${mid} ${mid})"/>`;
-    } else if (n > 1) {
-      // an unconfirmed set: its own neutral piece, so the gaps read as sets
-      out += `<circle class="p-seg todo" cx="${mid}" cy="${mid}" r="${r}" stroke-width="${stroke}"
-        stroke-dasharray="${len.toFixed(2)} ${(c - len).toFixed(2)}" stroke-dashoffset="${(-start).toFixed(2)}" transform="rotate(-90 ${mid} ${mid})"/>`;
-    }
-    if (u.current) {
-      const ang = ((start) / c) * 2 * Math.PI - Math.PI / 2;
-      out += `<circle class="p-mark" cx="${(mid + r * Math.cos(ang)).toFixed(2)}" cy="${(mid + r * Math.sin(ang)).toFixed(2)}" r="${stroke}"/>`;
+    const state = u.result ? (u.result.full === false || u.result.short ? 'part' : 'done') : 'todo';
+    const just = P.justDone && P.justDone.runId === P.run.runId && P.justDone.i === u.i;
+    out += `<circle class="${cls} ${state} ${just ? 'just' : ''}" cx="${mid}" cy="${mid}" r="${r}" stroke-width="${stroke}"
+      stroke-dasharray="${len.toFixed(2)} ${(c - len).toFixed(2)}" stroke-dashoffset="${(-start).toFixed(2)}" transform="rotate(-90 ${mid} ${mid})"/>`;
+    if (u.current && cls === 'p-seg') {
+      const ang = (start / c) * 2 * Math.PI - Math.PI / 2;
+      out += `<circle class="p-mark" cx="${(mid + r * Math.cos(ang)).toFixed(2)}" cy="${(mid + r * Math.sin(ang)).toFixed(2)}" r="${stroke * 0.55}"/>`;
     }
   });
   return out;
+}
+
+function ringSvg(run, st, now) {
+  const { size, stroke, inner, r, c, ri } = RING;
+  const mid = size / 2;
+  const repsLike = st && (st.kind === 'reps' || st.kind === 'manual');
+  const side = st?.side || sideOfStep(run, st);
+  const units = E.progress(run).filter((p) => (p.side || 'B') === (side || 'B'));
+  let body = '';
+  if (repsLike) {
+    // Reps: the outer ring is the sets on this side, confirmed ones green, a
+    // category mark on the set in hand. Nothing moves with time.
+    body = units.length > 1
+      ? segArcs(units, r, stroke, 'p-seg', 12)
+      : `<circle class="p-track" cx="${mid}" cy="${mid}" r="${r}" stroke-width="${stroke}"/>${units[0]?.result ? `<circle class="p-seg done" cx="${mid}" cy="${mid}" r="${r}" stroke-width="${stroke}"/>` : ''}`;
+  } else {
+    const frac = arcDash(run, st, now);
+    body = `<circle class="p-track" cx="${mid}" cy="${mid}" r="${r}" stroke-width="${stroke}"/>`;
+    if (frac != null) {
+      body += `<circle class="p-arc" data-p-arc cx="${mid}" cy="${mid}" r="${r}" stroke-width="${stroke}"
+        stroke-dasharray="${(frac * c).toFixed(2)} ${c.toFixed(2)}" transform="rotate(-90 ${mid} ${mid})" ${frac <= 0 ? 'style="opacity:0"' : ''}/>`;
+    }
+    // The inner ring: confirmed sets, green only once confirmed.
+    if (units.length > 1) body += segArcs(units, ri, inner, 'p-iseg', 8);
+  }
+  P.justDone = null;   // one render's worth of the set animation
+  return `<svg class="p-ringsvg" viewBox="0 0 ${size} ${size}" aria-hidden="true">
+    <defs><linearGradient id="p-catgrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style="stop-color:var(--cat)"/><stop offset="1" style="stop-color:var(--cat-end, var(--cat))"/></linearGradient></defs>
+    ${body}</svg>`;
 }
 
 function unitLine(run, st) {
@@ -733,33 +786,28 @@ function secsWords(s) {
 
 function ringCenter(run, st, now) {
   if (!st) return '';
-  const unit = `<div class="p-unit">${esc(unitLine(run, st))}</div>`;
   if (st.kind === 'reps' || (st.kind === 'manual' && st.reps != null)) {
-    return `<div class="p-num reps"><span data-p-reps>${esc(String(currentReps(run)))}</span><small>reps</small></div>
-      <div class="p-cap">Your pace${st.hold ? ` · hold ${esc(fmtSecs(st.hold))}` : ''}</div>${unit}`;
+    const edited = P.repsAdjust && P.repsAdjust.i === run.i && P.repsAdjust.n !== st.reps;
+    return `<div class="p-num reps" data-p-reps>${esc(String(currentReps(run)))}</div>
+      <div class="p-cap">${edited ? 'reps you did' : 'reps · your pace'}${st.hold ? ` · hold ${esc(fmtSecs(st.hold))}` : ''}</div>`;
   }
   if (st.kind === 'manual') {
     return `<div class="p-num words">Your pace</div>
-      <div class="p-cap"><span class="mono" data-p-elapsed>${fmtClock(E.elapsedMs(run, now) / 1000)}</span> so far</div>${unit}`;
+      <div class="p-cap"><span class="mono" data-p-elapsed>${fmtClock(E.elapsedMs(run, now) / 1000)}</span> so far</div>`;
   }
   const rem = E.remainingSec(run, now);
   let cap = `of ${esc(secsWords(st.secs))}`;
   if (st.kind === 'ready') cap = P.session && run.state === 'running' ? 'Starts by itself' : 'Get ready';
   if (st.kind === 'switch') cap = `Now the ${st.side === 'L' ? 'left' : 'right'} leg`;
   if (st.kind === 'work' && run.mode === 'cardio') cap = `of ${esc(fmtMins(Math.round(st.secs / 60)))}${st.target === 'last' ? ', same as last time' : ''}`;
-  return `<div class="p-num" data-p-clock>${fmtClock(ceilSec(rem))}</div><div class="p-cap">${cap}</div>${unit}`;
-}
-
-/** Whole seconds, counted the way a countdown reads: 0:30 until a full second has gone. */
-function ceilSec(rem) {
-  return rem == null ? rem : Math.ceil(rem - 1e-6);
+  return `<div class="p-num" data-p-clock>${fmtClock(rem)}</div><div class="p-cap">${cap}</div>`;
 }
 
 function paintClock(now) {
   const run = P?.run;
   if (!run) return;
   const rem = E.remainingSec(run, now);
-  const txt = fmtClock(ceilSec(rem));
+  const txt = fmtClock(rem);
   for (const el of document.querySelectorAll('[data-p-clock]')) {
     if (el.textContent !== txt) el.textContent = txt;
   }
@@ -772,8 +820,7 @@ function paintClock(now) {
 
 /**
  * The arc, painted at most once a frame from the engine's clock while the run
- * is moving. Attributes are patched in place; nothing is re-rendered, so a
- * field or a button under his finger is never replaced.
+ * is moving and visible. Attributes are patched in place.
  */
 let arcFrame = 0;
 function paintArc() {
@@ -800,6 +847,76 @@ function stopArc() {
   arcFrame = 0;
 }
 
+// ------------------------------------------------------------ sound -------
+/**
+ * The now playing strip: always in its place. Music on shows the real track,
+ * what it is doing (loading, playing, paused, blocked, could not play) and
+ * where it is in the cycle, with Skip beside it; anything else says why there
+ * is no music, with Skip dimmed.
+ */
+function nowPlaying(run) {
+  const pool = songsAtPace(run.pid);
+  const on = songOn(run.pid);
+  let title;
+  let sub;
+  let retry = false;
+  let canSkip = false;
+  if (!run.pace) { title = 'Music unavailable'; sub = 'No pace prescribed'; }
+  else if (S.songsIndexFailed() && !pool.length) { title = 'Music unavailable'; sub = 'Your songs could not be loaded'; retry = true; }
+  else if (!pool.length) { title = 'Music unavailable'; sub = `No ${run.pace} BPM song on this device`; }
+  else if (!on) { title = 'Music off'; sub = `${pool.length} song${pool.length === 1 ? '' : 's'} at ${run.pace} BPM`; }
+  else {
+    const song = S.currentSong() || songFor(run.pid);
+    title = song?.name || `Your ${run.pace} BPM song`;
+    const st = S.songStatus();
+    const q = S.queueInfo();
+    const words = { loading: 'Loading', playing: 'Playing', paused: E.step(run)?.kind === 'work' || songThroughOn(run.pid) ? 'Paused' : 'Waits through rest',
+      blocked: 'Tap Retry to play', error: 'Could not play', idle: 'Ready' }[st] || 'Ready';
+    sub = `${words}${pool.length > 1 && q.position ? ` · Track ${q.position} of ${pool.length}` : ''}`;
+    retry = st === 'blocked' || st === 'error';
+    canSkip = pool.length > 1;
+  }
+  return `<span class="p-now-ico" aria-hidden="true">${I.song}</span>
+    <span class="p-now-text ${on && pool.length && run.pace ? '' : 'off'}"><b>${esc(title)}</b><span>${esc(sub)}${retry ? ' <button class="p-retry" data-p="song-retry">Retry</button>' : ''}</span></span>
+    <button class="p-skip" data-p="song-skip" ${canSkip ? '' : 'disabled'} aria-label="Skip to another song">${I.skipSong}<span>Skip</span></button>`;
+}
+
+function soundTools(run) {
+  const metro = !!run.pace;
+  const metroIsOn = metro && metronomeOn(run.pid);
+  const pool = songsAtPace(run.pid);
+  const usable = pool.length > 0;
+  const on = usable && songOn(run.pid);
+  const through = on && songThroughOn(run.pid);
+  const cues = cuesOn();
+  return `
+    <button class="p-tool ${metroIsOn ? 'on' : ''}" data-p="metro" ${metro ? '' : 'disabled'} aria-pressed="${metroIsOn}"
+      aria-label="Metronome${metro ? ` at ${run.pace} beats per minute` : ', no pace prescribed'}">${I.metro}<span>Metronome</span></button>
+    <button class="p-tool ${on ? 'on' : ''}" data-p="song" ${usable ? '' : 'disabled'} aria-pressed="${on}" aria-label="Music">${I.song}<span>Music</span></button>
+    <button class="p-tool ${through ? 'on' : ''}" data-p="songthrough" ${on ? '' : 'disabled'} aria-pressed="${through}"
+      aria-label="Keep music playing through rest">${I.loop}<span>Through rest</span></button>
+    <button class="p-tool ${cues ? 'on' : ''}" data-p="cues" aria-pressed="${cues}" aria-label="Countdown cues">${I.cues}<span>Cues</span></button>`;
+}
+
+function patchTools(root, run) {
+  const el = root.querySelector('[data-slot="tools"]');
+  if (!el) return;
+  const html = soundTools(run);
+  // Patch attributes on the same buttons: focus and a press in progress stay.
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html;
+  const fresh = tmp.querySelectorAll('[data-p]');
+  const live = el.querySelectorAll('[data-p]');
+  if (fresh.length !== live.length) { el.innerHTML = html; return; }
+  fresh.forEach((f, i) => {
+    const b = live[i];
+    b.className = f.className;
+    b.disabled = f.disabled;
+    b.setAttribute('aria-pressed', f.getAttribute('aria-pressed'));
+    b.setAttribute('aria-label', f.getAttribute('aria-label'));
+  });
+}
+
 // ------------------------------------------------------- between / done ----
 function renderBetween(ctx) {
   const s = P.session;
@@ -811,29 +928,29 @@ function renderBetween(ctx) {
   const early = ready && ready > new Date() && !item.first;
   const title = item.title || ex?.name || item.ex;
   return `
-  <div class="player between" data-player style="--cat:${CATEGORIES[ex?.cat]?.color || 'var(--accent)'}">
+  <div class="player between" data-player style="--cat:${CATEGORIES[ex?.cat]?.color || 'var(--ink-2)'}">
     <div class="p-eyebrow">${backBtn(ctx)}<span class="p-count">Up next · ${s.pos + 1} of ${s.queue.length}</span></div>
     <header class="p-hero">
       <h2 class="p-title">${esc(title)}</h2>
       <div class="p-setline">${m.mins == null ? 'Target not specified' : `${m.mins} min${m.src === 'learned' ? ', usually' : m.src === 'estimate' ? ', estimated' : ''}`}</div>
     </header>
     ${item.img ? `<div class="p-img still"><img src="${esc(item.img)}" alt="Step pictures: ${esc(title)}" decoding="async"></div>` : ''}
-    ${early ? `<div class="notice info p-readynote">Do the rest of your workout after ${esc(fmtTime12(ready))}.</div>` : ''}
+    ${early ? `<div class="notice info p-readynote">Rest of your workout after ${esc(fmtTime12(ready))}.</div>` : ''}
     <div class="p-actions static">
       <div class="p-row1">
-        <button class="btn big p-pause" data-p="skip-ex">${I.skip}Skip this one</button>
-        <button class="btn big primary" data-p="start-next">${I.play}Start</button>
+        <button class="btn big p-pause" data-p="skip-ex">${I.skip}<span>Skip this one</span></button>
+        <button class="btn big primary" data-p="start-next">${I.play}<span>Start</span></button>
       </div>
-      <div class="p-row2 one"><button class="btn" data-p="end">End workout</button></div>
+      <div class="p-row2 one"><button class="btn p-link" data-p="end">End workout</button></div>
     </div>
   </div>`;
 }
 
 /**
- * The finish, 2026-09-14 ring design. Shown once, inside the player:
- *   - the whole plan done: one check draws with one outline dissipating, the
- *     count, the workout time, the week, and one sentence (a new milestone's
- *     sentence when one was earned, combined, never a second moment)
+ * The finish, revision 3. Shown once, inside the player:
+ *   - the whole plan done: the day ring in its category colours with a green
+ *     check drawn in its centre, "Plan Complete!", one warm line, the count,
+ *     the recorded workout time, and a new milestone in the same summary
  *   - the tendon loading: a calm acknowledgment and when the rest may start
  *   - ended early: the facts, no celebration
  * A revisit, a reload or a sync shows the same facts without replaying it.
@@ -842,9 +959,6 @@ function renderDone(ctx) {
   const iso = P.session?.iso || P.run?.iso || todayIso();
   const planned = plannedItems(state.data, iso).filter((p) => !p.notYet);
   const entries = getDay(iso)?.entries || [];
-  const doneItems = planned.filter((p) => itemStatus(p, entries).state === 'done');
-  const done = doneItems.length;
-  const all = planned.length > 0 && done >= planned.length;
   const back = ctx.playerFrom === 'program' ? 'My Program' : 'Today';
 
   if (P.stopForGap) {
@@ -856,63 +970,75 @@ function renderDone(ctx) {
         <div class="fin-ring calm">${I.check}</div>
         <h2 class="fin-title">${esc(ITEM[P.stopForGap]?.title || 'Logged')}</h2>
         <p class="fin-line">${r ? `Rest of your workout after ${esc(fmtTime12(r))}.` : 'The rest of your workout waits six hours.'}</p>
-        <button class="btn big fin-act" data-p="close">Back to ${esc(back)}</button>
+        <button class="btn big primary fin-act" data-p="close">${I.list}<span>Back to ${esc(back)}</span></button>
       </div>
     </div>`;
   }
 
+  const all = planned.length > 0 && planned.every((p) => itemStatus(p, entries).state === 'done');
   const fresh = all && !finishSeen(state.data, iso) && iso === todayIso();
   const newOnes = all && iso === todayIso() ? unseenMilestones(state.data, iso) : [];
   const moment = fresh ? milestoneSentence(newOnes) : null;
   P.celebrate = fresh ? { iso, milestones: newOnes.map((m) => m.key) } : null;
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const ring = dayRing(planned, entries, { size: 180, stroke: 12, center: 'check', celebrate: fresh && !reduce });
   const mins = workoutMinutes(entries);
 
   return `
   <div class="player done-screen ${all ? 'all' : ''}" data-player>
     <div class="p-eyebrow">${backBtn(ctx)}<span class="p-count">${all ? 'Today · plan complete' : 'Today'}</span></div>
     <div class="fin">
-      <div class="fin-ring ${all ? 'good' : ''} ${fresh && !reduce ? 'play' : ''}" aria-hidden="true">${I.check}</div>
-      <h2 class="fin-title">${all ? 'Plan complete.' : 'Workout finished'}</h2>
-      ${all ? `<p class="fin-line">${esc(moment ? moment.sentence : 'You did what you came to do.')}</p>` : ''}
+      ${all ? ring.html : `<div class="fin-ring">${I.check}</div>`}
+      <h2 class="fin-title">${all ? 'Plan Complete!' : 'Workout finished'}</h2>
+      ${all ? '<p class="fin-line">Nice work sticking to your plan.</p>' : ''}
       <section class="fin-card">
-        <div class="fin-count"><b>${done} of ${planned.length}</b><span>planned exercises</span></div>
-        <div class="segbar" aria-hidden="true">${planned.map((p) => `<i class="${itemStatus(p, entries).state === 'done' ? 'on' : ''}"></i>`).join('')}</div>
-        ${mins != null ? `<div class="fin-row"><span>Workout time</span><b>${esc(fmtMins(mins))}</b></div>` : ''}
+        <div class="fin-count"><b>${ring.done} of ${ring.total}</b><span>planned exercises</span></div>
+        ${mins != null ? `<div class="fin-row"><span>${mins.partial ? 'Recorded workout time' : 'Recorded workout time'}</span><b>${esc(fmtMins(mins.min))}</b></div>` : ''}
       </section>
       ${moment ? `<div class="fin-ms ${reduce ? '' : 'play'}"><span class="ms-badge earned">${BADGE_ICON}</span>
-        <span class="ms-text"><b>${esc(moment.label)}</b><span>${esc(moment.detail)}</span></span></div>` : ''}
-      ${all ? weekDots(iso) : ''}
-      <button class="btn big fin-act" data-p="viewlog">${I.list}View today's log</button>
+        <span class="ms-text"><b>${esc(moment.headline)}</b><span>Milestone unlocked</span></span></div>` : ''}
+      <button class="btn big primary fin-act" data-p="viewlog">${I.list}<span>View today's log</span></button>
     </div>
   </div>`;
 }
 
 const BADGE_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="9" r="5.5"/><path d="M9 13.8L7.5 21l4.5-2.4 4.5 2.4-1.5-7.2"/></svg>';
 
-/** Active plus recovery minutes the player recorded today, one per run. */
+/**
+ * Work plus recovery the player measured today, one per run. Only measured
+ * time: exercises ticked without the player add nothing, and the label says
+ * "Recorded" so it never passes for the whole workout.
+ */
 function workoutMinutes(entries) {
   const runs = new Map();
   for (const e of entries) if (e.logged && e.timing?.runId) runs.set(e.timing.runId, e.timing);
   if (!runs.size) return null;
   let secs = 0;
   for (const t of runs.values()) secs += (t.activeSec || 0) + (t.restSec || 0);
-  return Math.max(1, Math.round(secs / 60));
+  return { min: Math.max(1, Math.round(secs / 60)), partial: entries.some((e) => e.logged && !e.timing) };
 }
 
-/** The last seven days: a check for a plan done, a line for planned rest. */
+/**
+ * The last seven days (F35): a check for a plan done, a line for planned rest,
+ * an outlined circle for a known day not completed, and a small neutral dot
+ * for a day before dated plans began, never an empty "missed" circle.
+ */
 export function weekDots(iso) {
   const cells = [];
+  let firstKnown = null;
+  let anyUnknown = false;
   for (let i = 6; i >= 0; i--) {
     const d = addDays(iso, -i);
     const r = dayComplete(state.data, d);
     const letter = new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'narrow' });
     const kind = !r ? 'unknown' : !r.planned ? 'rest' : r.complete ? 'done' : 'open';
+    if (kind === 'unknown') anyUnknown = true; else if (!firstKnown) firstKnown = d;
     const word = { unknown: 'no plan recorded', rest: 'planned rest', done: 'plan complete', open: 'not complete' }[kind];
-    cells.push(`<span class="wd ${kind}" aria-label="${esc(fmtDate(d, 'dow'))}: ${word}"><small>${esc(letter)}</small><i>${kind === 'done' ? I.check : kind === 'rest' ? '<b></b>' : ''}</i></span>`);
+    cells.push(`<span class="wd ${kind}" role="img" aria-label="${esc(fmtDate(d, 'dow'))}: ${word}"><small>${esc(letter)}</small><i>${kind === 'done' ? I.check : kind === 'rest' ? '<b></b>' : kind === 'unknown' ? '<em></em>' : ''}</i></span>`);
   }
+  const since = anyUnknown && firstKnown ? `Plans recorded since ${new Date(firstKnown + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : '';
   return `<div class="weekdots" role="group" aria-label="The last seven days">${cells.join('')}</div>
-    <div class="weekdots-key">Check: plan complete · line: planned rest</div>`;
+    <div class="weekdots-key">${since ? `${esc(since)} · ` : ''}Planned rest counts</div>`;
 }
 
 // ------------------------------------------------------------- review ----
@@ -1113,36 +1239,42 @@ let currentCtx = null;
  *
  * After the tendon loading the workout stops, because the rest of the day
  * waits six hours. After anything else the next exercise opens with a short
- * get ready and starts by itself.
+ * get ready and starts by itself. Music carrying on (Keep playing) is not cut
+ * at the handover (F14): only the clock stops while the save runs.
  */
 async function finishRun(ctx, { leave = false } = {}) {
   if (!P?.run || P.finishing) return;
   P.finishing = true;
   const run = P.run;
   const item = ITEM[run.pid];
-  stopEffects();
+  stopClock();
   const saved = saveCurrent();
   if (saved === true) {
     const ok = await flushSave();
     if (!ok) {
       P.finishing = false;
-      toast('<b>Not saved yet</b><br><span>Your workout is kept here. Tap Save to try again.</span>', 'warn');
+      stopEffects();
+      announce('Not saved yet. Your workout is kept here.');
+      toast('<b>Not saved yet</b><br><span>Your workout is kept here. Tap Save to try again.</span>', 'warn', { key: 'player-save' });
       currentRerender?.();
       return;
     }
+    announce(`Logged ${item.title || item.ex}`);
     // Carrying on: the receipt shows in the player while the next exercise is
     // already counting down. Leaving: the toast says it on the way out.
-    if (leave || !P.session || item.first) toast(`<b>Logged</b><br><span>${esc(item.title || item.ex)}</span>`);
+    if (leave || !P.session || item.first) toast(`<b>Logged</b><br><span>${esc(item.title || item.ex)}</span>`, 'good', { key: 'player-logged' });
     else showReceipt(item.title || item.ex);
   }
   P.finishing = false;
   if (leave || !P.session) {
+    stopEffects();
     clearDraft();
     notifyIdle();
     ctx.go(ctx.playerFrom || 'today');
     return;
   }
   if (item.first) {
+    stopEffects();
     P.phase = 'done';
     P.stopForGap = item.id;
     writeDraft();
@@ -1150,23 +1282,29 @@ async function finishRun(ctx, { leave = false } = {}) {
     return;
   }
   moveOn(P.session);
-  if (P.phase === 'between') startNextNow();
+  if (P.phase === 'between') {
+    const nextPid = P.session.queue[P.session.pos];
+    // The music carries on only into an exercise that plays the same way.
+    if (!(songFor(nextPid) && songThroughOn(nextPid) && S.songWanted())) stopEffects();
+    startNextNow();
+  } else {
+    stopEffects();
+  }
   writeDraft();
   currentRerender?.();
 }
 
 const RECEIPT_MS = 240 + 1500;   // enter, then readable for about a second and a half
 let receiptTimer = null;
-/** "Logged · title" in the reserved slot, cleared in place so nothing re-renders. */
+/** "Logged · title" in the status line, put back in place so nothing re-renders. */
 function showReceipt(title) {
   P.receipt = { title, until: Date.now() + RECEIPT_MS, shown: false };
-  const el = document.querySelector('[data-p-live]');
-  if (el) el.textContent = `Logged ${title}`;
   clearTimeout(receiptTimer);
   receiptTimer = setTimeout(() => {
-    if (P) P.receipt = null;
-    const slot = document.querySelector('.p-receipt.on');
-    if (slot) { slot.className = 'p-receipt'; slot.innerHTML = ''; }
+    if (!P) return;
+    P.receipt = null;
+    const slot = document.querySelector('.player [data-slot="status"]');
+    if (slot && P.run) slot.innerHTML = statusLine(P.run);
   }, RECEIPT_MS);
 }
 
@@ -1218,98 +1356,132 @@ function moveOn(s) {
 }
 
 // --------------------------------------------------------------- bind ----
+// One delegated listener on the player, so patched slots never lose their
+// handlers. Transport taps carry the step they were drawn for (F09): a tap
+// meant for one step can never act on the next one, and the same action
+// twice within 350 ms (one physical double tap) acts once.
+const TRANSPORT = new Set(['pause', 'done', 'skip', 'next', 'prev']);
+let lastAct = { k: null, at: 0 };
+
 export function bindPlayer(root, ctx, rerender) {
   currentRerender = () => { if (ctx.view === 'player') rerender(); };
+  currentCtx = ctx;
+  const player = root.querySelector('[data-player]');
   const run = P?.run;
   // Load his song ahead of the tap that starts it: iOS allows the first play
   // only inside that tap, so the file has to be ready by then.
   const song = run ? songFor(run.pid) : null;
   if (song) S.prepareSong(song, P.songPos);
 
-  currentCtx = ctx;
   const act = (fn) => {
     if (!P?.run) return;
     A.unlockAudio();
     if (songFor(P.run.pid)) S.primeSong();
     const events = fn(P.run, performance.now(), Date.now()) || [];
-    if (events.length) announce(events);
+    if (events.length) announceEvents(events);
     P.repsAdjust = null;
     writeDraft();
     if (P.run.state === 'review' && P.phase === 'run') { finishRun(ctx); return; }
-    rerender();
+    syncEffects();
+    refresh();
   };
 
-  root.querySelectorAll('[data-p]').forEach((b) => b.addEventListener('click', () => {
+  player?.addEventListener('click', (ev) => {
+    const b = ev.target.closest('[data-p]');
+    if (!b || b.disabled || !player.contains(b)) return;
     const k = b.dataset.p;
+    if (TRANSPORT.has(k) || k === 'reps-' || k === 'reps+') {
+      if (!P?.run || (b.dataset.step && b.dataset.step !== stepKey(P.run))) return;
+      const now = Date.now();
+      if (TRANSPORT.has(k) && lastAct.k === k && now - lastAct.at < 350) return;
+      if (TRANSPORT.has(k)) lastAct = { k, at: now };
+    }
+    const r = P?.run;
     if (k === 'close') return closePlayer(ctx, rerender);
     if (k === 'pause') {
-      return act((r, now, wall) => (r.state === 'running' ? E.pause(r, now, wall)
-        : r.state === 'ready' ? E.start(r, now, wall) : E.resume(r, now, wall)));
+      return act((x, now, wall) => (x.state === 'running' ? E.pause(x, now, wall)
+        : x.state === 'ready' ? E.start(x, now, wall) : E.resume(x, now, wall)));
     }
     if (k === 'done') {
-      const st = E.step(run);
-      const adj = P.repsAdjust && P.repsAdjust.i === run.i ? P.repsAdjust.n : undefined;
-      if (st && E.WORK.has(st.kind)) P.justDone = { runId: run.runId, i: run.i };
-      act((r, now, wall) => E.setDone(r, now, wall, adj));
+      const st = E.step(r);
+      const adj = P.repsAdjust && P.repsAdjust.i === r.i ? P.repsAdjust.n : undefined;
+      if (st && E.WORK.has(st.kind)) P.justDone = { runId: r.runId, i: r.i };
+      act((x, now, wall) => E.setDone(x, now, wall, adj));
       return;
     }
-    if (k === 'skip') return act((r, now, wall) => E.skipRest(r, now, wall));
-    if (k === 'next') return act((r, now, wall) => E.next(r, now, wall));
-    if (k === 'prev') return act((r, now) => E.prev(r, now));
+    if (k === 'skip') return act((x, now, wall) => E.skipRest(x, now, wall));
+    if (k === 'next') return act((x, now, wall) => E.next(x, now, wall));
+    if (k === 'prev') return act((x, now) => E.prev(x, now));
     if (k === 'reps-' || k === 'reps+') {
-      const st = E.step(run);
-      const cur = P.repsAdjust && P.repsAdjust.i === run.i ? P.repsAdjust.n : (st.reps ?? 0);
-      P.repsAdjust = { i: run.i, n: Math.max(0, cur + (k === 'reps+' ? 1 : -1)) };
-      root.querySelectorAll('[data-p-reps]').forEach((el) => { el.textContent = String(P.repsAdjust.n); });
+      const st = E.step(r);
+      const cur = P.repsAdjust && P.repsAdjust.i === r.i ? P.repsAdjust.n : (st.reps ?? 0);
+      P.repsAdjust = { i: r.i, n: Math.max(0, cur + (k === 'reps+' ? 1 : -1)) };
+      const ring = player.querySelector('[data-slot="ring"] .p-center');
+      if (ring) ring.innerHTML = ringCenter(r, st, performance.now());
       writeDraft();
       return;
     }
+    // Sound: no success notices (F01); the switch itself shows the state.
     if (k === 'cues') {
       const on = !cuesOn();
       try { localStorage.setItem(CUES_KEY, on ? 'on' : 'off'); } catch { /* per device */ }
-      if (on && !A.soundCheck()) toast('<b>Sound is not available here</b><br><span>The countdown and labels still show every step.</span>', 'warn');
-      rerender();
+      if (on && !A.soundCheck()) toast('<b>Sound is not available here</b><br><span>The countdown and labels still show every step.</span>', 'warn', { key: 'cues-unavailable' });
+      syncEffects();
+      refresh();
       return;
     }
     if (k === 'metro') {
-      const on = !metronomeOn(run.pid);
+      const on = !metronomeOn(r.pid);
       A.unlockAudio();
       update((d) => {
         d.program.timer ||= {};
         // The metronome on means the music off.
-        d.program.timer[run.pid] = { ...(d.program.timer[run.pid] || {}), metronome: on, ...(on ? { song: false } : {}) };
+        d.program.timer[r.pid] = { ...(d.program.timer[r.pid] || {}), metronome: on, ...(on ? { song: false } : {}) };
       });
       if (on) S.pauseSong();
-      rerender();
+      syncEffects();
+      refresh();
       return;
     }
     if (k === 'song') {
-      const next = songOn(run.pid) ? false : 'shuffle';
+      const next = songOn(r.pid) ? false : 'shuffle';
       update((d) => {
         d.program.timer ||= {};
         // The music on means the metronome off.
-        d.program.timer[run.pid] = { ...(d.program.timer[run.pid] || {}), song: next, ...(next ? { metronome: false } : {}) };
+        d.program.timer[r.pid] = { ...(d.program.timer[r.pid] || {}), song: next, ...(next ? { metronome: false } : {}) };
       });
       if (next) {
-        const pick = songFor(run.pid);
-        if (pick) {
-          S.prepareSong(pick, P.songPos).then(() => S.primeSong());
-          toast(`<b>Songs on</b><br><span>${esc(pick.name)} this time. It plays during the work and waits through rest.</span>`);
-        }
+        const pick = songFor(r.pid);
+        if (pick) S.prepareSong(pick, P.songPos).then(() => S.primeSong());
       } else {
         S.pauseSong();
       }
-      rerender();
+      syncEffects();
+      refresh();
       return;
     }
     if (k === 'songthrough') {
-      const on = !songThroughOn(run.pid);
+      const on = !songThroughOn(r.pid);
       update((d) => {
         d.program.timer ||= {};
-        d.program.timer[run.pid] = { ...(d.program.timer[run.pid] || {}), songThrough: on };
+        d.program.timer[r.pid] = { ...(d.program.timer[r.pid] || {}), songThrough: on };
       });
-      if (on) toast('<b>Keep playing on</b><br><span>The music carries on through rest and moves to another track when one ends.</span>');
-      rerender();
+      syncEffects();
+      refresh();
+      return;
+    }
+    if (k === 'song-skip') {
+      A.unlockAudio();
+      S.primeSong();
+      S.skipSong().then((t) => { if (t && P) { P.songSha = t.sha; P.songPos = 0; writeDraft(); } paintNow(); });
+      return;
+    }
+    if (k === 'song-retry') {
+      S.loadSongs({ force: true }).then(() => {
+        const pick = P?.run ? songFor(P.run.pid) : null;
+        if (pick && P.run.state === 'running') S.prepareSong(pick, P.songPos).then(() => S.playSong(true));
+        refresh();
+      });
       return;
     }
     if (k === 'zoom') return openZoom(ctx, rerender);
@@ -1322,10 +1494,11 @@ export function bindPlayer(root, ctx, rerender) {
       flushSave().then((ok) => {
         if (!ok) {
           b.disabled = false;
-          toast('<b>Not saved yet</b><br><span>Your workout is kept here. Tap Save again.</span>', 'warn');
+          toast('<b>Not saved yet</b><br><span>Your workout is kept here. Tap Save again.</span>', 'warn', { key: 'player-save' });
           return;
         }
-        toast(`<b>Saved</b><br><span>${esc(item.title || item.ex)}</span>`);
+        announce(`Logged ${item.title || item.ex}`);
+        toast(`<b>Saved</b><br><span>${esc(item.title || item.ex)}</span>`, 'good', { key: 'player-logged' });
         afterSave(ctx);
         if (P) rerender();
       });
@@ -1339,7 +1512,7 @@ export function bindPlayer(root, ctx, rerender) {
       return;
     }
     if (k === 'skip-ex') { moveOn(P.session); rerender(); return; }
-    if (k === 'end') { P.phase = 'done'; writeDraft(); rerender(); }
+    if (k === 'end') { P.phase = 'done'; writeDraft(); rerender(); return; }
     if (k === 'viewlog') {
       const iso = P.session?.iso || P.run?.iso || todayIso();
       clearDraft();
@@ -1349,9 +1522,9 @@ export function bindPlayer(root, ctx, rerender) {
       ctx.editing = null;
       ctx.go('today');
     }
-  }));
+  });
 
-  // Review sheet inputs: kept on the draft as he types, saved only on Save.
+  // Review sheet inputs (the retry screen): kept on the draft as he types, saved only on Save.
   root.querySelectorAll('[data-rv-side] [data-rv]').forEach((inp) => inp.addEventListener('input', () => {
     const side = inp.closest('[data-rv-side]').dataset.rvSide;
     const v = P.review.sides[side];
@@ -1368,9 +1541,9 @@ export function bindPlayer(root, ctx, rerender) {
   }));
   root.querySelector('input[data-rv="notes"]')?.addEventListener('input', (e) => { P.review.notes = e.target.value; writeDraft(); });
   root.querySelector('input[data-rv="inaccurate"]')?.addEventListener('change', (e) => { P.review.inaccurate = e.target.checked; writeDraft(); });
-  root.querySelectorAll('[data-rv-scale]').forEach((b) => b.addEventListener('click', () => {
-    const key = b.dataset.rvScale;
-    const v = Number(b.dataset.v);
+  root.querySelectorAll('[data-rv-scale]').forEach((btn) => btn.addEventListener('click', () => {
+    const key = btn.dataset.rvScale;
+    const v = Number(btn.dataset.v);
     P.review[key] = P.review[key] === v ? null : v;   // tap again to clear: it is optional
     writeDraft();
     rerender();
@@ -1387,8 +1560,26 @@ export function bindPlayer(root, ctx, rerender) {
     });
     P.celebrate = null;
   }
+  watchDock(player);
   syncEffects();
   paintWake();
+}
+
+/**
+ * The dock's real height, reserved under the scrolling content (F12), so the
+ * sound switches and the last line can always scroll clear of the transport,
+ * at any text size. The keyboard is left to the browser.
+ */
+let dockObserver = null;
+function watchDock(player) {
+  dockObserver?.disconnect();
+  dockObserver = null;
+  const dock = player?.querySelector('[data-p-dock]');
+  if (!dock || typeof ResizeObserver === 'undefined') return;
+  dockObserver = new ResizeObserver(() => {
+    player.style.setProperty('--dock-h', `${Math.ceil(dock.getBoundingClientRect().height)}px`);
+  });
+  dockObserver.observe(dock);
 }
 
 // -------------------------------------------------------------- close ----
@@ -1462,7 +1653,9 @@ function openZoom(ctx, rerender) {
   const back = document.createElement('div');
   back.className = 'p-zoom';
   back.setAttribute('role', 'dialog');
+  back.setAttribute('aria-modal', 'true');
   back.setAttribute('aria-label', 'Step pictures');
+  const opener = document.activeElement;
   back.innerHTML = `
     <div class="p-zoom-scroll"><img src="${esc(item.img)}" alt="Step pictures: ${esc(item.title || item.ex)}"></div>
     <div class="p-zoom-bar">
@@ -1473,10 +1666,17 @@ function openZoom(ctx, rerender) {
     </div>`;
   document.getElementById('modal-root').appendChild(back);
   const img = back.querySelector('img');
-  const close = () => { back.remove(); document.removeEventListener('keydown', esc_); rerender(); };
+  const close = () => {
+    back.remove();
+    document.removeEventListener('keydown', esc_);
+    rerender();
+    const z = document.querySelector('[data-p="zoom"]') || opener;
+    try { z?.focus({ preventScroll: true }); } catch { /* ignore */ }
+  };
   const esc_ = (e) => { if (e.key === 'Escape') close(); };
   document.addEventListener('keydown', esc_);
   const zoom = () => { img.classList.toggle('big'); };
+  requestAnimationFrame(() => back.querySelector('[data-z="close"]')?.focus());
   img.addEventListener('click', zoom);
   back.querySelector('[data-z="zoom"]').addEventListener('click', zoom);
   back.querySelector('[data-z="close"]').addEventListener('click', close);

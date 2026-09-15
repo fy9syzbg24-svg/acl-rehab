@@ -21,22 +21,39 @@ export function audioAvailable() {
 /**
  * What the page's audio does to other apps' audio (the Audio Session API,
  * Safari only; elsewhere this does nothing).
- *   cues   'transient': beeps and the metronome play on top, so his Spotify
- *          keeps going underneath
- *   song   'transient-solo': one of his songs pauses other audio, and the type
- *          is meant to let it resume when ours stops
- * Changed 2026-09-14 from 'playback' for everything, on his ask. Untested on the
- * device at the time of writing: whether iOS resumes Spotify, and whether the
- * beeps still sound with the silent switch on.
+ *
+ * 2026-09-14 revision 3 (F03), his call: workout sound plays with the Silent
+ * switch on. Default 'playback' for everything, which iOS plays through Silent
+ * and which interrupts other audio such as Spotify (WebKit bugs 264473 and
+ * 237322 record that the transient types follow the Silent switch; build
+ * 8a69d44 used playback and passed his Silent test, build 59bb286 moved to the
+ * transient types and lost it). A device-local choice, "Let other music keep
+ * playing" in Settings, restores the mixing types, which follow Silent. No
+ * promise is made that Spotify resumes afterwards.
  */
+export const MIX_KEY = 'rehab.audio.mix';
+export function mixWithOthers() {
+  try { return localStorage.getItem(MIX_KEY) === 'on'; } catch { return false; }
+}
 let sessionMode = null;
+let sessionType = null;
 export function setSession(mode) {
-  if (mode === sessionMode) return;
   try {
     if (!navigator.audioSession) return;
-    navigator.audioSession.type = mode === 'song' ? 'transient-solo' : 'transient';
+    const type = mixWithOthers() ? (mode === 'song' ? 'transient-solo' : 'transient') : 'playback';
+    if (type === sessionType) { sessionMode = mode; return; }
+    navigator.audioSession.type = type;
+    sessionType = type;
     sessionMode = mode;
   } catch { /* not supported */ }
+}
+
+/** 'running', 'suspended', 'blocked' (a resume was refused) or 'unavailable'. */
+let cueState = 'suspended';
+export function cuesState() {
+  if (!audioAvailable()) return 'unavailable';
+  if (ctx && ctx.state === 'running') return 'running';
+  return cueState;
 }
 
 /** Call from a tap. Safe to call repeatedly. */
@@ -49,7 +66,11 @@ export function unlockAudio() {
     }
     // Only the first time: a tap during a song must not hand the speaker back.
     if (!sessionMode) setSession('cues');
-    if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+    if (ctx.state === 'suspended') {
+      ctx.resume().then(() => { cueState = 'running'; }).catch(() => { cueState = 'blocked'; });
+    } else {
+      cueState = ctx.state;
+    }
     return true;
   } catch {
     return false;

@@ -1,8 +1,8 @@
-import { esc, todayIso, addDays, fmtDate, fmtDateNum, daysBetween, num } from '../util.js';
+import { esc, todayIso, addDays, fmtDate, fmtDateNum, daysBetween, num, weekStart } from '../util.js';
 import { state, getDay, loggedDates, hasCheckin } from '../store.js';
 import { PLAN_MONTHS, monthForDate } from '../../data/plan.js';
 import { CASE, CLINIC_TIMELINE } from '../../data/history.js';
-import { heatmap, lineChart } from '../components.js';
+import { lineChart } from '../components.js';
 import { monthCompletion } from '../goals.js';
 import { planStreak, dayComplete } from '../planstreak.js';
 import { renderWeekPanel, bindWeekPanel } from './week.js';
@@ -42,12 +42,19 @@ export function bindProgress(root, ctx, rerender) {
     rerender();
     if (!b.closest('.subnav')) window.scrollTo(0, 0);
   }));
-  bindWeekPanel(root, ctx, rerender);
-  bindMeasuresPanel(root, ctx, rerender);
+  // Only the panel on screen binds (revision 3 F29): Overview's chart used to
+  // get a second set of handlers from the Tests binder.
+  if (tab === 'week') bindWeekPanel(root, ctx, rerender);
+  if (tab === 'tests') bindMeasuresPanel(root, ctx, rerender);
   if (tab === 'history') {
     bindSessions(root, ctx, rerender, { onEdit: (s) => correctOnToday(ctx, s) });
   }
-  root.querySelectorAll('.heat-cell[data-date]').forEach((c) => c.addEventListener('click', () => {
+  root.querySelector('[data-calmore]')?.addEventListener('click', () => {
+    const w = ctx.calWeeks || 8;
+    ctx.calWeeks = w >= 26 ? 8 : w + 9;
+    rerender();
+  });
+  root.querySelectorAll('.pc-cell[data-date]').forEach((c) => c.addEventListener('click', () => {
     ctx.date = c.dataset.date;
     ctx.go('today');
   }));
@@ -90,18 +97,7 @@ function renderHistoryPanel(ctx) {
 
     ${recentDays(today)}
 
-    <section class="card">
-      <header><h2>Activity</h2><span class="sub">26 weeks · darker = more exercises confirmed</span></header>
-      <div class="card-body">
-        ${heatmap(today, 26, levelFor)}
-        <div class="row tiny muted" style="margin-top:.5rem;gap:.4rem">
-          <span>less</span>
-          ${['', 'l1', 'l2', 'l3', 'l4'].map((c) => `<span class="heat-cell ${c}" style="width:12px;flex:none"></span>`).join('')}
-          <span>more</span>
-          <span class="spacer"></span><span>columns are weeks, rows Mon → Sun</span>
-        </div>
-      </div>
-    </section>
+    ${planCalendar(today, ctx)}
 
     <div class="grid2">
       <section class="card">
@@ -187,7 +183,7 @@ function renderClinicalPanel() {
     <section class="card">
       <header><h2>Clinical history</h2><span class="sub">from your notes: background, not something to tick off</span></header>
       <div class="card-body">
-        <div class="tline clinical">${CLINIC_TIMELINE.slice().sort((a, b) => (a.date < b.date ? 1 : -1)).map((t) => {
+        <div class="tline clinical">${CLINIC_TIMELINE.slice().sort((a, b) => (a.date < b.date ? 1 : -1)).map((t, ti) => {
           // Long entries fold after two points. Nothing is removed: the rest
           // is one tap away, word for word.
           const head = t.points.slice(0, 2);
@@ -196,7 +192,7 @@ function renderClinicalPanel() {
             <div class="tline-date">${esc(fmtDate(t.date, 'short'))}${t.who ? ` · <span class="tline-who">${esc(t.who)}</span>` : ''}</div>
             <div class="tline-title">${esc(t.title)}</div>
             <ul class="plain">${head.map((p) => `<li>${esc(p)}</li>`).join('')}</ul>
-            ${more.length ? `<details class="exh-more"><summary>${more.length} more</summary>
+            ${more.length ? `<details class="exh-more" data-key="clin:${esc(t.date)}:${esc(t.title || String(ti))}"><summary>${more.length} more</summary>
               <ul class="plain">${more.map((p) => `<li>${esc(p)}</li>`).join('')}</ul></details>` : ''}
           </div>`;
         }).join('')}</div>
@@ -205,7 +201,7 @@ function renderClinicalPanel() {
         <ul class="plain">${CASE.flags.map((f) => `<li>${esc(f.text)}</li>`).join('')}</ul>
 
         <div class="section-title" style="margin-top:1rem">Clearances</div>
-        <ul class="plain">${CASE.clearances.map((c) => `<li>${esc(c.text)} <span class="pill ${c.status === 'cleared' ? 'good' : 'warn'}">${esc(c.status)}</span></li>`).join('')}</ul>
+        <ul class="plain">${CASE.clearances.map((c) => `<li>${esc(c.text)} <span class="pill status">${esc(c.status)}</span></li>`).join('')}</ul>
 
         <div class="section-title" style="margin-top:1rem">Ongoing management</div>
         <ul class="plain">${CASE.management.map((c) => `<li>${esc(c)}</li>`).join('')}</ul>
@@ -214,16 +210,50 @@ function renderClinicalPanel() {
   </div>`;
 }
 
-function levelFor(iso) {
-  const d = getDay(iso);
-  if (!d) return 0;
-  const n = (d.entries || []).filter((e) => e.logged).length;
-  if (!n) return hasCheckin(d) ? 1 : 0;
-  if (n >= 10) return 4;
-  if (n >= 6) return 3;
-  if (n >= 3) return 2;
-  return 1;
+/**
+ * The plan, day by day (revision 3 F33). Each date against the plan recorded
+ * for it: complete, not complete, planned rest, or no plan recorded. Extra or
+ * repeated work never darkens a day; it stays in Sessions. Newest week first,
+ * a week to a row, so every day is a real 44px target. Tap a day to open it.
+ */
+function planCalendar(today, ctx) {
+  const weeks = ctx.calWeeks || 8;
+  const first = weekStart(today);
+  let firstKnown = null;
+  const rows = [];
+  for (let w = 0; w < weeks; w++) {
+    const mon = addDays(first, -7 * w);
+    const cells = [];
+    for (let i = 0; i < 7; i++) {
+      const iso = addDays(mon, i);
+      if (iso > today) { cells.push('<span class="pc-cell future" aria-hidden="true"></span>'); continue; }
+      const r = dayComplete(state.data, iso);
+      const kind = !r ? 'unknown' : !r.planned ? 'rest' : r.complete ? 'done' : 'open';
+      if (kind !== 'unknown' && (!firstKnown || iso < firstKnown)) firstKnown = iso;
+      const word = { unknown: 'no plan recorded', rest: 'planned rest', done: `plan complete, ${r?.done} of ${r?.planned}`, open: `not complete, ${r?.done} of ${r?.planned}` }[kind];
+      cells.push(`<button class="pc-cell ${kind} ${iso === today ? 'today' : ''}" data-date="${iso}" aria-label="${esc(fmtDate(iso, 'dow'))} ${esc(fmtDate(iso, 'short'))}: ${esc(word)}">${
+        kind === 'done' ? PC_CHECK : kind === 'rest' ? '<b></b>' : kind === 'unknown' ? '<em></em>' : ''}</button>`);
+    }
+    rows.push(`<div class="pc-row"><span class="pc-wk">${esc(fmtDate(mon, 'short'))}</span>${cells.join('')}</div>`);
+  }
+  return `<section class="ov-sec panelsec plancal">
+    <div class="ov-head"><h2>Plan days</h2></div>
+    <div class="pc-sub">Each day against the plan recorded for it${firstKnown ? `. Plans recorded since ${esc(fmtDate(firstKnown, 'short'))}` : ''}.</div>
+    <div class="pc-grid" role="group" aria-label="Plan days, newest week first">
+      <div class="pc-row pc-head" aria-hidden="true"><span class="pc-wk"></span>${['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d) => `<span>${d}</span>`).join('')}</div>
+      ${rows.join('')}
+    </div>
+    <div class="pc-key">
+      <span><i class="pc-cell done">${PC_CHECK}</i>Plan complete</span>
+      <span><i class="pc-cell open"></i>Not complete</span>
+      <span><i class="pc-cell rest"><b></b></i>Planned rest</span>
+      <span><i class="pc-cell unknown"><em></em></i>No plan recorded</span>
+    </div>
+    <button class="btn sm" data-calmore>Show ${weeks >= 26 ? 'fewer' : 'earlier'} weeks</button>
+  </section>`;
 }
+
+const PC_CHECK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12.5l4 4L18 8"/></svg>';
 
 function timeline(today) {
   const s = state.data.settings;

@@ -86,6 +86,19 @@ export function bindHistory(root) {
   }));
 }
 
+/**
+ * The one most useful line for a row that has just opened (revision 3): what
+ * was confirmed this session if anything, otherwise the last session.
+ */
+export function summaryLine(doc, item, iso) {
+  const unit = doc.settings?.weightUnit || 'kg';
+  const todayDone = (doc.days?.[iso]?.entries || []).filter((e) => e.logged && (e.pid === item.id || (e.pid == null && e.ex === item.ex)));
+  if (todayDone.length) return { label: 'This session', html: todayDone.map((e) => `${sideLabel(e, item)}${esc(rowText(e, unit))}`).join(' · ') };
+  const last = historyFor(doc, item, iso)[0];
+  if (last) return { label: `Last session · ${fmtDateNum(last.date)}`, html: last.rows.map((e) => `${sideLabel(e, item)}${esc(rowText(e, unit))}`).join(' · ') };
+  return { label: 'Last session', html: '<span class="muted">Nothing confirmed yet</span>' };
+}
+
 export function renderHistory(doc, item, iso) {
   const unit = doc.settings?.weightUnit || 'kg';
   const hist = historyFor(doc, item, iso);

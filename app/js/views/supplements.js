@@ -202,54 +202,72 @@ export function renderSuppGroups(iso, ctx, { edit = false } = {}) {
     const rows = list.filter((s) => (s.when || 'anytime') === key);
     // While editing, keep empty groups on screen so you can drag INTO them.
     if (!rows.length && !edit) return '';
-    const done = rows.every((s) => ticks[s.id]);
-    // A finished group folds itself away so the next one is what you see.
-    const open = ctx.suppOpen?.[key] ?? !done;
+    const taken = rows.filter((s) => ticks[s.id]).length;
+    const done = rows.length > 0 && taken === rows.length;
+    // 2026-09-14 revision 3 (F20): a finished group stays open until he folds
+    // it, so the row he just ticked (and its time) does not jump away.
+    const open = ctx.suppOpen?.[key] ?? true;
     return `
-      <div class="suppgroup ${done ? 'done' : ''}">
-        <button class="suppgrouphead" data-suppgroup="${key}">
-          <span class="sg-caret">${open ? '▾' : '▸'}</span>
+      <section class="suppgroup ${done ? 'done' : ''}">
+        <button class="suppgrouphead" data-suppgroup="${key}" aria-expanded="${open}">
           <span class="sg-label">${label}</span>
-          <span class="tiny mono">${rows.filter((s) => ticks[s.id]).length}/${rows.length}</span>
-          ${done ? '<span class="pill good tiny">all taken</span>' : ''}
+          <span class="sg-count ${done ? 'good' : ''}">${done ? `${checkSvg}All taken` : `${taken} of ${rows.length}`}</span>
+          <span class="sg-chev" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 9.5l6 6 6-6"/></svg></span>
         </button>
         ${open ? `<div class="supplist ${edit ? 'editing' : ''}" data-dropzone="${key}">
-          ${rows.map((s) => `
-            <div class="supprow ${ticks[s.id] ? 'on' : ''} ${ctx.suppPop === s.id ? 'pop' : ''}" data-supp="${esc(s.id)}" data-row="${esc(s.id)}">
-              ${edit ? '<span class="supphandle" data-drag aria-label="Drag to reorder">≡</span>' : ''}
-              <i class="supptick">${ticks[s.id] ? '✓' : ''}</i>
-              <span class="suppname">${esc(s.name)}</span>
-              ${ticks[s.id] && !edit ? `<label class="supptime" data-supptime-wrap title="When you took it">
-                <span>${suppTime(ticks[s.id]) ? esc(time12(suppTime(ticks[s.id]))) : 'set time'}</span>
-                <input type="time" data-supptime="${esc(s.id)}" value="${suppTime(ticks[s.id]) ? hhmm24(suppTime(ticks[s.id])) : ''}" aria-label="Time you took ${esc(s.name)}">
-              </label>` : ''}
-              ${edit ? `<span class="suppdel" data-suppdel="${esc(s.id)}" role="button" aria-label="Remove">✕</span>` : ''}
-            </div>`).join('')}
+          ${rows.map((s) => suppRow(s, iso, ticks, ctx, edit)).join('')}
         </div>` : ''}
-      </div>`;
+      </section>`;
   };
   if (!list.length) return '<div class="tiny muted">Nothing on the list for this day.</div>';
   return WHENS.map(group).join('');
+}
+
+const checkSvg = '<svg class="sg-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12.5l4 4L18 8"/></svg>';
+
+/**
+ * One supplement (F21): a real checkbox with its name as the label, and a
+ * separate time control beside it, in a slot that is always there (dimmed
+ * until the supplement is ticked). Two independent actions, each at least
+ * 44 px, keyboard operable.
+ */
+function suppRow(s, iso, ticks, ctx, edit) {
+  const on = !!ticks[s.id];
+  const t = suppTime(ticks[s.id]);
+  const id = `supp-${s.id}-${iso}`;
+  return `
+    <div class="supprow ${on ? 'on' : ''} ${ctx.suppPop === s.id ? 'pop' : ''}" data-row="${esc(s.id)}">
+      ${edit ? '<span class="supphandle" data-drag aria-label="Drag to reorder">≡</span>' : ''}
+      <label class="supp-check" for="${esc(id)}">
+        <input type="checkbox" id="${esc(id)}" class="supp-input" data-supp="${esc(s.id)}" ${on ? 'checked' : ''} data-focus-key="supp|${esc(s.id)}">
+        <span class="supptick" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 12.5l4 4L18 8"/></svg></span>
+        <span class="suppname">${esc(s.name)}</span>
+      </label>
+      ${edit
+        ? `<button class="suppdel" data-suppdel="${esc(s.id)}" aria-label="Remove ${esc(s.name)}">✕</button>`
+        : `<label class="supptime ${on ? '' : 'inactive'} ${t ? 'set' : ''}" data-supptime-wrap>
+            <span>${t ? esc(time12(t)) : 'Set time'}</span>
+            <input type="time" data-supptime="${esc(s.id)}" value="${t ? hhmm24(t) : ''}" ${on ? '' : 'disabled'} aria-label="Time you took ${esc(s.name)}">
+          </label>`}
+    </div>`;
 }
 
 /** Tick and fold handlers for the shared rows. */
 export function bindSuppGroups(root, iso, ctx, rerender) {
   root.querySelectorAll('[data-suppgroup]').forEach((b) => b.addEventListener('click', () => {
     const k = b.dataset.suppgroup;
-    const list = listFor(iso).filter((s) => (s.when || 'anytime') === k);
-    const done = list.every((s) => ticksOn(iso)[s.id]);
     ctx.suppOpen = { ...(ctx.suppOpen || {}) };
-    ctx.suppOpen[k] = !(ctx.suppOpen[k] ?? !done);
+    ctx.suppOpen[k] = !(ctx.suppOpen[k] ?? true);
     rerender();
   }));
 
   // The time wheel on a ticked row: when he actually took it, for the mornings
-  // he logs later. The row's own tap still ticks and unticks.
+  // he logs later.
   root.querySelectorAll('[data-supptime]').forEach((inp) => {
-    inp.addEventListener('click', (ev) => ev.stopPropagation());
     // iOS opens its wheel on a tap; desktop browsers need to be asked.
     inp.closest('[data-supptime-wrap]')?.addEventListener('click', (ev) => {
-      ev.stopPropagation();
+      if (inp.disabled) return;
+      if (ev.target === inp) return;
       try { inp.showPicker?.(); } catch { /* the native tap still works */ }
     });
     onTimePicked(inp, (v) => {
@@ -267,14 +285,17 @@ export function bindSuppGroups(root, iso, ctx, rerender) {
     });
   });
 
-  root.querySelectorAll('[data-supp]').forEach((b) => b.addEventListener('click', (ev) => {
-    if (ev.target.closest('[data-suppdel], [data-supptime-wrap]')) return;
-    const id = b.dataset.supp;
-    let on = false;
+  root.querySelectorAll('input[data-supp]').forEach((cb) => cb.addEventListener('change', () => {
+    const id = cb.dataset.supp;
+    const on = cb.checked;
     update(() => {
       const day = ensureDay(iso);
       day.supps = { ...(day.supps || {}) };
-      if (day.supps[id]) delete day.supps[id]; else { day.supps[id] = new Date().toISOString(); on = true; }
+      if (!on) delete day.supps[id];
+      // F08: a tick on the day in hand records the moment; a tick on another
+      // day records "taken, time unknown" (the existing true), never today's
+      // clock on yesterday's list. He can set the real time with the chip.
+      else day.supps[id] = iso === currentDayIso() ? new Date().toISOString() : true;
     });
     ctx.suppPop = on ? id : null;    // one render's worth of pop
     rerender();
@@ -299,26 +320,32 @@ export function prnSummary(iso) {
 export function renderSupplements(ctx) {
   const iso = ctx.suppDate || currentDayIso();
   const score = suppScore(iso);
+  const d = new Date(iso + 'T12:00:00');
+  const opts = { weekday: 'long', month: 'long', day: 'numeric' };
+  if (d.getFullYear() !== new Date().getFullYear()) opts.year = 'numeric';
+  const cur = currentDayIso();
 
   return `
-  <div class="stack">
-    ${renderDatePill(iso, { showDone: false, today: currentDayIso() })}
-
-    <section class="card">
-      <header>
-        <h2>Supplements</h2>
-        <span class="row" style="gap:.4rem;align-items:center">
-          ${score ? `<span class="sub mono">${score.taken}/${score.total}</span>` : ''}
-          <button class="btn sm ${ctx.suppEdit ? 'primary' : ''}" data-supp-edit>${ctx.suppEdit ? 'Done' : 'Edit'}</button>
+  <div class="stack supps-page">
+    <header class="pagehead">
+      <h1>Supplements</h1>
+      <div class="daynav supps-nav">
+        <span class="daynav-date lede"><span class="dn-long">${esc(d.toLocaleDateString('en-US', opts))}</span><span class="dn-short">${esc(d.toLocaleDateString('en-US', { ...opts, weekday: 'short', month: 'short' }))}</span>
+          <input type="date" data-jump value="${iso}" aria-label="Jump to a date"></span>
+        <span class="daynav-ctl">
+          <button class="daynav-arrow" data-nav="-1" aria-label="Previous day"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+          <button class="daynav-arrow" data-nav="1" aria-label="Next day"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+          <button class="btn sm daynav-today" data-nav="today" ${iso === cur ? 'disabled aria-disabled="true"' : ''}>Today</button>
         </span>
-      </header>
-      <div class="card-body">
-        ${score ? `<div class="suppscore"><div class="bar ${score.taken === score.total ? 'good' : ''}">
-          <i style="width:${score.total ? (score.taken / score.total) * 100 : 0}%"></i></div></div>` : ''}
-        ${renderSuppGroups(iso, ctx, { edit: !!ctx.suppEdit })}
-        <button class="btn sm" data-supp-add style="margin-top:.8rem">+ Add a supplement</button>
       </div>
-    </section>
+      <div class="supps-bar">
+        <span class="supps-count">${score ? `${score.taken} of ${score.total} taken` : 'Nothing on the list'}</span>
+        <button class="btn ${ctx.suppEdit ? 'primary' : ''}" data-supp-edit>${ctx.suppEdit ? 'Done' : 'Edit'}</button>
+      </div>
+    </header>
+
+    <div class="supp-groups">${renderSuppGroups(iso, ctx, { edit: !!ctx.suppEdit })}</div>
+    <button class="btn supp-add" data-supp-add><span aria-hidden="true">+</span> Add a supplement</button>
 
     ${renderPrn(ctx, iso)}
   </div>`;

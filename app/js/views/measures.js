@@ -1,4 +1,4 @@
-import { esc, todayIso, round, fmtDateNum, uid, num, ord } from '../util.js';
+import { esc, todayIso, round, fmtDateNum, uid, num, ord, toKg, fromKg } from '../util.js';
 import { state, update, measurementsFor, latest, best } from '../store.js';
 import { MEASURES, MEASURE_BY_ID, MEASURE_GROUPS, UNIT_LABEL } from '../../data/measurements.js';
 import { OPEN_CHAIN } from '../../data/exercises.js';
@@ -59,7 +59,10 @@ function baselines() {
       <thead><tr><th>Exercise</th><th class="num">Left</th><th class="num">Right</th><th class="num">Both legs</th><th class="num">Difference</th><th>Best set</th><th>When</th></tr></thead>
       <tbody>${list.map((id) => {
         const L = byEx[id].L; const R = byEx[id].R; const B = byEx[id].B;
-        const delta = L && R && L.load !== R.load ? `${round(Math.abs(L.load - R.load), 1)} ${L.unit} ${L.load > R.load ? 'L' : 'R'}` : '';
+        // Compared in one unit, so 20 kg and 44 lb are never a 24 point gap.
+        const want = state.data.settings.weightUnit || 'kg';
+        const inU = (r) => fromKg(toKg(r.load, r.unit), want);
+        const delta = L && R && round(inU(L), 1) !== round(inU(R), 1) ? `${round(Math.abs(inU(L) - inU(R)), 1)} ${want} ${inU(L) > inU(R) ? 'L' : 'R'}` : '';
         const top = [L, R, B].filter(Boolean).sort((a, b) => b.load - a.load)[0];
         return `<tr>
           <td>${esc(exerciseById(id)?.name || id)} ${top.seeded ? '<span class="seeded-dot" title="from clinical notes">●</span>' : ''}</td>
@@ -162,7 +165,7 @@ function valdView(ctx) {
   <section class="card">
     <header><h2>VALD</h2><span class="sub">Dynamo isometric strength + force plate assessments</span></header>
     <div class="card-body">
-      <details class="disc" style="margin-bottom:.6rem"><summary>Where these numbers come from</summary>
+      <details class="disc" data-key="vald:source" style="margin-bottom:.6rem"><summary>Where these numbers come from</summary>
         <div class="tiny">Seeded from your Dynamo test and force plate session (report dated 3 Aug). Percentiles are recorded alongside the raw numbers so you can see both the value and where it sits. An asymmetry printed on a report is shown as printed; one worked out here is shown in grey.</div>
       </details>
       ${groups.map((g) => {
@@ -184,13 +187,31 @@ function valdView(ctx) {
   ${valdCharts(ctx)}`;
 }
 
-/** Report-stated asymmetry wins over anything we would compute ourselves. */
+/**
+ * Report-stated asymmetry wins over anything we would compute ourselves, and
+ * stays with its own report and date. A figure is only worked out here when
+ * the latest left and right come from the same assessment (same date, same
+ * report); results from different dates are never paired (revision 3 F06).
+ */
 function asymCell(L, R) {
-  const stated = L?.asym || R?.asym;
-  if (stated) return `<span title="as printed on the report">${esc(stated.pct)}% ${esc(stated.side)}</span>`;
-  if (!L || !R || !Math.max(L.value, R.value)) return '';
+  const stated = (L?.asym && L) || (R?.asym && R);
+  if (stated) {
+    const sameDay = L && R && L.date === R.date;
+    return `<span title="as printed on the report">${esc(stated.asym.pct)}% ${esc(stated.asym.side)}${sameDay ? '' : ` <span class="muted">(${esc(fmtDateNum(stated.date))} report)</span>`}</span>`;
+  }
+  if (!pairable(L, R) || !Math.max(L.value, R.value)) return '';
   const v = round((Math.abs(L.value - R.value) / Math.max(L.value, R.value)) * 100, 1);
   return `<span class="muted" title="computed here, not from a report">${v}% ${L.value > R.value ? 'L' : 'R'}</span>`;
+}
+
+function pairable(L, R) {
+  return !!(L && R && L.date === R.date && (L.src || '') === (R.src || ''));
+}
+
+/** The date of the latest result, one per side when the sides differ. */
+function sideDates(L, R) {
+  if (L && R && L.date !== R.date) return `L ${fmtDateNum(L.date)} · R ${fmtDateNum(R.date)}`;
+  return fmtDateNum((L || R).date);
 }
 
 function valdRow(m) {
@@ -211,7 +232,7 @@ function valdRow(m) {
     <td class="num mono">${L ? `${round(L.value, 2)} ${esc(u)}` : '·'} ${L?.pctile != null ? `<span class="pill">${esc(ord(L.pctile))}</span>` : ''}</td>
     <td class="num mono">${R ? `${round(R.value, 2)} ${esc(u)}` : '·'} ${R?.pctile != null ? `<span class="pill">${esc(ord(R.pctile))}</span>` : ''}</td>
     <td class="num mono tiny">${asymCell(L, R)}</td>
-    <td class="tiny muted">${esc(fmtDateNum((L || R).date))}</td>
+    <td class="tiny muted">${esc(sideDates(L, R))}</td>
     <td class="num"><button class="btn sm" data-record="${esc(m.id)}">+</button></td>
   </tr>`;
 }
@@ -229,7 +250,7 @@ function valdCharts(ctx) {
   const st = (ctx.trend.vald ||= {});
   if (!st.measure) st.measure = withData[0].id;
   return `<section class="ov-sec panelsec"><div class="ov-head"><h2>Trends</h2></div>
-    ${renderTrend(ctx, { key: 'vald', width: trendWidth() })}</section>`;
+    ${renderTrend(ctx, { key: 'vald', width: trendWidth(), measures: withData.map((m) => m.id) })}</section>`;
 }
 
 function trendWidth() {
@@ -255,10 +276,10 @@ function allTests() {
             const when = [L, R].filter(Boolean).map((r) => r.date).sort().pop();
             return `<tr>
               <td>${esc(m.label)}
-                ${m.how ? `<details class="disc" style="margin-top:.25rem"><summary>how to test</summary><div class="tiny">${esc(m.how)}</div></details>` : ''}</td>
+                ${m.how ? `<details class="disc" data-key="how:${esc(m.id)}" style="margin-top:.25rem"><summary>How to test</summary><div class="tiny">${esc(m.how)}</div></details>` : ''}</td>
               <td class="num mono">${L ? `${round(L.value, 2)} ${esc(m.unit === 'grade' ? '' : u)}` : '·'}</td>
               <td class="num mono">${m.perLeg ? (R ? `${round(R.value, 2)} ${esc(m.unit === 'grade' ? '' : u)}` : '·') : ''}</td>
-              <td class="tiny muted">${when ? esc(fmtDateNum(when)) : ''}</td>
+              <td class="tiny muted">${m.perLeg && (L || R) ? esc(sideDates(L, R)) : when ? esc(fmtDateNum(when)) : ''}</td>
               <td class="num nowrap">
                 <button class="btn sm" data-record="${esc(m.id)}">Record</button>
                 ${measurementsFor(m.id).length ? `<button class="btn sm ghost" data-chart="${esc(m.id)}">Chart</button>` : ''}
@@ -358,15 +379,15 @@ function metricRow(m) {
   const L = m.perLeg ? latest(m.id, 'L') : null;
   const R = m.perLeg ? latest(m.id, 'R') : null;
   const S = m.perLeg ? null : latest(m.id, null);
-  const when = [L, R, S].filter(Boolean).map((r) => r.date).sort().pop();
+  const when = m.perLeg ? (L || R ? sideDates(L, R) : null) : S ? fmtDateNum(S.date) : null;
   const bestL = m.perLeg ? best(m.id, 'L', m.lower) : null;
   const bestR = m.perLeg ? best(m.id, 'R', m.lower) : null;
   const bestS = m.perLeg ? null : best(m.id, null, m.lower);
   const count = measurementsFor(m.id).length;
   const pct = (r) => (r?.pctile != null ? ` <span class="pill">${esc(ord(r.pctile))} pct</span>` : '');
-  return `<details class="mrow">
+  return `<details class="mrow" data-key="mrow:${esc(m.id)}">
     <summary>
-      <span class="mrow-name">${esc(m.label)}<span class="mrow-date">${when ? esc(fmtDateNum(when)) : 'not tested yet'}</span></span>
+      <span class="mrow-name">${esc(m.label)}<span class="mrow-date">${when ? esc(when) : 'not tested yet'}</span></span>
       <span class="mrow-vals">${m.perLeg
         ? `<span class="mv"><b class="sidetag L">L</b>${val(m, L)}</span><span class="mv"><b class="sidetag R">R</b>${val(m, R)}</span>`
         : `<span class="mv">${val(m, S)}</span>`}</span>
@@ -375,11 +396,11 @@ function metricRow(m) {
       ${count ? `<div class="exh-line"><span class="exh-k">Best</span><span class="exh-v">${m.perLeg
         ? `<b class="sidetag L">L</b> ${val(m, bestL)}${pct(bestL)} · <b class="sidetag R">R</b> ${val(m, bestR)}${pct(bestR)}`
         : `${val(m, bestS)}${pct(bestS)}`}${m.lower ? ' <span class="tiny muted">lower is better</span>' : ''}</span></div>` : ''}
-      ${m.perLeg && L && R ? `<div class="exh-line"><span class="exh-k">Asymmetry</span><span class="exh-v">${asymCell(L, R) || '·'}</span></div>` : ''}
+      ${m.perLeg && L && R ? `<div class="exh-line"><span class="exh-k">Asymmetry</span><span class="exh-v">${asymCell(L, R) || (pairable(L, R) ? '·' : 'Left and right were tested on different dates')}</span></div>` : ''}
       ${m.how ? `<div class="tiny" style="margin:.3rem 0">${esc(m.how)}</div>` : ''}
       <div class="row" style="gap:.4rem;margin-top:.3rem">
         <button class="btn sm" data-record="${esc(m.id)}">Record</button>
-        ${count ? `<button class="btn sm ghost" data-chart="${esc(m.id)}">Chart</button>` : ''}
+        <button class="btn sm ghost" data-chart="${esc(m.id)}" ${count ? '' : 'disabled title="Nothing recorded to chart yet"'}>Chart</button>
         <span class="tiny muted">${count} result${count === 1 ? '' : 's'}</span>
       </div>
     </div>

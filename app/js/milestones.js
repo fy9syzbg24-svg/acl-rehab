@@ -105,19 +105,19 @@ const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 // value: the best ever (earned steps never disappear); now: what "left" counts from
 const LADDERS = [
   { id: 'firstplan', steps: [1], value: planDays,
-    label: () => 'First plan complete', detail: () => 'Your first fully completed planned day',
+    label: () => 'First plan complete', headline: () => 'First Plan Complete!', detail: () => 'Your first fully completed planned day',
     sentence: () => 'Your first complete planned day. Nicely done.' },
   { id: 'streak', steps: [3, 7, 14, 30, 60], value: bestStreak, now: planStreak,
-    label: (n) => `${n} planned days in a row`, detail: () => 'Earned by following your plan',
+    label: (n) => `${n} planned days in a row`, headline: (n) => `${n} Planned Days in a Row!`, detail: () => 'Earned by following your plan',
     sentence: (n) => `${n} planned days in a row. Nicely done.` },
   { id: 'first', steps: [7, 30, 60, 100], value: firstItemDays,
-    label: (n) => plural(n, 'tendon loading day', 'tendon loading days'), detail: () => 'The first job of the day, done',
+    label: (n) => plural(n, 'tendon loading day', 'tendon loading days'), headline: (n) => `${n} Tendon Loading Days!`, detail: () => 'The first job of the day, done',
     sentence: (n) => `${n} tendon loading days. Nicely done.` },
   { id: 'weeks', steps: [1, 4, 8, 12], value: fullWeeks,
-    label: (n) => plural(n, 'full planned week', 'full planned weeks'), detail: () => 'Every planned day in the week done',
+    label: (n) => plural(n, 'full planned week', 'full planned weeks'), headline: (n) => (n === 1 ? 'A Full Planned Week!' : `${n} Full Planned Weeks!`), detail: () => 'Every planned day in the week done',
     sentence: (n) => (n === 1 ? 'A full planned week. Nicely done.' : `${n} full planned weeks. Nicely done.`) },
   { id: 'guided', steps: [1, 10, 50, 100], value: guidedCount,
-    label: (n) => (n === 1 ? 'First guided exercise' : `${n} guided exercises`), detail: () => 'Planned exercises done with the player',
+    label: (n) => (n === 1 ? 'First guided exercise' : `${n} guided exercises`), headline: (n) => (n === 1 ? 'First Guided Exercise!' : `${n} Guided Exercises!`), detail: () => 'Planned exercises done with the player',
     sentence: (n) => (n === 1 ? 'Your first guided exercise. Nicely done.' : `${n} guided exercises. Nicely done.`) },
 ];
 
@@ -130,7 +130,7 @@ export function earnedAll(doc, today) {
   for (const l of LADDERS) {
     const v = l.value(doc, today);
     for (const n of l.steps.filter((s) => v >= s)) {
-      out.push({ key: `ms:${l.id}:${n}`, id: l.id, n, label: l.label(n), detail: l.detail(n), sentence: l.sentence(n) });
+      out.push({ key: `ms:${l.id}:${n}`, id: l.id, n, label: l.label(n), headline: l.headline(n), detail: l.detail(n), sentence: l.sentence(n) });
     }
   }
   return out;

@@ -105,7 +105,7 @@ export function renderMelbourne(ctx) {
     <section class="card">
       <header class="hero"><h2>Melbourne ACL Rehabilitation Guide 2.0</h2><span class="sub">criteria-driven: the criteria set the pace, not the calendar</span></header>
       <div class="card-body">
-        <details class="disc" style="margin-bottom:.8rem"><summary>Both knees are reconstructed, so read symmetry as a balance check only. Why</summary>
+        <details class="disc" data-key="melb:why" style="margin-bottom:.8rem"><summary>Both knees are reconstructed, so read symmetry as a balance check only. Why</summary>
           <div class="tiny" style="padding:.3rem 0 .1rem;line-height:1.5">${esc(BILATERAL_NOTE)}</div></details>
         <div class="tabrow">
           ${MELBOURNE_PHASES.map((p) => {
@@ -156,7 +156,7 @@ function criterionRows(rows) {
     const st = measureState(row);
     const cls = st.status === 'pass' ? 'good' : st.status === 'fail' ? 'bad' : '';
     const how = row.how || MEASURE_BY_ID[row.measure]?.how;
-    return `<details class="mrow crit ${cls}">
+    return `<details class="mrow crit ${cls}" data-key="crit:${esc(row.label)}">
       <summary>
         <span class="mrow-name">${esc(row.label)}<span class="mrow-date${st.status !== 'none' && /\d/.test(st.text) ? ' mono' : ''}">${st.status === 'none'
           ? esc(row.goalText || '')
@@ -190,7 +190,7 @@ function measureTable(rows) {
       <td>
         <div>${esc(row.label)}</div>
         ${row.how || MEASURE_BY_ID[row.measure]?.how
-          ? `<details class="disc" style="margin-top:.25rem"><summary>how to test</summary><div class="tiny">${esc(row.how || MEASURE_BY_ID[row.measure].how)}</div></details>` : ''}
+          ? `<details class="disc" data-key="melbhow:${esc(row.label)}" style="margin-top:.25rem"><summary>How to test</summary><div class="tiny">${esc(row.how || MEASURE_BY_ID[row.measure].how)}</div></details>` : ''}
       </td>
       <td class="tiny muted">${esc(row.goalText || '')}</td>
       <td class="tiny${/\d/.test(st.text) ? ' mono' : ''}">${esc(st.text)}</td>

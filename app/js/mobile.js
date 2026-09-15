@@ -14,23 +14,32 @@
 // of the views would inevitably drift from the desktop and be missing things.
 
 import {
-  state, update, subscribe, load, runSync, syncState, pendingSyncCount, onRemoteChange,
+  state, update, subscribe, load, flushEdits, recoverEdits, runSync, syncState, pendingSyncCount, onRemoteChange,
   surgeryDate, saveOutstanding,
 } from './store.js';
 import { guardPaint, whenIdle } from './editguard.js';
+import { capture, restore, scrollTop } from './paintkeep.js';
 import { chipState } from './status.js';
-import { todayIso, postOp, applyStoredTheme } from './util.js';
+import { todayIso, postOp, applyStoredTheme, applyTheme, THEME_KEY } from './util.js';
 import { renderToday, bindToday } from './views/today.js';
 import { renderProgram, bindProgram } from './views/program.js';
 import { renderPlan, bindPlan } from './views/planview.js';
 import { renderSupplements, bindSupplements } from './views/supplements.js';
 import { renderProgress, bindProgress } from './views/progress.js';
 import { renderSettings, bindSettings } from './views/settings.js';
-import { renderPlayer, bindPlayer, playerLeaving, playerBusy } from './player/player.js';
+import { renderPlayer, bindPlayer, playerLeaving, playerBusy, playerBack } from './player/player.js';
 import { isConfigured } from './sync/config.js';
 import { needsSeed, markSeen } from './milestones.js';
 
 applyStoredTheme();   // before first paint, so there is no flash
+// Automatic follows the device while the app stays open, browser chrome too (F50).
+try {
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+    let pref = 'light';
+    try { pref = localStorage.getItem(THEME_KEY) || 'light'; } catch { /* per device */ }
+    if (pref === 'auto') applyTheme('auto');
+  });
+} catch { /* older engines */ }
 
 const VIEWS = {
   today: [renderToday, bindToday],
@@ -99,14 +108,28 @@ function rawPaint() {
   const y = window.scrollY;      // the document scrolls now, not an inner box
   const [render, bind] = VIEWS[ctx.view] || VIEWS.today;
   document.body.classList.toggle('in-player', ctx.view === 'player');
+  const keep = ctx.view === lastView ? capture(viewEl) : null;
+  flushEdits();   // a typed value is committed before its field is replaced
   viewEl.innerHTML = render(ctx);
   bind?.(viewEl, ctx, paint);
+  restore(viewEl, keep);
   // The player belongs to the tab it was opened from.
   const tabView = ctx.view === 'player' ? (ctx.playerFrom || 'today') : ctx.view;
   document.querySelectorAll('#mtabs button').forEach((b) => {
     b.classList.toggle('on', b.dataset.view === tabView);
   });
   document.getElementById('nav-settings')?.classList.toggle('on', ctx.view === 'settings');
+  // In the player the header's own row holds Back, beside the save chip and
+  // Settings, in the layout rather than laid over it (F11, F36).
+  const inPlayer = ctx.view === 'player';
+  const backBtn = document.getElementById('nav-back');
+  if (backBtn) {
+    backBtn.hidden = !inPlayer;
+    const to = ctx.playerFrom === 'program' ? 'My Program' : 'Today';
+    const lab = document.getElementById('nav-back-label');
+    if (lab && lab.textContent !== to) lab.textContent = to;
+    backBtn.setAttribute('aria-label', `Back to ${to}`);
+  }
   // Re-rendering in place keeps your scroll position; changing tab starts at
   // the top. The scrolling element is the middle region, not the document.
   // Coming back to a view (from the player, a chart or an editor) puts it back
@@ -167,9 +190,15 @@ function paintChrome() {
 // -------------------------------------------------------------------- wiring
 document.getElementById('mtabs').addEventListener('click', (e) => {
   const b = e.target.closest('button[data-view]');
-  if (b) ctx.go(b.dataset.view);
+  if (!b) return;
+  // Tapping the tab you are already on scrolls that page back to the top, the
+  // way iPhone apps do (his ask, 2026-09-14). From the player, Today still
+  // leaves the player as before.
+  if (b.dataset.view === ctx.view) { scrollTop(); return; }
+  ctx.go(b.dataset.view);
 });
 document.getElementById('nav-settings').addEventListener('click', () => ctx.go('settings'));
+document.getElementById('nav-back')?.addEventListener('click', () => playerBack(ctx));
 
 document.getElementById('sync-btn').addEventListener('click', async () => {
   if (!isConfigured()) return ctx.go('settings');
@@ -301,6 +330,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 load().then(() => {
+  recoverEdits();
   seedCelebrations();
   paint();
   if (!('serviceWorker' in navigator)) return;

@@ -1,40 +1,55 @@
-// The six month plan: one month at a time, drawn the way the month board on
-// Overview draws it. He likes that board ("things are big and clear, like the
-// markers for this month"), so the Plan tab is that board for any month, with
-// the six months as a strip of tiles above it. Same marker cards, same focus
-// tiles, same weekly target tiles, one implementation.
+// The six month plan: one month at a time. 2026-09-14 revision 3.
+//
+// The journey ribbon across the top (the same one Progress shows, here it
+// selects the month), six month tiles in a 3 by 2 grid with the selected one
+// in the action colour, then the chosen month: a short summary on the inset
+// surface, its markers, the focus it asks for and the weekly targets. The
+// percentage on a tile is how far that month's markers are toward their
+// targets, and it says so; it is never a measure of the knee.
 
 import { esc, todayIso } from '../util.js';
-import { PLAN_MONTHS, monthForDate } from '../../data/plan.js';
+import { PLAN_MONTHS, PLAN_START, PLAN_END, monthForDate } from '../../data/plan.js';
 import { goalProgress, monthCompletion } from '../goals.js';
 import { markerCards, focusTiles, targetTiles, bindMarkers, monthElapsed } from './monthboard.js';
+import { renderJourney, bindJourney } from './journey.js';
 
 export { goalProgress, monthCompletion };
+
+// The ribbon's colour at each month's node, for the tile bars.
+const RIBBON = ['#7853E8', '#3686ED', '#2AC7D5', '#3BBB81', '#E0B52E', '#EF6549'];
+
+const monthShort = (m) => m.monthLabel.replace(/ .*/, '').slice(0, 3);
+const monthLong = (m) => m.monthLabel.replace(/ .*/, '');
 
 export function renderPlan(ctx) {
   const today = todayIso();
   const current = monthForDate(today);
   const openId = ctx.openMonth || current?.id || PLAN_MONTHS[0].id;
   const m = PLAN_MONTHS.find((x) => x.id === openId) || PLAN_MONTHS[0];
+  const my = (iso) => new Date(iso + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  const first = my(PLAN_START);
+  const last = my(PLAN_END);
 
   return `
-  <div class="stack today plan-page">
+  <div class="stack plan-page plan3">
     <header class="pagehead">
       <h1>6-Month Plan</h1>
-      <div class="lede">August 2026 to January 2027 · goal based, not date based</div>
+      <div class="lede">${esc(first)} to ${esc(last)}</div>
     </header>
-    <nav class="monthstrip" aria-label="Months">
-      ${PLAN_MONTHS.map((x) => {
+    ${renderJourney(ctx, today, { selected: m.id })}
+    <div class="mtiles" role="group" aria-label="Months: percent of each month's marker targets reached">
+      ${PLAN_MONTHS.map((x, i) => {
         const c = monthCompletion(x);
-        const isNow = x.id === current?.id;
-        return `<button class="kpi ${x.id === openId ? 'on' : ''} ${isNow ? 'now' : ''}" data-month="${x.id}" title="${esc(x.title)}" aria-pressed="${x.id === openId}">
-          <div class="k">${esc(x.monthLabel.replace(/ .*/, '').slice(0, 3))}</div>
-          <div class="v">${c.goalScore}%</div>
-          <div class="kbar"><i style="width:${c.goalScore}%"></i></div>
+        const on = x.id === m.id;
+        return `<button class="mtile ${on ? 'on' : ''}" data-month="${x.id}" style="--mc:${RIBBON[i] || 'var(--ink-2)'}"
+          aria-pressed="${on}" ${x.id === current?.id ? 'aria-current="date"' : ''}
+          aria-label="${esc(monthLong(x))}: markers ${c.goalScore}% of the way to target${x.id === current?.id ? ', current month' : ''}">
+          <span class="mt-name">${esc(monthShort(x))}</span>
+          <span class="mt-row"><b>${c.goalScore}%</b><i class="mt-bar"><i style="width:${c.goalScore}%"></i></i></span>
         </button>`;
       }).join('')}
-    </nav>
-
+    </div>
+    <div class="mt-key">Percent of each month's marker targets reached</div>
     ${monthCard(m, today, m.id === current?.id)}
   </div>`;
 }
@@ -42,29 +57,24 @@ export function renderPlan(ctx) {
 function monthCard(m, today, isNow) {
   const goals = m.goals.map((g) => ({ g, p: goalProgress(g) }));
   const met = goals.filter((x) => x.p.done).length;
-  // Pace is judged against today inside the month, the whole month once it
-  // has passed, and not at all before it starts.
   const at = today > m.end ? m.end : today < m.start ? m.start : today;
   const el = monthElapsed(m, at);
   return `
-  <section class="card monthboard">
-    <div class="panel-head static">
-      <span class="panel-title">
-        <h2>${esc(m.name)} · ${esc(m.monthLabel)}</h2>
-        <span class="sub">${esc(m.title)}</span>
-      </span>
-      <span class="row" style="gap:.7rem;flex:none">
-        <span class="daysleft"><b>${met}/${goals.length}</b><span>markers met</span></span>
-        <span class="pill">Phase ${m.melbournePhase}</span>
-      </span>
-    </div>
-    <div class="card-body board-body">
-      ${m.note ? `<div class="notice info" style="margin:.6rem 0 .2rem">${esc(m.note)}</div>` : ''}
-      ${markerCards(goals, el, { title: isNow ? 'Markers for this month' : 'Markers', days: isNow })}
-      ${goals.some((x) => x.g.caution) ? goals.filter((x) => x.g.caution).map((x) => `<div class="tiny" style="color:var(--warn);margin-top:.4rem">${esc(x.g.caution)}</div>`).join('') : ''}
-      ${focusTiles(m, m.start, m.end, { title: isNow ? "The month's focus so far" : "The month's focus" })}
-      ${targetTiles(m)}
-    </div>
+  <section class="pm-summary">
+    <h2>${esc(monthLong(m))} · Phase ${esc(String(m.melbournePhase))}</h2>
+    <div class="pm-met">${met} of ${goals.length} markers met</div>
+    <div class="pm-title">${esc(m.name)}: ${esc(m.title)}</div>
+    ${m.note ? `<p class="pm-note">${esc(m.note)}</p>` : ''}
+  </section>
+  <section class="pm-sec">
+    ${markerCards(goals, el, { title: isNow ? 'Markers for this month' : 'Markers', days: isNow })}
+    ${goals.some((x) => x.g.caution) ? goals.filter((x) => x.g.caution).map((x) => `<p class="pm-caution">${esc(x.g.caution)}</p>`).join('') : ''}
+  </section>
+  <section class="pm-sec">
+    ${focusTiles(m, m.start, m.end, { title: isNow ? "The month's focus so far" : "The month's focus" })}
+  </section>
+  <section class="pm-sec">
+    ${targetTiles(m)}
   </section>`;
 }
 
@@ -73,5 +83,6 @@ export function bindPlan(root, ctx, rerender) {
     ctx.openMonth = b.dataset.month;
     rerender();
   }));
+  bindJourney(root, ctx, rerender);
   bindMarkers(root, ctx, rerender);
 }

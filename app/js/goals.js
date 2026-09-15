@@ -32,6 +32,7 @@ export function goalProgress(g) {
     return {
       p: pct(lo, g.target),
       detail: `L ${bl ? round(bl.value, 1) : '·'} · R ${br ? round(br.value, 1) : '·'} ${UNIT_LABEL[m.unit] || ''}`,
+      sides: { L: bl ? round(bl.value, 1) : null, R: br ? round(br.value, 1) : null, unit: UNIT_LABEL[m.unit] || '' },
       done: lo >= g.target,
     };
   }

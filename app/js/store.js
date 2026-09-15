@@ -282,7 +282,7 @@ function seed(d, seeds) {
 let savePending = false;
 
 /** True while a change is waiting for, or in the middle of, its local save. */
-export function saveOutstanding() { return savePending || state.saving; }
+export function saveOutstanding() { return savePending || state.saving || staged.size > 0; }
 
 async function persist() {
   savePending = false;
@@ -422,8 +422,71 @@ function repair(fn) {
   return true;
 }
 
+// ------------------------------------------------------------ typed edits --
+// 2026-09-14 revision 3 (F18). Typing used to call update() on every character,
+// and update() fingerprints and stamps the whole record collection. Now a typed
+// value is STAGED: kept on this device at once (localStorage, so a crash or a
+// reload loses nothing), and committed through update() when he pauses, leaves
+// the field, changes view, or the page hides, and before any other change.
+// Descriptors, not closures, so a recovery copy can be replayed after a reload.
+const EDIT_KEY = 'rehab.editdraft';
+const staged = new Map();
+let stageTimer = null;
+
+export function stageEdit(key, desc) {
+  staged.set(key, desc);
+  try { localStorage.setItem(EDIT_KEY, JSON.stringify([...staged.values()])); } catch { /* the in-memory copy still commits */ }
+  clearTimeout(stageTimer);
+  stageTimer = setTimeout(flushEdits, 700);
+}
+
+export function hasStagedEdits() { return staged.size > 0; }
+
+function applyEdit(d, e) {
+  if (!e || !e.iso) return;
+  const day = (d.days[e.iso] ||= { checkin: {}, checklist: {}, notes: '', entries: [] });
+  if (e.kind === 'note') { day.notes = e.value; return; }
+  if (e.kind === 'checkin') { (day.checkin ||= {})[e.key] = e.value; return; }
+  if (e.kind === 'entry') {
+    const row = (day.entries || []).find((x) => x.id === e.id);
+    if (!row) return;
+    row[e.f] = e.value;
+    if (e.f === 'load' && row.load != null && !row.loadUnit) row.loadUnit = d.settings?.weightUnit || 'kg';
+  }
+}
+
+/** Commit every staged edit now. Returns true when something was committed. */
+export function flushEdits() {
+  clearTimeout(stageTimer);
+  stageTimer = null;
+  if (!staged.size) return false;
+  const list = [...staged.values()];
+  staged.clear();
+  update((d) => { for (const e of list) applyEdit(d, e); });
+  try { localStorage.removeItem(EDIT_KEY); } catch { /* nothing to clear */ }
+  return true;
+}
+
+/** After a load: replay edits a reload or crash interrupted. */
+export function recoverEdits() {
+  let list = null;
+  try { list = JSON.parse(localStorage.getItem(EDIT_KEY) || 'null'); } catch { list = null; }
+  if (!Array.isArray(list) || !list.length || state.readOnly) return 0;
+  update((d) => { for (const e of list) applyEdit(d, e); });
+  try { localStorage.removeItem(EDIT_KEY); } catch { /* nothing to clear */ }
+  return list.length;
+}
+
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushEdits(); });
+  window.addEventListener('pagehide', () => flushEdits());
+  document.addEventListener('focusout', (e) => { if (staged.size && e.target?.matches?.('input, textarea')) flushEdits(); }, true);
+}
+
 /** Mutate then persist then re-render. */
 export function update(fn) {
+  // Anything typed and not yet committed goes first, so changes land in order.
+  if (staged.size) flushEdits();
   // Snapshot first: sync needs to know WHICH records a mutation touched, and
   // this is the only funnel every write in the app goes through, so stamping
   // here means no view code had to learn about sync at all.

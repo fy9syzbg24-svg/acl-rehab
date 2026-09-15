@@ -8,7 +8,7 @@
 // do I do today, and the first exercise has to be on the first screen.
 
 import { esc, todayIso, addDays, fmtDate, fmtDateNum, uid, num, round, currentDayIso, onTimePicked } from '../util.js';
-import { state, update, ensureDay, getDay, lastEntry, maxLoad, loadSeries, entriesFor } from '../store.js';
+import { state, update, ensureDay, getDay, lastEntry, maxLoad, loadSeries, entriesFor, stageEdit } from '../store.js';
 import { monthForDate } from '../../data/plan.js';
 import { CATEGORIES, MEASURE_BY_ID, UNIT_LABEL } from '../../data/measurements.js';
 import { REHAB_PROGRAM, GYM_PROGRAM, BAND_BY_ID, THERABAND, plannedOn, dayPlanFor } from '../../data/program.js';
@@ -16,10 +16,11 @@ import { CLINIC_HEP } from '../../data/history.js';
 import { goalGroups } from './week.js';
 import { shortCat } from './monthboard.js';
 import { openExercisePicker, allExercises, exerciseById, openMeasureEntry, loadBars, thumb,
-         openPicture, renderDatePill, prescriptionLine, toast, openModal, closeModal } from '../components.js';
+         openPicture, renderDatePill, prescriptionLine, toast, openModal, closeModal, goButton } from '../components.js';
 import { minutesFor, fmtMins, fmtDayTotal } from '../timing.js';
 import { planStreak, versionFor } from '../planstreak.js';
-import { renderHistory, bindHistory } from './exhistory.js';
+import { renderHistory, bindHistory, summaryLine } from './exhistory.js';
+import { dayRing, ringLegend } from '../dayring.js';
 import { renderSuppGroups, bindSuppGroups, suppScore, prnSummary, suppTime, onSuppTime } from './supplements.js';
 import { itemStatus, isDone, sidesFor, setLogged, newEntriesFor as makeEntries, runsFor } from '../logging.js';
 import { startExercise, startWorkout, resumePlayer, draftInfo, workoutQueue, readyAfter, fmtTime12 } from '../player/player.js';
@@ -115,7 +116,7 @@ export function renderToday(ctx) {
       <div class="queue-label"><span>First up</span>${catLabel(first)}</div>
       <div class="card listcard"><div class="checklist">${checkRow(first, iso, entries, ctx)}</div></div>
     </section>
-    ${others.length ? recoveryLine(first, iso) : ''}` : ''}
+    ${others.length ? recoveryLine(first, iso, planned, entries) : ''}` : ''}
 
     <section class="card listcard" id="session-card">
       <div class="checklist">
@@ -151,46 +152,54 @@ function emptyPlan(iso) {
 }
 
 /**
- * The page head: the date (with its arrows, the picker and a way back to
- * today), the title, what the day asks for and how far along it is, one thin
- * segment per planned exercise, then the one Start or Resume and the status
- * line under it.
+ * The page head, revision 3: the date with its picker, the arrows and a Today
+ * control in fixed slots (dimmed on today, never missing), then a compact
+ * group (the title, the count, the estimate) beside the 88 px day ring, then
+ * the one Start or Resume and the status line under it.
  */
 function dayHead(iso, planned, extras, entries, ctx) {
   const plan = dayPlanFor(state.data, iso);
   const doneP = planned.filter((p) => isLogged(p, entries));
-  const doneN = doneP.length + extras.filter((e) => e.logged).length;
-  const total = planned.length + extras.length;
   const allMins = planned.map((p) => rowMinutes(p));
   const leftMins = planned.filter((p) => !doneP.includes(p)).map((p) => rowMinutes(p));
   const today = todayIso();
   const title = iso === today ? 'Today' : iso === addDays(today, -1) ? 'Yesterday' : iso === addDays(today, 1) ? 'Tomorrow' : fmtDate(iso, 'dow');
-
-  let line;
-  if (!planned.length) line = plan.name ? esc(plan.name) : 'Nothing planned';
-  else if (!doneP.length) line = `${planned.length} exercise${planned.length === 1 ? '' : 's'} · ${esc(fmtDayTotal(allMins))}`;
-  else if (doneP.length >= planned.length) line = `${planned.length} exercise${planned.length === 1 ? '' : 's'}`;
-  else line = `${planned.length - doneP.length} left · ${esc(fmtDayTotal(leftMins))}`;
-  const named = plan.name && planned.length ? `${esc(plan.name)} · ` : '';
+  const ring = dayRing(planned, entries, { size: 88, stroke: 8, center: 'count', label: 'planned' });
+  let count;
+  let est;
+  if (!planned.length) { count = plan.name ? esc(plan.name) : 'Nothing planned'; est = ''; }
+  else if (doneP.length >= planned.length) { count = `${planned.length} exercise${planned.length === 1 ? '' : 's'}`; est = 'All done'; }
+  else if (!doneP.length) { count = `${planned.length} exercise${planned.length === 1 ? '' : 's'}`; est = cap(fmtDayTotal(allMins)); }
+  else { count = `${planned.length - doneP.length} left`; est = cap(fmtDayTotal(leftMins)); }
 
   return `
   <header class="pagehead today-head">
     <div class="daynav">
-      <button class="daynav-arrow" data-nav="-1" aria-label="Previous day">${ICON.left}</button>
-      <span class="daynav-date eyebrow ${iso > today ? 'future' : ''}">${esc(longDate(iso))}
+      <span class="daynav-date eyebrow"><span class="dn-long">${esc(longDate(iso))}</span><span class="dn-short">${esc(longDate(iso, true))}</span>
         <input type="date" data-jump value="${iso}" aria-label="Jump to a date"></span>
-      <button class="daynav-arrow" data-nav="1" aria-label="Next day">${ICON.right}</button>
-      ${iso !== today ? '<button class="btn sm daynav-today" data-nav="today" aria-label="Back to today">Today</button>' : ''}
-      <button class="icon-btn daynav-menu" data-act="menu" title="More" aria-label="More for this day">${ICON.more}</button>
+      <span class="daynav-ctl">
+        <button class="daynav-arrow" data-nav="-1" aria-label="Previous day">${ICON.left}</button>
+        <button class="daynav-arrow" data-nav="1" aria-label="Next day">${ICON.right}</button>
+        <button class="btn sm daynav-today" data-nav="today" ${iso === today ? 'disabled aria-disabled="true"' : ''}>Today</button>
+        <button class="icon-btn daynav-menu" data-act="menu" title="More" aria-label="More for this day">${ICON.more}</button>
+      </span>
     </div>
-    <h1>${esc(title)}</h1>
-    <div class="dayline"><span>${named}${line}${plan.clinic ? ` · ${esc(plan.sub)}` : ''}</span>
-      ${planned.length ? `<span class="dayline-count">${doneP.length} of ${planned.length} done</span>` : ''}</div>
-    ${planned.length ? `<div class="segbar" role="img" aria-label="${doneP.length} of ${planned.length} planned exercises done">${planned.map((p) => `<i class="${doneP.includes(p) ? 'on' : ''}"></i>`).join('')}</div>` : ''}
+    <div class="today-top">
+      <div class="today-sum">
+        <h1>${esc(title)}</h1>
+        <div class="sum-count">${plan.name && planned.length ? `<span class="sum-plan">${esc(plan.name)}</span>` : ''}${count}</div>
+        ${est ? `<div class="sum-est">${esc(est)}${plan.clinic ? ` · ${esc(plan.sub)}` : ''}</div>` : ''}
+        ${planned.length > 12 ? ringLegend(planned) : ''}
+      </div>
+      ${planned.length ? ring.html : ''}
+    </div>
   </header>
   ${workoutButton(iso)}
   ${statusLine(iso, planned, entries)}`;
 }
+
+const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+const cap = (t) => (t ? t[0].toUpperCase() + t.slice(1) : t);
 
 /**
  * The one session-status slot, under the one Start. It names the open workout
@@ -228,9 +237,9 @@ function statusLine(iso, planned, entries) {
 }
 
 /** "Monday, September 14", with the year only when it is not this year. */
-function longDate(iso) {
+function longDate(iso, short = false) {
   const d = new Date(iso + 'T12:00:00');
-  const opts = { weekday: 'long', month: 'long', day: 'numeric' };
+  const opts = short ? { weekday: 'short', month: 'short', day: 'numeric' } : { weekday: 'long', month: 'long', day: 'numeric' };
   if (d.getFullYear() !== new Date().getFullYear()) opts.year = 'numeric';
   return d.toLocaleDateString('en-US', opts);
 }
@@ -248,6 +257,9 @@ const ICON = {
   play: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z"/></svg>',
   check: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12.3l2.8 2.8L16.2 9.6"/></svg>',
   clock: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+  down: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9.5l6 6 6-6"/></svg>',
+  chev: '<svg class="disc-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>',
+  zoom: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M10 20H4v-6M20 4l-6.5 6.5M4 20l6.5-6.5"/></svg>',
 };
 
 /** What the minutes on a row are based on, for its tooltip and the open row. */
@@ -267,19 +279,26 @@ function workoutButton(iso) {
   const d = draftInfo();
   const left = workoutQueue(state.data, iso).length;
   const resume = !!d && d.phase !== 'done';
-  return `<button class="btn big primary startbtn" data-act="${resume ? 'resume' : 'start'}" ${resume || left ? '' : 'disabled'}
-    aria-label="${resume ? `Resume ${esc(d.title || 'workout')}` : 'Start the workout'}">
-    ${ICON.play}${resume ? 'Resume workout' : 'Start workout'}</button>`;
+  return goButton({
+    attrs: `data-act="${resume ? 'resume' : 'start'}" ${resume || left ? '' : 'disabled'} aria-label="${resume ? `Resume ${esc(d.title || 'workout')}` : 'Start the workout'}"`,
+    label: resume ? 'Resume workout' : 'Start workout',
+    cls: 'startbtn',
+  });
 }
 
 /**
  * The recovery break as one quiet sentence between the first job and the rest.
  * Before the tendon loading is confirmed with a time it names the break
  * without inventing a clock time; once it is, the actual time, tappable to
- * correct when it was done.
+ * correct when it was done. When nothing is left to do, it says the recovery
+ * is complete instead of pointing at work that no longer waits (F23).
  */
-function recoveryLine(first, iso) {
+function recoveryLine(first, iso, planned, entries) {
   const ready = readyAfter(state.data, iso);
+  const left = planned.some((p) => !p.first && !p.notYet && itemStatus(p, entries).state !== 'done');
+  if (!left) {
+    return `<div class="recovery-line done">${ICON.clock}<span>Recovery complete</span></div>`;
+  }
   if (ready) {
     return `<button class="recovery-line readysep" data-act="readytime" title="Change when the tendon loading was done">
       ${ICON.clock}<span>Rest of your workout after ${esc(fmtTime12(ready))}</span></button>`;
@@ -308,50 +327,96 @@ function checkRow(item, iso, entries, ctx) {
   // Only confirmed rows are results. Scaffolding from opening the row keeps
   // showing the prescription, so a prefilled number never reads as done.
   const confirmed = mine.filter((e) => e.logged);
-  const editing = started && ctx.editing === item.id;
+  const open = ctx.editing === item.id;
   const band = state.data.program.band[item.id] ?? item.band ?? '';
   const name = item.title || ex?.name || item.ex;
   // A logged cardio row shows the minutes it actually took.
   const logged = confirmed.length && ex?.cardio ? num(confirmed[0].time) : null;
   const m = logged ? { mins: Math.round(logged), src: 'logged' } : rowMinutes(item, ex);
+  const bodyId = `row-${item.id}`;
 
   return `
-  <div class="crow ${done ? 'done' : ''} ${partial ? 'partial' : ''} ${started && !done && !partial ? 'started' : ''} ${editing ? 'editing' : ''} ${ctx.pop === item.id ? 'pop' : ''}" data-pid="${esc(item.id)}"${catStyle(ex)}>
+  <div class="crow ${done ? 'done' : ''} ${partial ? 'partial' : ''} ${started && !done && !partial ? 'started' : ''} ${open ? 'open editing' : ''} ${ctx.pop === item.id ? 'pop' : ''}" data-pid="${esc(item.id)}"${catStyle(ex)}>
     <div class="crow-head">
       <input type="checkbox" class="tick" data-ptoggle="${esc(item.id)}" ${done ? 'checked' : ''} aria-label="Done: ${esc(name)}${partial ? ', partly done' : ''}">
       ${item.thumb
-        ? `<button class="crow-shot" data-bigpic="${esc(item.id)}" title="Show it bigger"><img src="${esc(item.thumb)}" alt="" decoding="async"></button>`
+        ? `<button class="crow-shot" data-bigpic="${esc(item.id)}" aria-label="Show the pictures for ${esc(name)}"><img src="${esc(item.thumb)}" alt="" decoding="async"></button>`
         : `<span class="crow-shot plain">${thumb(item.ex, 34)}</span>`}
-      <div class="crow-main" data-rowclick="${esc(item.id)}">
-        <span class="crow-name">${esc(name)}</span>
-        <span class="crow-sub">${confirmed.length ? entryChips(confirmed) + statusNote(status) : prescriptionLine(item, band)}</span>
-        ${item.notYet && !confirmed.length ? `<span class="crow-note warn">${esc(item.notYetNote)}</span>` : ''}
-        ${item.pre && !confirmed.length ? `<span class="crow-note">${esc(preNote(item, iso))}</span>` : ''}
-      </div>
-      <span class="crow-mins ${m.src}" data-rowclick="${esc(item.id)}"
-        title="${esc(minsTitle(m))}">${m.mins == null ? '·' : `${m.mins}<small>min</small>`}</span>
+      <button class="crow-main" data-rowclick="${esc(item.id)}" aria-expanded="${open}" aria-controls="${bodyId}">
+        <span class="crow-text">
+          <span class="crow-name">${esc(name)}</span>
+          <span class="crow-sub">${confirmed.length ? entryChips(confirmed) + statusNote(status) : prescriptionLine(item, band)}</span>
+          ${item.notYet && !confirmed.length ? `<span class="crow-note warn">${esc(item.notYetNote)}</span>` : ''}
+          ${item.pre && !confirmed.length ? `<span class="crow-note">${esc(preNote(item, iso))}</span>` : ''}
+        </span>
+        <span class="crow-mins ${m.src}" title="${esc(minsTitle(m))}">${m.mins == null ? '<b>·</b>' : `<b>${m.mins}</b><small>min</small>`}</span>
+        <span class="crow-chev" aria-hidden="true">${ICON.down}</span>
+      </button>
     </div>
-    ${editing ? renderHistory(state.data, item, iso) + boards(item, ex) + mine.map((e) => entryFields(e, ex)).join('') + logBar(item.id, item, ex) : ''}
+    ${open ? `<div class="crow-body" id="${bodyId}">${rowBody(item, ex, iso, mine, confirmed)}</div>` : ''}
   </div>`;
+}
+
+/**
+ * An open row, revision 3: Begin first, then the category and the whole step
+ * pictures, the one most useful line (this session, or last session), then
+ * Instructions and the session's details as deliberate disclosures. The
+ * details hold the existing editor (every entry's fields, the minutes, Done at,
+ * Remove) with no approval step. No Log it: the circle logs.
+ */
+function rowBody(item, ex, iso, mine, confirmed) {
+  const cat = CATEGORIES[ex?.cat];
+  const sum = summaryLine(state.data, item, iso);
+  const name = item.title || ex?.name || item.ex;
+  const hasInstr = (item.steps && item.steps.length) || (item.notes && item.notes.length) || item.note || item.pre;
+  return `
+    ${goButton({ attrs: `data-timer="${esc(item.id)}" ${item.notYet ? 'disabled' : ''}`, label: 'Begin', cls: 'row-begin' })}
+    ${cat ? `<div class="row-cat" style="--cat:${cat.color}">${esc(cat.label)}</div>` : ''}
+    ${item.img ? `<button class="row-photo" data-bigpic="${esc(item.id)}" aria-label="Show the pictures for ${esc(name)} larger">
+        <img src="${esc(item.img)}" alt="Step pictures: ${esc(name)}" decoding="async"><span class="row-photo-zoom" aria-hidden="true">${ICON.zoom}</span></button>` : ''}
+    <div class="row-summary"><small>${esc(sum.label)}</small><b>${sum.html}</b></div>
+    ${hasInstr ? `<details class="row-disc" data-key="instr-${esc(item.id)}">
+      <summary>Instructions${ICON.chev}</summary>
+      <div class="row-disc-body">
+        ${item.pre ? `<p><strong>Before this:</strong> ${esc(item.pre)}</p>` : ''}
+        ${item.steps?.length ? `<ol class="steps">${item.steps.map((x) => `<li>${esc(x)}</li>`).join('')}</ol>` : ''}
+        ${item.note ? `<p class="muted">${esc(item.note)}</p>` : ''}
+        ${item.notes?.length ? `<div class="callout small">${item.notes.map(esc).join('<br>')}</div>` : ''}
+      </div>
+    </details>` : ''}
+    <details class="row-disc" data-key="details-${esc(item.id)}">
+      <summary>${confirmed.length ? 'Correct this session' : 'Enter details'}${ICON.chev}</summary>
+      <div class="row-disc-body">
+        ${renderHistory(state.data, item, iso)}
+        ${boards(item, ex)}
+        ${mine.map((e) => entryFields(e, ex)).join('')}
+        ${detailBar(item, ex)}
+      </div>
+    </details>`;
 }
 
 /** Something logged outside the program: a walk, a rehearsal, a clinic drill. */
 function extraRow(e, iso, ctx) {
   const ex = exerciseById(e.ex);
-  const editing = ctx.editing === e.id;
+  const open = ctx.editing === e.id;
   const done = !!e.logged;
   const cat = CATEGORIES[ex?.cat];
+  const bodyId = `row-${e.id}`;
   return `
-  <div class="crow ${done ? 'done' : 'started'} ${editing ? 'editing' : ''} ${e.id === ctx.flash ? 'flash' : ''} ${ctx.pop === e.id ? 'pop' : ''}"${catStyle(ex)}>
+  <div class="crow ${done ? 'done' : 'started'} ${open ? 'open editing' : ''} ${e.id === ctx.flash ? 'flash' : ''} ${ctx.pop === e.id ? 'pop' : ''}"${catStyle(ex)}>
     <div class="crow-head">
       <input type="checkbox" class="tick" data-etoggle="${esc(e.id)}" ${done ? 'checked' : ''} aria-label="Done: ${esc(ex?.name || e.ex)}">
       <span class="crow-shot plain">${thumb(e.ex, 34)}</span>
-      <div class="crow-main" data-rowclick="${esc(e.id)}">
-        <span class="crow-name">${esc(ex?.name || e.ex)}</span>
-        <span class="crow-sub">${entryChips([e])}${cat ? `<span class="muted">${esc(cat.label)}</span>` : ''}${e.seeded ? '<span class="seeded-dot" title="from your clinical notes">●</span>' : ''}</span>
-      </div>
+      <button class="crow-main" data-rowclick="${esc(e.id)}" aria-expanded="${open}" aria-controls="${bodyId}">
+        <span class="crow-text">
+          <span class="crow-name">${esc(ex?.name || e.ex)}</span>
+          <span class="crow-sub">${entryChips([e])}${cat ? `<span class="muted">${esc(cat.label)}</span>` : ''}${e.seeded ? '<span class="seeded-dot" title="from your clinical notes">●</span>' : ''}</span>
+        </span>
+        <span class="crow-mins"></span>
+        <span class="crow-chev" aria-hidden="true">${ICON.down}</span>
+      </button>
     </div>
-    ${editing ? entryFields(e, ex) + logBar(e.id, null, ex, e) : ''}
+    ${open ? `<div class="crow-body" id="${bodyId}">${entryFields(e, ex)}${detailBar(null, ex, e)}</div>` : ''}
   </div>`;
 }
 
@@ -366,18 +431,16 @@ function restGroup(rows, iso, entries, ctx, label) {
   </details>`;
 }
 
-function logBar(key, item, ex, entry = null) {
+/** Minutes, Done at and Remove, inside a row's details. No Log it: the circle logs. */
+function detailBar(item, ex, entry = null) {
   const est = item ? rowMinutes(item, ex) : null;
   const own = item ? num(state.data.program.mins?.[item.id]) : null;
   return `<div class="logbar">
     ${item ? `<label class="fld minsfld" title="Minutes this takes you. Leave it empty to use the estimate.">Minutes
       <input type="number" class="in-num" min="0" step="1" data-mins="${esc(item.id)}" placeholder="${est.src !== 'yours' && est.mins != null ? est.mins : ''}" value="${own ?? ''}"></label>` : ''}
-    ${entry ? `<button class="btn sm ghost danger" data-del-entry="${esc(entry.id)}">Remove</button>` : ''}
-    <span class="spacer"></span>
     ${item?.first ? doneAtField(item) : ''}
-    ${item ? `<button class="btn sm" data-timer="${esc(item.id)}">
-      <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z"/></svg>Start timer</button>` : ''}
-    <button class="btn primary sm" data-log="${esc(key)}">Log it</button>
+    <span class="spacer"></span>
+    ${entry ? `<button class="btn sm ghost danger" data-del-entry="${esc(entry.id)}">Remove</button>` : ''}
   </div>`;
 }
 
@@ -527,7 +590,7 @@ function goalsGroup(iso, entries, ctx) {
                   <span class="crow-sub">${started ? entryChips(mine) : (ex.clinic ? '<span class="muted">clinic</span>' : '')}</span>
                 </div>
               </div>
-              ${editing ? mine.map((e) => entryFields(e, ex)).join('') + logBar('cat:' + ex.id, null, ex) : ''}
+              ${editing ? mine.map((e) => entryFields(e, ex)).join('') : ''}
             </div>`;
           }).join('')}
           ${all.length > list.length || showAll
@@ -619,7 +682,7 @@ function legBlock(side, label, c) {
     <div class="row" style="gap:.4rem;margin-bottom:.15rem">
       <span class="sidetag ${side}">${esc(label)}</span>
       <span class="tiny muted">pain</span>
-      <strong class="mono" style="font-size:.8rem">${painVal === '' ? '·' : painVal + '/10'}</strong>
+      <strong class="mono" style="font-size:.8rem" data-ckout>${painVal === '' ? '·' : painVal + '/10'}</strong>
       <span class="spacer"></span>
       <label class="tiny muted" style="display:flex;gap:.3rem;align-items:center">swelling
         <select data-ck="${effKey}" class="sel-sm">
@@ -878,22 +941,6 @@ function newCatEntry(exId) {
   };
 }
 
-/** State a heaviest-yet load plainly when a loaded entry gets marked done (a fact, never praise). */
-function pbCheck(iso, list) {
-  for (const e of list) {
-    const l = num(e.load);
-    if (!l) continue;
-    const prior = entriesFor(e.ex, e.side === 'B' ? null : e.side)
-      .filter((x) => x.date < iso && num(x.load) > 0)
-      .map((x) => num(x.load));
-    if (prior.length && l > Math.max(...prior)) {
-      const name = exerciseById(e.ex)?.name || e.ex;
-      toast(`<b>Heaviest so far: ${esc(String(round(l, 1)))} ${esc(e.loadUnit || state.data.settings.weightUnit)}</b><br>
-        <span>${esc(name)}${e.side && e.side !== 'B' ? ` (${e.side === 'L' ? 'left' : 'right'})` : ''} · was ${esc(String(round(Math.max(...prior), 1)))}</span>`, 'info');
-    }
-  }
-}
-
 function testToast(tests) {
   if (!tests.length) return;
   toast(`<b>Also saved as ${tests.length === 1 ? 'a test' : 'tests'}</b><br><span>${esc(tests.join(' · '))}</span>`);
@@ -966,7 +1013,6 @@ function openDayMenu(iso, ctx, rerender) {
             }
           });
           const tests = recordAsTests(iso, marked);
-          pbCheck(iso, marked);
           const n = new Set(marked.map((x) => x.pid)).size;
           toast(`<b>Same as ${esc(fmtDateNum(last.date))}</b><br><span>${n} exercise${n === 1 ? '' : 's'} ticked${tests.length ? ` · also saved as ${tests.length === 1 ? 'a test' : 'tests'}` : ''}</span>`);
         }
@@ -1149,19 +1195,27 @@ export function bindToday(root, ctx, rerender) {
 
   root.querySelectorAll('[data-ck]').forEach((inp) => {
     const key = inp.dataset.ck;
-    const ev = inp.type === 'range' || inp.tagName === 'SELECT' ? 'change' : 'input';
-    inp.addEventListener(ev, () => {
-      update(() => {
-        const d = ensureDay(iso);
-        const raw = inp.value;
-        d.checkin[key] = inp.type === 'number' || inp.type === 'range' ? (raw === '' ? '' : Number(raw)) : raw;
+    const value = () => (inp.type === 'number' || inp.type === 'range' ? (inp.value === '' ? '' : Number(inp.value)) : inp.value);
+    if (inp.type === 'range') {
+      // The number beside the slider follows the drag in place; the value is
+      // committed when he lets go (F17).
+      inp.addEventListener('input', () => {
+        const out = inp.closest('div')?.querySelector('[data-ckout]');
+        if (out) out.textContent = `${inp.value}/10`;
       });
-      if (inp.type === 'range' || key === 'nextDay' || key.startsWith('effusion')) rerender();
-    });
+      inp.addEventListener('change', () => { update(() => { ensureDay(iso).checkin[key] = value(); }); rerender(); });
+      return;
+    }
+    if (inp.tagName === 'SELECT') {
+      inp.addEventListener('change', () => { update(() => { ensureDay(iso).checkin[key] = value(); }); rerender(); });
+      return;
+    }
+    inp.dataset.focusKey = `ck|${key}`;
+    inp.addEventListener('input', () => stageEdit(`ck|${iso}|${key}`, { kind: 'checkin', iso, key, value: value() }));
   });
 
   root.querySelector('[data-daynote]')?.addEventListener('input', (e) => {
-    update(() => { ensureDay(iso).notes = e.target.value; });
+    stageEdit(`note|${iso}`, { kind: 'note', iso, value: e.target.value });
   });
 
   // Tick a program item on or off. The circle only toggles done; it never
@@ -1173,7 +1227,6 @@ export function bindToday(root, ctx, rerender) {
     update(() => {
       const d = ensureDay(iso);
       tickItem(d, item, cb.checked);
-      if (cb.checked) pbCheck(iso, d.entries.filter((e) => e.pid === pid));
     });
     if (cb.checked) testToast(recordAsTests(iso, ensureDay(iso).entries.filter((e) => e.pid === pid)));
     // A tick never folds a row he has open to correct (ring design decision 2).
@@ -1200,36 +1253,42 @@ export function bindToday(root, ctx, rerender) {
   root.querySelectorAll('[data-rowclick]').forEach((el) => el.addEventListener('click', () => {
     const key = el.dataset.rowclick;
     const item = ALL_ITEMS.find((p) => p.id === key);
+    const row = el.closest('.crow');
+    const body = row?.querySelector('.crow-body');
+    const closing = ctx.editing === key;
+    if (closing && body && !reducedMotion()) {
+      // Fold from the measured height, then repaint without the body (180 ms).
+      el.setAttribute('aria-expanded', 'false');
+      row.classList.remove('open');
+      body.style.height = `${body.scrollHeight}px`;
+      requestAnimationFrame(() => { body.classList.add('closing'); body.style.height = '0px'; });
+      setTimeout(() => { if (ctx.editing === key) { ctx.editing = null; rerender(); } }, 180);
+      return;
+    }
     const d = ensureDay(iso);
     const has = item ? d.entries.some((e) => e.pid === key) : d.entries.some((e) => e.id === key);
     if (item && !has) {
       update(() => { d.entries.push(...newEntriesFor(item, exerciseById(item.ex), false)); });
-      ctx.editing = key;
-    } else {
-      ctx.editing = ctx.editing === key ? null : key;
     }
+    ctx.editing = closing ? null : key;
+    ctx.justOpened = closing ? null : key;
     rerender();
   }));
-
-  // "Log it" marks it done and collapses. The numbers saved as you typed.
-  root.querySelectorAll('[data-log]').forEach((b) => b.addEventListener('click', () => {
-    const key = b.dataset.log;
-    const catEx = key.startsWith('cat:') ? key.slice(4) : null;
-    const marked = [];
-    update(() => {
-      for (const e of ensureDay(iso).entries) {
-        if (catEx ? (e.ex === catEx && !e.pid) : (e.pid === key || e.id === key)) {
-          setLogged([e], true);
-          marked.push(e);
-        }
-      }
-    });
-    testToast(recordAsTests(iso, marked));
-    pbCheck(iso, marked);
-    ctx.editing = null;
-    ctx.pop = catEx || key;
-    rerender();
-  }));
+  // The row that just opened grows from under its summary (220 ms), then settles to auto.
+  if (ctx.justOpened) {
+    const key = ctx.justOpened;
+    ctx.justOpened = null;
+    const body = [...root.querySelectorAll('.crow.open .crow-body')].find((b) => b.id === `row-${key}`);
+    if (body && !reducedMotion()) {
+      const h = body.scrollHeight;
+      body.style.height = '0px';
+      body.classList.add('opening');
+      requestAnimationFrame(() => {
+        body.style.height = `${h}px`;
+        setTimeout(() => { body.style.height = ''; body.classList.remove('opening'); }, 230);
+      });
+    }
+  }
 
   // His minutes for a program item. Empty means back to the estimate.
   root.querySelectorAll('[data-mins]').forEach((inp) => inp.addEventListener('change', () => {
@@ -1247,19 +1306,26 @@ export function bindToday(root, ctx, rerender) {
   }));
 
   root.querySelectorAll('[data-entry] [data-f]').forEach((inp) => {
-    const ev = inp.tagName === 'SELECT' ? 'change' : 'input';
-    inp.addEventListener(ev, () => {
-      const id = inp.closest('[data-entry]').dataset.entry;
-      const f = inp.dataset.f;
-      update(() => {
-        const e = ensureDay(iso).entries.find((x) => x.id === id);
-        if (!e) return;
-        e[f] = inp.type === 'number' ? num(inp.value) : inp.value;
-        if (f === 'load' && e.load != null && !e.loadUnit) e.loadUnit = state.data.settings.weightUnit;
-        // remember the band for this program item
-        if (f === 'band' && e.pid) state.data.program.band[e.pid] = inp.value;
+    const id = inp.closest('[data-entry]').dataset.entry;
+    const f = inp.dataset.f;
+    if (inp.tagName === 'SELECT') {
+      inp.addEventListener('change', () => {
+        update(() => {
+          const e = ensureDay(iso).entries.find((x) => x.id === id);
+          if (!e) return;
+          e[f] = inp.value;
+          // remember the band for this program item
+          if (f === 'band' && e.pid) state.data.program.band[e.pid] = inp.value;
+        });
+        rerender();
       });
-      if (f === 'band' || f === 'load') rerender();
+      return;
+    }
+    // Typing stays in the field; the value is staged on this device at once and
+    // committed when he pauses or leaves the field (F18).
+    inp.dataset.focusKey = `entry|${id}|${f}`;
+    inp.addEventListener('input', () => {
+      stageEdit(`entry|${iso}|${id}|${f}`, { kind: 'entry', iso, id, f, value: inp.type === 'number' ? num(inp.value) : inp.value });
     });
   });
 

@@ -10,7 +10,7 @@
 import { esc, fmtDate, round, fmtDateNum, todayIso, num } from '../util.js';
 import { state, update, maxLoad, loadSeries, lastEntry } from '../store.js';
 import { REHAB_PROGRAM, GYM_PROGRAM, PROGRAM_SOURCE, GYM_SOURCE, THERABAND, BAND_BY_ID, DAYS, DAY_NAME, dayKeyOf } from '../../data/program.js';
-import { exerciseById, openPicture, thumb, prescriptionLine, loadBars } from '../components.js';
+import { exerciseById, openPicture, thumb, prescriptionLine, loadBars, goButton } from '../components.js';
 import { minutesFor, fmtMins, fmtDayTotal } from '../timing.js';
 import { runsFor } from '../logging.js';
 import { recordScheduleVersion } from '../planstreak.js';
@@ -45,7 +45,7 @@ export function renderProgram(ctx) {
     <header class="pagehead">
       <h1>My Program</h1>
       <div class="lede">${esc(src.clinician)}${src.updated ? ` · updated ${esc(fmtDate(src.updated))}` : ''}</div>
-      ${src.videos ? `<div class="prog-source">${esc(src.title)} · videos at <strong>${esc(src.videos)}</strong>${src.code ? `, code <span class="mono">${esc(src.code)}</span>` : ''}</div>` : ''}
+      ${src.videos ? `<div class="prog-source">${esc(src.title)} · videos at <strong>${esc(src.videos)}</strong>${src.code ? ' · access code in Settings' : ''}</div>` : ''}
     </header>
 
     ${scheduleMatrix(todayKey)}
@@ -164,20 +164,21 @@ function progRow(p, ctx) {
 
   return `
   <div class="prog-row ${open ? 'open' : ''} ${p.notYet ? 'not-yet' : ''}">
-    <div class="prog-head" data-popen="${esc(p.id)}">
+    <div class="prog-head">
       <span class="prog-n">${p.n ?? ''}</span>
       ${p.thumb
         ? `<button class="prog-shot" data-bigpic="${esc(p.id)}" title="Show it bigger"><img src="${esc(p.thumb)}" alt="" decoding="async"></button>`
         : `<span class="prog-shot plain">${thumb(p.ex, 43)}</span>`}
-      <div class="prog-main">
-        <div class="prog-title">${esc(name)}</div>
-        <div class="prog-sub">${[prescriptionLine(p, band), m.mins == null ? 'target not specified' : `${m.mins} min${m.src === 'yours' ? ' (yours)' : m.src === 'learned' ? ' (usual)' : ''}`].concat(flags)
-          .filter(Boolean).join('<span class="dot">·</span>')}${ex?.aka ? `<span class="muted"><em>${esc(ex.aka)}</em></span>` : ''}</div>
-      </div>
-      <span class="prog-chev">⌄</span>
+      <button class="prog-main" data-popen="${esc(p.id)}" aria-expanded="${open}" aria-controls="pbody-${esc(p.id)}">
+        <span class="prog-title">${esc(name)}</span>
+        <span class="prog-sub">${[prescriptionLine(p, band), m.mins == null ? 'target not specified' : `${m.mins} min${m.src === 'yours' ? ' (yours)' : m.src === 'learned' ? ' (usual)' : ''}`].concat(flags)
+          .filter(Boolean).join('<span class="dot">·</span>')}${ex?.aka ? `<span class="muted"><em>${esc(ex.aka)}</em></span>` : ''}</span>
+        <span class="prog-chev" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 9.5l6 6 6-6"/></svg></span>
+      </button>
       <div class="prog-days">${dayChips(p.id)}</div>
     </div>
-    ${open ? `<div class="prog-body">
+    ${open ? `<div class="prog-body" id="pbody-${esc(p.id)}">
+      ${goButton({ attrs: `data-timer="${esc(p.id)}" ${p.notYet ? 'disabled' : ''}`, label: 'Begin', cls: 'row-begin' })}
       ${renderHistory(state.data, p, todayIso())}
       ${p.notYet ? `<div class="notice" style="margin-bottom:.5rem">${esc(p.notYetNote)}</div>` : ''}
       ${p.pre ? `<div class="small" style="margin-bottom:.4rem"><strong>Before this:</strong> ${esc(p.pre)}</div>` : ''}
@@ -188,8 +189,6 @@ function progRow(p, ctx) {
         <ol class="steps">${p.steps.map((s) => `<li>${esc(s)}</li>`).join('')}</ol>` : ''}
       ${p.goal ? `<div class="tiny muted" style="margin-top:.4rem">Goal: ${esc(p.goal)}</div>` : ''}
 
-      <div class="row" style="margin-top:.7rem"><button class="btn" data-timer="${esc(p.id)}">
-        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z"/></svg>Start timer</button></div>
       <div class="row" style="gap:.7rem;align-items:flex-end;margin-top:.7rem">
         <label class="fld minsfld" title="Minutes this takes you. Leave it empty to use the estimate.">Minutes
           <input type="number" class="in-num" min="0" step="1" data-mins="${esc(p.id)}" placeholder="${m.src !== 'yours' && m.mins != null ? m.mins : ''}" value="${own ?? ''}"></label>

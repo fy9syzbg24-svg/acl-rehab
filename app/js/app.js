@@ -1,7 +1,8 @@
-import { load, state, update, subscribe, runSync, syncState, pendingSyncCount, onRemoteChange, surgeryDate, flushSave, saveOutstanding } from './store.js';
+import { load, state, update, flushEdits, recoverEdits, subscribe, runSync, syncState, pendingSyncCount, onRemoteChange, surgeryDate, flushSave, saveOutstanding } from './store.js';
 import { guardPaint, whenIdle } from './editguard.js';
+import { capture, restore, scrollTop } from './paintkeep.js';
 import { chipState } from './status.js';
-import { esc, todayIso, postOp, applyStoredTheme } from './util.js';
+import { esc, todayIso, postOp, applyStoredTheme, applyTheme, THEME_KEY } from './util.js';
 import { isConfigured } from './sync/config.js';
 import { needsSeed, markSeen } from './milestones.js';
 import { renderToday, bindToday } from './views/today.js';
@@ -14,6 +15,14 @@ import { renderPlayer, bindPlayer, playerLeaving, playerBusy } from './player/pl
 import { toast } from './components.js';
 
 applyStoredTheme();   // before first paint, so there is no flash
+// Automatic follows the device while the app stays open, browser chrome too (F50).
+try {
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+    let pref = 'light';
+    try { pref = localStorage.getItem(THEME_KEY) || 'light'; } catch { /* per device */ }
+    if (pref === 'auto') applyTheme('auto');
+  });
+} catch { /* older engines */ }
 
 const VIEWS = {
   today: [renderToday, bindToday],
@@ -66,8 +75,11 @@ function rawPaint() {
   const y = window.scrollY;
   const [render, bind] = VIEWS[ctx.view] || VIEWS.today;
   document.body.classList.toggle('in-player', ctx.view === 'player');
+  const keep = ctx.view === lastView ? capture(viewEl) : null;
+  flushEdits();   // a typed value is committed before its field is replaced
   viewEl.innerHTML = render(ctx);
   bind?.(viewEl, ctx, paint);
+  restore(viewEl, keep);
   // The player belongs to the tab it was opened from.
   const tabView = ctx.view === 'player' ? (ctx.playerFrom || 'today') : ctx.view;
   document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('on', b.dataset.view === tabView));
@@ -139,7 +151,12 @@ document.getElementById('sync-btn').addEventListener('click', async () => {
 
 document.getElementById('tabs').addEventListener('click', (e) => {
   const b = e.target.closest('button[data-view]');
-  if (b) ctx.go(b.dataset.view);
+  if (!b) return;
+  // Tapping the tab you are already on scrolls that page back to the top, the
+  // way iPhone apps do (his ask, 2026-09-14). From the player, Today still
+  // leaves the player as before.
+  if (b.dataset.view === ctx.view) { scrollTop(); return; }
+  ctx.go(b.dataset.view);
 });
 document.getElementById('nav-settings').addEventListener('click', () => ctx.go('settings'));
 window.addEventListener('hashchange', () => {
@@ -197,4 +214,4 @@ async function autoSync() {
   }
 }
 
-load().then(() => { seedCelebrations(); paint(); autoSync(); });
+load().then(() => { recoverEdits(); seedCelebrations(); paint(); autoSync(); });

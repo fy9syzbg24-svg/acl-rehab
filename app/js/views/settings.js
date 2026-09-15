@@ -7,6 +7,7 @@ import { getConfig, setConfig, clearConfig, isConfigured } from '../sync/config.
 import { ghCheckAccess } from '../sync/github.js';
 import { SERVER_MODE } from '../sync/local-store.js';
 import { fmtDateNum } from '../util.js';
+import { MIX_KEY, mixWithOthers, soundCheck, setSession } from '../player/audio.js';
 
 const THIS = SERVER_MODE ? 'this Mac' : 'this device';
 
@@ -41,7 +42,7 @@ function syncCard() {
       <button class="btn" data-sy-disconnect>Disconnect ${THIS}</button>
       <span class="tiny muted">device <span class="mono">${esc(DEVICE_ID)}</span> · build <span class="mono" id="build-id">…</span></span>
     </div>
-    <details class="disc" style="margin-top:.7rem">
+    <details class="disc" data-key="set:diag" style="margin-top:.7rem">
       <summary>Screen diagnostics</summary>
       <pre class="tiny mono" id="geo-report" style="white-space:pre-wrap;line-height:1.5;margin:.4rem 0 0">measuring…</pre>
     </details>
@@ -87,6 +88,7 @@ export function renderSettings(ctx = {}) {
   const sum = {
     surgeries: [s.surgeryLeft && `L ${fmtDateNum(s.surgeryLeft)}`, s.surgeryRight && `R ${fmtDateNum(s.surgeryRight)}`].filter(Boolean).join(' · ') || 'not set',
     appearance: { auto: 'Automatic', light: 'Light', dark: 'Dark' }[s.theme || 'light'],
+    sound: mixWithOthers() ? 'Other music keeps playing · on this device' : 'Plays with Silent on · on this device',
     units: `${s.weightUnit} · ${s.lengthUnit} · ${s.bodyweight ? `bodyweight ${s.bodyweight} ${s.weightUnit}` : 'bodyweight not set'}`,
     data: SERVER_MODE ? 'on this Mac, with rolling backups' : 'on this device',
     sync: !isConfigured() ? `Not connected on ${THIS}`
@@ -96,10 +98,11 @@ export function renderSettings(ctx = {}) {
     sources: `${CASE.sources.length} source${CASE.sources.length === 1 ? '' : 's'}`,
   };
   const warnSync = isConfigured() && syncState.lastError;
-  const group = (key, title) => `<details class="card setgroup" data-setg="${key}" ${open(key)}>
-      <summary class="setsum"><span class="setsum-t">${title}</span><span class="setsum-s ${key === 'sync' && warnSync ? 'warn' : ''}">${esc(sum[key])}</span></summary>`;
+  const group = (key, title) => `<details class="card setgroup" data-setg="${key}" data-key="setg:${key}" ${open(key)}>
+      <summary class="setsum"><span class="setsum-t">${title}</span><span class="setsum-s ${key === 'sync' && warnSync ? 'bad' : ''}">${esc(sum[key])}</span></summary>`;
   return `
-  <div class="stack">
+  <div class="stack settings-page">
+    <header class="pagehead"><h1>Settings</h1></header>
     ${group('surgeries', 'Your surgeries')}
       <div class="card-body">
         <div class="grid3">
@@ -130,6 +133,15 @@ export function renderSettings(ctx = {}) {
               ${sub ? `<span class="tiny muted">${sub}</span>` : ''}
             </button>`).join('')}
         </div>
+      </div>
+    </details>
+
+    ${group('sound', 'Workout sound')}
+      <div class="card-body">
+        <label class="check-row"><input type="checkbox" data-mix ${mixWithOthers() ? 'checked' : ''}>
+          <span><b>Let other music keep playing</b><br>
+          <span class="muted">Off: cues and your songs play even with the Silent switch on, and other music such as Spotify pauses while they play. On: other music keeps going under the cues, and workout sound then follows the Silent switch. Spotify may not start again by itself.</span></span></label>
+        <div class="row" style="margin-top:.7rem"><button class="btn" data-soundtest>Test sound</button><span class="tiny muted" data-soundtest-out></span></div>
       </div>
     </details>
 
@@ -209,11 +221,12 @@ export function renderSettings(ctx = {}) {
           ${SERVER_MODE ? '<span data-pa-live></span>' : ''}
         </div>` : ''}
 
-        <details class="disc" style="margin-bottom:.6rem" ${connected ? '' : 'open'}>
+        <details class="disc" data-key="set:signin" style="margin-bottom:.6rem" ${connected ? '' : 'open'}>
           <summary>${connected ? 'Change the sign-in details' : 'Sign in: enter these once'}</summary>
           <div class="grid2" style="padding:.4rem 0 .2rem">
             <label class="fld">Program code
-              <input data-pa="code" value="${esc(pa.code || '')}" placeholder="from your clinician" autocomplete="off" spellcheck="false">
+              <span class="secret-field"><input data-pa="code" type="password" value="${esc(pa.code || '')}" placeholder="from your clinician" autocomplete="off" spellcheck="false">
+                <button type="button" class="btn sm ghost" data-reveal aria-pressed="false">Show</button></span>
             </label>
             <label class="fld">Year of birth
               <input data-pa="birthYear" type="number" min="1900" max="2100" value="${esc(String(pa.birthYear || ''))}" autocomplete="off" placeholder="e.g. 1993">
@@ -240,7 +253,7 @@ export function renderSettings(ctx = {}) {
         ${SERVER_MODE ? `
         <div class="tiny muted" style="margin-top:.4rem">30 days takes a few minutes; you can leave the tab.</div>` : ''}
 
-        <details class="disc" style="margin-top:.7rem">
+        <details class="disc" data-key="set:pawhat" style="margin-top:.7rem">
           <summary>What it will and won't bring across</summary>
           <div class="tiny" style="padding:.2rem 0 .1rem;line-height:1.55">
             <strong>Only exercises you genuinely ticked off.</strong> PhysiApp shows a filled-in
@@ -277,6 +290,14 @@ export function renderSettings(ctx = {}) {
 }
 
 export function bindSettings(root, ctx, rerender) {
+  // The access code is a credential (F38): hidden unless he asks to see it.
+  root.querySelectorAll('[data-reveal]').forEach((b) => b.addEventListener('click', () => {
+    const inp = b.parentElement.querySelector('input');
+    const show = inp.type === 'password';
+    inp.type = show ? 'text' : 'password';
+    b.textContent = show ? 'Hide' : 'Show';
+    b.setAttribute('aria-pressed', String(show));
+  }));
   // Which groups are open survives a re-render (a save repaints the page).
   root.querySelectorAll('details[data-setg]').forEach((d) => d.addEventListener('toggle', () => {
     ctx.setOpen = { ...(ctx.setOpen || {}), [d.dataset.setg]: d.open };
@@ -493,6 +514,18 @@ export function bindSettings(root, ctx, rerender) {
         buttons.forEach((b) => { b.disabled = false; });
       }
     });
+  });
+
+  root.querySelector('[data-mix]')?.addEventListener('change', (e) => {
+    try { localStorage.setItem(MIX_KEY, e.target.checked ? 'on' : 'off'); } catch { /* per device */ }
+    setSession('cues');
+    rerender();
+  });
+  root.querySelector('[data-soundtest]')?.addEventListener('click', () => {
+    const out = root.querySelector('[data-soundtest-out]');
+    const ok = soundCheck();
+    // Two tones were sent; whether they were heard is his to say, not ours.
+    if (out) out.textContent = ok ? 'Two tones sent. If you heard nothing, check the volume.' : 'Sound is not available in this browser.';
   });
 
   root.querySelectorAll('[data-theme-set]').forEach((b) => b.addEventListener('click', () => {

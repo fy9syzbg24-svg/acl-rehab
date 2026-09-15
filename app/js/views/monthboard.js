@@ -20,16 +20,13 @@ export function monthElapsed(month, iso) {
   return { total, gone, left: total - gone, frac: gone / total };
 }
 
-function paceOf(p, elapsedFrac) {
+// Revision 3 (F34): a marker says Met when it is met, and otherwise shows its
+// own numbers. "On pace" (green) and "Behind" (warning) judged the calendar,
+// not the knee, and reused the completion colour for something else.
+function paceOf(p) {
   if (p.done) return { cls: 'met', label: 'Met' };
-  if (p.p == null) return { cls: '', label: '' };
-  // Nothing measured yet is not "behind", the detail already says "not tested yet",
-  // and a marker cannot be off pace before it has a first number.
-  if (p.untested) return { cls: '', label: '' };
-  // A blunt check: are you as far through the goal as you are through the month?
-  const slack = 0.12;
-  if (p.p / 100 >= elapsedFrac - slack) return { cls: 'ok', label: 'On pace' };
-  return { cls: 'behind', label: 'Behind' };
+  if (p.untested || p.p == null) return { cls: '', label: '' };   // the detail already says not tested yet
+  return { cls: '', label: 'Target not met' };
 }
 
 export function renderMonthBoard(ctx, atIso = null) {
@@ -85,29 +82,37 @@ function ring(percent, label) {
  * and a button to record straight into it. Shared with the Plan tab.
  */
 export function markerCards(goals, el, { title = 'Markers for this month', days = true } = {}) {
+  // Revision 3: one white surface per marker, the full title, left in blue and
+  // right in orange, the bar neutral until the target is met (then green), and
+  // a 44px add button in the action colour. No calendar pace judgement (F34).
   return `
-  <div class="section-title">${esc(title)}
-    ${days ? `<span class="tiny muted" style="text-transform:none;letter-spacing:0;font-weight:450">
-      · ${el.gone} of ${el.total} days gone</span>` : ''}</div>
-  <div class="markers">
+  <div class="pm-head"><h2 class="ov-h">${esc(title)}</h2>
+    ${days ? `<span class="pm-days">${el.gone} of ${el.total} days gone</span>` : ''}</div>
+  <div class="markers2">
     ${goals.map(({ g, p }) => {
-      const pace = paceOf(p, el.frac);
+      const pace = paceOf(p);
       const action = g.measure ? 'record' : 'toggle';
-      return `<div class="marker ${pace.cls}">
-        <button class="marker-add" data-marker="${esc(g.id)}" data-action="${action}"
-          title="${action === 'record' ? 'Record a result for this marker' : 'Mark this done'}">
-          ${action === 'record' ? '＋' : p.done ? '✓' : '○'}</button>
-        <div class="mtitle" title="${esc(g.text)}">${esc(g.text)}</div>
-        <div class="bar slim ${p.done ? 'good' : pace.cls === 'behind' ? 'warn' : ''}" style="margin:.35rem 0 .3rem">
-          <i style="width:${Math.min(100, p.p || 0)}%"></i></div>
-        <div class="mfoot">
-          <span class="mdetail">${esc(p.detail ? p.detail[0].toUpperCase() + p.detail.slice(1) : '')}</span>
-          ${pace.label ? `<span class="mstate ${pace.cls}"><i></i>${esc(pace.label)}</span>` : ''}
+      const unit = p.sides?.unit ? ` ${p.sides.unit}` : '';
+      const detail = p.sides
+        ? `<span class="L">Left ${p.sides.L ?? 'not tested'}${p.sides.L != null ? esc(unit) : ''}</span><span class="R">Right ${p.sides.R ?? 'not tested'}${p.sides.R != null ? esc(unit) : ''}</span>`
+        : p.detail ? `<span>${esc(p.detail[0].toUpperCase() + p.detail.slice(1))}</span>` : '';
+      return `<div class="marker2 ${p.done ? 'met' : ''}">
+        <div class="mk-main">
+          <div class="mk-title">${esc(g.text)}</div>
+          ${detail ? `<div class="mk-vals">${detail}</div>` : ''}
+          <div class="mk-bar ${p.done ? 'good' : ''}" role="img" aria-label="${Math.min(100, Math.round(p.p || 0))}% of the target"><i style="width:${Math.min(100, p.p || 0)}%"></i></div>
+          ${pace.label ? `<div class="mk-state ${pace.cls}">${p.done ? CHECK : ''}${esc(pace.label)}</div>` : ''}
         </div>
+        <button class="mk-add" data-marker="${esc(g.id)}" data-action="${action}"
+          aria-label="${action === 'record' ? `Record a result for ${esc(g.text)}` : p.done ? `Mark ${esc(g.text)} not done` : `Mark ${esc(g.text)} done`}">
+          ${action === 'record' ? PLUS : p.done ? CHECK : '<i class="mk-ring"></i>'}</button>
       </div>`;
     }).join('')}
   </div>`;
 }
+
+const PLUS = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
+const CHECK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12.5l4 4L18 8"/></svg>';
 
 /**
  * Is the month board collapsed? Open unless he closed it. It used to start
@@ -135,18 +140,16 @@ export function focusTiles(month, from, to, { title = "The month's focus" } = {}
   const doneCount = auto.filter((x) => x.cov.hit).length;
 
   return `
-  <div class="section-title" style="margin-top:1rem">${esc(title)}
-    <span class="tiny muted" style="text-transform:none;letter-spacing:0;font-weight:450">
-      · ${doneCount} of ${auto.length} touched</span></div>
-  <div class="focusgrid">
+  <div class="pm-head"><h2 class="ov-h">${esc(title)}</h2><span class="pm-days">${doneCount} of ${auto.length} touched</span></div>
+  <ul class="focuslist">
     ${auto.map((x) => `
-      <div class="focusitem ${x.cov.hit ? 'hit' : ''}" title="${esc(x.it.t)}">
-        <span class="fmark">${x.cov.hit ? '✓' : ''}</span>
-        <span class="ftext">${esc(shortFocus(x.it.t))}</span>
-        <span class="fcount tiny mono">${x.cov.days ? x.cov.days + 'd' : ''}</span>
-      </div>`).join('')}
-  </div>
-  ${manual.length ? `<details class="disc" style="margin-top:.5rem"><summary>${manual.length} judgement call${manual.length === 1 ? '' : 's'}: tick these yourself</summary>
+      <li class="${x.cov.hit ? 'hit' : ''}" title="${esc(x.it.t)}">
+        <span class="fl-mark" aria-label="${x.cov.hit ? 'touched' : 'not touched yet'}">${x.cov.hit ? CHECK : ''}</span>
+        <span class="fl-text">${esc(shortFocus(x.it.t))}</span>
+        <span class="fl-count">${x.cov.days ? `${x.cov.days} day${x.cov.days === 1 ? '' : 's'}` : ''}</span>
+      </li>`).join('')}
+  </ul>
+  ${manual.length ? `<details class="disc pm-manual" data-key="focusmanual:${esc(month.id)}"><summary>${manual.length} judgement call${manual.length === 1 ? '' : 's'}: tick these yourself</summary>
     ${manual.map((x) => {
       const on = !!state.data.planFocus[x.key];
       return `<label class="checkline ${on ? 'done' : ''}">
@@ -156,24 +159,23 @@ export function focusTiles(month, from, to, { title = "The month's focus" } = {}
   </details>` : ''}`;
 }
 
-/** The plan's weekly targets for a month, as tiles: the number, its pips, where it came from. */
+/** The plan's weekly targets for a month: category, how many a week, where it came from. */
 export function targetTiles(month, { title = 'Each week this month' } = {}) {
   const rows = month.weeklyTargets.filter((t) => !t.cats.includes('*'));
   if (!rows.length) return '';
   return `
-  <div class="section-title" style="margin-top:1rem">${esc(title)}</div>
-  <div class="weekcats">
+  <h2 class="ov-h pm-gap">${esc(title)}</h2>
+  <ul class="targetlist">
     ${rows.map((t) => {
       const goal = state.data.settings.weeklyOverrides?.[t.id] ?? t.target;
-      const colour = CATEGORIES[t.cats[0]]?.color || 'var(--accent)';
-      return `<div class="weekcat" style="--c:${colour}" title="${esc(t.label)}">
-        <span class="wchead"><span class="wclabel tiny">${esc(shortCat(t.label))}</span>
-          <span class="tiny mono">${goal} a week</span></span>
-        <span class="pips">${Array.from({ length: goal }, () => '<i class="on"></i>').join('')}</span>
-        <span class="tiny muted">${t.src === 'plan' ? 'from the plan' : 'my starting number'}</span>
-      </div>`;
+      const colour = CATEGORIES[t.cats[0]]?.color || 'var(--ink-2)';
+      return `<li style="--c:${colour}" title="${esc(t.label)}">
+        <span class="tl-dot" aria-hidden="true"></span>
+        <span class="tl-text"><b>${esc(shortCat(t.label))}</b><small>${t.src === 'plan' ? 'From the plan' : 'My starting number'}</small></span>
+        <span class="tl-n">${goal} a week</span>
+      </li>`;
     }).join('')}
-  </div>`;
+  </ul>`;
 }
 
 /** Category labels have to fit on one line beside their count. */
@@ -215,7 +217,7 @@ function carriedBlock(current) {
   // One line, the list behind a tap. A paragraph here cost real screen space
   // on a phone and said the same thing every day.
   return `
-  <details class="disc carried" style="margin-top:.8rem">
+  <details class="disc carried" data-key="carried" style="margin-top:.8rem">
     <summary><span class="pill warn">${out.length} not met ${out.length === 1 ? 'in an' : 'in'} earlier month${out.length === 1 ? '' : 's'}</span>
       <span class="tiny muted">still counts; tap to see</span></summary>
     <ul class="plain" style="margin-top:.35rem">

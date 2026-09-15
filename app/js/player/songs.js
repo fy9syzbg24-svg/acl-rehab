@@ -48,36 +48,50 @@ function ghHeaders(token, raw = false) {
 }
 const ghUrl = (c, path) => `https://api.github.com/repos/${c.owner}/${c.repo}/contents/${path}`;
 
-/** The songs this device can play. Cached after the first answer. */
-export function loadSongs() {
-  if (index) return Promise.resolve(index);
+/**
+ * The songs this device can play. A successful answer is cached; a failed one
+ * is not (F16): the next request tries again, at most every 20 seconds, and
+ * the player says the list could not be loaded instead of "no songs".
+ */
+let indexError = false;
+let lastFailAt = 0;
+export function songsIndexFailed() { return indexError; }
+export function loadSongs({ force = false } = {}) {
+  if (index && !indexError && !force) return Promise.resolve(index);
   if (loading) return loading;
+  if (indexError && !force && Date.now() - lastFailAt < 20000) return Promise.resolve(index || []);
   loading = (async () => {
+    let ok = false;
     try {
       if (SERVER_MODE) {
         const res = await fetch('/api/media', { cache: 'no-store' });
-        index = res.ok ? ((await res.json()).songs || []) : [];
+        if (res.ok) { index = (await res.json()).songs || []; ok = true; }
       } else {
         // The index from the last time this device was online, then a fresh
         // one if it can reach the private repo.
-        index = (await idb('readonly', (s) => s.get('index')).catch(() => null)) || [];
+        const cached = await idb('readonly', (st) => st.get('index')).catch(() => null);
+        if (cached) { index = cached; ok = true; }
         if (isConfigured() && navigator.onLine !== false) {
           const c = getConfig();
           const res = await fetch(ghUrl(c, 'media/index.json'), { headers: ghHeaders(c.token, true), cache: 'no-store' });
           if (res.ok) {
             index = (await res.json()).songs || [];
-            idb('readwrite', (s) => s.put(index, 'index')).catch(() => {});
+            ok = true;
+            idb('readwrite', (st) => st.put(index, 'index')).catch(() => {});
           }
+        } else if (!cached && !isConfigured()) {
+          index = []; ok = true;         // no sync on this device: genuinely none
         }
       }
-    } catch {
-      index = index || [];
-    }
+    } catch { /* ok stays false */ }
+    indexError = !ok;
+    if (!ok) { lastFailAt = Date.now(); index = index || []; }
     loading = null;
     return index;
   })();
   return loading;
 }
+if (typeof window !== 'undefined') window.addEventListener('online', () => { if (indexError) loadSongs({ force: true }); });
 
 export function songsNow() { return index || []; }
 export function songBySha(sha) { return (index || []).find((s) => s.sha === sha) || null; }
@@ -105,17 +119,40 @@ export async function songUrl(song) {
 }
 
 // ------------------------------------------------------------ playback ----
+// 2026-09-14 revision 3 (F07, F13, F14, F15):
+//   - one audio element for the whole workout
+//   - a queue of every song at the pace, played in a shuffled cycle: all of
+//     them before any repeats, never the same track twice in a row when there
+//     is a choice; one song loops. Skip moves to the next in the cycle.
+//   - every preparation carries a generation number; a slower, older one that
+//     finishes late can never change the track or start playback
+//   - what he asked for (on) is kept apart from what is happening (loading,
+//     playing, paused, blocked, error), so the screen never claims music that
+//     is not playing
 let el = null;
 let current = null;
-
-// Keep playing: a queue of songs at the pace. When one ends the next starts,
-// never the same track twice in a row when there is a choice. Without a
-// queue a track loops on its own.
-let queue = null;
+let queue = [];            // the songs at this pace
+let cycle = [];            // shas in play order for this pass
 let onTrack = null;
-// Bumped on every pause or stop, so a track lookup that finishes afterwards
-// knows it is stale and never restarts the music.
-let playToken = 0;
+let playToken = 0;         // bumped by pause and stop: late starts are ignored
+let prepGen = 0;           // bumped by every preparation: late loads are ignored
+let wantPlaying = false;
+let failures = 0;
+let status = 'idle';       // idle | loading | playing | paused | blocked | error
+const listeners = new Set();
+
+export function onSongStatus(fn) { listeners.add(fn); return () => listeners.delete(fn); }
+function setStatus(st) {
+  if (status === st) return;
+  status = st;
+  for (const fn of listeners) { try { fn(st); } catch { /* a listener's problem */ } }
+}
+export function songStatus() { return status; }
+export function currentSong() { return (queue.find((x) => x.sha === current) || songBySha(current)) || null; }
+export function queueInfo() {
+  const i = cycle.indexOf(current);
+  return { position: i >= 0 ? i + 1 : null, total: queue.length };
+}
 
 function audioEl() {
   if (!el) {
@@ -123,28 +160,76 @@ function audioEl() {
     el.loop = true;
     el.preload = 'auto';
     el.setAttribute('playsinline', '');
-    el.addEventListener('ended', () => {
-      if (!queue || queue.length < 2 || !wantPlaying) return;
-      const others = queue.filter((x) => x.sha !== current);
-      const nextSong = others[Math.floor(Math.random() * others.length)];
-      const token = playToken;
-      prepareSong(nextSong, 0).then((ok) => {
-        // Paused, closed or switched off while the next track was loading.
-        if (!ok || token !== playToken || !wantPlaying) return;
-        onTrack?.(nextSong);
-        playSong();
-      });
+    el.addEventListener('ended', () => { if (wantPlaying && queue.length > 1) advance(); });
+    el.addEventListener('playing', () => { failures = 0; setStatus('playing'); });
+    el.addEventListener('pause', () => { if (!wantPlaying) setStatus(current ? 'paused' : 'idle'); });
+    el.addEventListener('error', () => {
+      if (!current) return;
+      failures++;
+      // A broken file is skipped, but only once round the queue: never a loop.
+      if (wantPlaying && queue.length > 1 && failures < queue.length) advance();
+      else setStatus('error');
     });
   }
   return el;
 }
 
-/** Play through a list of songs (keep playing), or null to loop one track. */
-export function setContinuous(pool, trackListener = null) {
+function shuffle(list, avoidFirst) {
+  const a = list.slice();
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  if (a.length > 1 && a[0] === avoidFirst) [a[0], a[1]] = [a[1], a[0]];
+  return a;
+}
+
+/**
+ * The songs this exercise may play. Keeps the current cycle when the pool is
+ * the same, so moving between exercises at one pace carries on the order.
+ */
+export function setQueue(pool, trackListener = null) {
   const a = audioEl();
-  queue = pool && pool.length ? pool : null;
+  const next = (pool || []).filter(Boolean);
+  const same = next.length === queue.length && next.every((x) => queue.some((q) => q.sha === x.sha));
+  queue = next;
   onTrack = trackListener;
-  a.loop = !queue || queue.length < 2;
+  if (!same) cycle = shuffle(queue.map((x) => x.sha), current);
+  a.loop = queue.length < 2;
+}
+// The earlier name, kept for callers that pass null to mean one looping track.
+export function setContinuous(pool, trackListener = null) { setQueue(pool || [], trackListener); }
+
+/** The next song in the cycle after the current one, reshuffling at the end. */
+export function nextInCycle() {
+  if (!queue.length) return null;
+  let i = cycle.indexOf(current);
+  if (i < 0 || i + 1 >= cycle.length) {
+    if (i >= 0) cycle = shuffle(queue.map((x) => x.sha), current);
+    i = -1;
+  }
+  const sha = cycle[i + 1] ?? cycle[0];
+  return queue.find((x) => x.sha === sha) || null;
+}
+
+async function advance() {
+  const song = nextInCycle();
+  if (!song) return false;
+  const token = playToken;
+  const ok = await prepareSong(song, 0);
+  if (!ok || token !== playToken || !wantPlaying) return false;
+  onTrack?.(song);
+  playSong(true);
+  return true;
+}
+
+/** Skip to the next track now. Plays it if music was playing. */
+export async function skipSong() {
+  const was = wantPlaying;
+  const song = nextInCycle();
+  if (!song) return null;
+  const ok = await prepareSong(song, 0);
+  if (!ok) { setStatus('error'); return null; }
+  onTrack?.(song);
+  if (was) playSong(true);
+  return song;
 }
 
 /**
@@ -155,7 +240,6 @@ export function setContinuous(pool, trackListener = null) {
 export function primeSong() {
   const a = audioEl();
   if (!a.src || !a.paused) return;
-  // Muted for the instant it takes, so priming never makes a sound.
   a.muted = true;
   const p = a.play();
   const done = () => { if (!wantPlaying) a.pause(); a.muted = false; };
@@ -163,41 +247,51 @@ export function primeSong() {
   else done();
 }
 
-let wantPlaying = false;
-
 export function playTokenNow() { return playToken; }
 
-/** Load a song (no playback yet). Resolves true when it is ready to play. */
+/** Load a song (no playback yet). Resolves true when it is ready; false if stale or failed. */
 export async function prepareSong(song, position = 0) {
   if (!song) return false;
   const a = audioEl();
+  const gen = ++prepGen;
   if (current !== song.sha) {
-    const url = await songUrl(song);
-    if (!url) return false;
+    setStatus('loading');
+    let url = null;
+    try { url = await songUrl(song); } catch { url = null; }
+    // A newer request arrived while this one was downloading: leave it be.
+    if (gen !== prepGen) return false;
+    if (!url) { setStatus('error'); return false; }
     a.src = url;
     current = song.sha;
     try { a.currentTime = position || 0; } catch { /* set once metadata loads */ }
-    a.addEventListener('loadedmetadata', () => { try { if (position) a.currentTime = position; } catch { /* ignore */ } }, { once: true });
+    a.addEventListener('loadedmetadata', () => {
+      if (gen !== prepGen) return;
+      try { if (position) a.currentTime = position; } catch { /* ignore */ }
+    }, { once: true });
+    if (!wantPlaying) setStatus('paused');
   }
-  return true;
+  return gen === prepGen;
 }
 
-export function playSong() {
+export function playSong(force = false) {
   wantPlaying = true;
   const a = audioEl();
-  if (!a.src || !a.paused) return;
-  setSession('song');          // pauses his Spotify while a song plays
-  a.play().catch(() => {});
+  if (!a.src || (!a.paused && !force)) return;
+  setSession('song');
+  const p = a.play();
+  if (p && p.catch) p.catch(() => { if (wantPlaying) setStatus('blocked'); });
 }
 
 export function pauseSong() {
   playToken++;
   wantPlaying = false;
   if (el && !el.paused) el.pause();
-  setSession('cues');          // and hands the speaker back when it stops
+  if (current) setStatus('paused');
+  setSession('cues');
 }
 
 export function songPosition() { return el ? el.currentTime : 0; }
+export function songWanted() { return wantPlaying; }
 
 export function stopSong() {
   pauseSong();

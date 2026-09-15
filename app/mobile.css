@@ -59,9 +59,8 @@ body.mobile {
 .mtop {
   position: sticky; top: 0; z-index: 40;
   padding-top: var(--safe-t);
-  background: color-mix(in srgb, var(--bg) 90%, transparent);
-  backdrop-filter: saturate(180%) blur(14px);
-  border-bottom: 1px solid var(--line-2);
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
 }
 /* The name sits big and dead centre, the same way the desktop shows it, the
    sync chip and the gear flank it in equal side columns, so it is centred on
@@ -81,13 +80,14 @@ body.mobile {
    the right, the way the mockups place the chip. Still placed by class. */
 .mtop-in > .msync { grid-row: 1; grid-column: 2; justify-self: end; }
 .mtitle-wrap { grid-row: 1; grid-column: 1; }
+.mback { grid-row: 1; grid-column: 1; justify-self: start; }
 .mtop-in > .micon { grid-row: 1; grid-column: 3; justify-self: end; }
 .mtitle-wrap {
   min-width: 0;
   display: flex; flex-direction: column; justify-content: center; text-align: left;
 }
-.mtitle {
-  font-size: 1.05rem; font-weight: 720; letter-spacing: -.01em; line-height: 1.2; color: var(--ink);
+.app-title {
+  margin: 0; font-size: 1.05rem; font-weight: 720; letter-spacing: -.01em; line-height: 1.2; color: var(--ink);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .mpostop { font-size: .66rem; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -107,7 +107,7 @@ body.mobile .msync { min-height: 40px; padding: 0 .8rem; font-size: .82rem; }
   width: 19px; height: 19px; fill: none;
   stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
 }
-.micon.on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.micon.on { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
 
 /* ------------------------------------------------------------- content --- */
 /* In normal flow now. The sticky header sits above it; the fixed tab bar
@@ -125,9 +125,8 @@ body.mobile .msync { min-height: 40px; padding: 0 .8rem; font-size: .82rem; }
   padding-bottom: var(--safe-b);
   /* Nearly opaque on purpose: at 94% over a dark page the reserved strip below
      the buttons looked like empty background rather than part of the bar. */
-  background: color-mix(in srgb, var(--panel) 99%, transparent);
-  backdrop-filter: saturate(180%) blur(18px);
-  border-top: 1px solid var(--line-2);
+  background: var(--panel);
+  border-top: 1px solid var(--line);
 }
 .mtabs button {
   height: var(--mtab-h);
@@ -140,8 +139,7 @@ body.mobile .msync { min-height: 40px; padding: 0 .8rem; font-size: .82rem; }
   width: 21px; height: 21px; fill: none;
   stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
 }
-.mtabs button.on { color: var(--ink); font-weight: 700; }
-.mtabs button.on svg { stroke-width: 2.4; }
+.mtabs button.on { font-weight: 700; }
 .mtabs button:active { background: var(--line-2); }
 
 /* ------------------------------------------- touch adaptations for content --- */
@@ -238,7 +236,7 @@ body.mobile .toast { max-width: none; }
   }
   .mtabs button svg { width: 19px; height: 19px; }
 
-  .mtitle { font-size: 1.35rem; }
+  .app-title { font-size: 1.35rem; }
   .mpostop { font-size: .72rem; }
 
   /* Touch targets stay finger-sized, but the iPad has room for denser forms
@@ -257,7 +255,7 @@ body.mobile .toast { max-width: none; }
     font-size: .72rem;
   }
   .mtabs button svg { width: 19px; height: 19px; }
-  .mtitle { font-size: .95rem; }
+  .app-title { font-size: .95rem; }
   .mview { padding-top: .5rem; }
 }
 
@@ -338,8 +336,8 @@ body.mobile .dayfilter button .fd { font-size: .58rem; letter-spacing: .02em; }
 body.mobile .dayfilter button .fn { font-size: .98rem; }
 
 /* The player's action area sits above the fixed tab bar. */
-body.mobile .p-actions { bottom: calc(var(--mtab-h) + var(--safe-b) + .4rem); }
-body.mobile .p-img { height: clamp(120px, 23svh, 200px); }
+
+
 
 /* 2026-09-14 ring design: the rail on an iPad in landscape (styles.css draws
    it), so the shell here only has to move the header and content across. */
@@ -351,18 +349,20 @@ body.mobile .p-img { height: clamp(120px, 23svh, 200px); }
   body.mobile #toast-root { left: calc(var(--rail-w) + 1rem); }
 }
 
-/* 2026-09-14 ring design: in the player on a phone, the player's own line
-   (back, workout 2 of 6) takes the header's left side, beside the save chip,
-   so the photo grid, ring, sound and transport all fit a 393 x 852 screen. */
+/* 2026-09-14 revision 3: in the player on a phone, Back takes the name's
+   place in the header row (in the layout, not laid over it), and the
+   player's own line (workout 3 of 6, the day, the wake lock) sits first in the
+   content. The header is opaque, so nothing is drawn through a blur. */
+.mback {
+  display: inline-flex; align-items: center; gap: .15rem; min-height: 44px; padding: 0 .4rem 0 0; margin-left: -.35rem;
+  border: 0; background: none; font: inherit; font-size: 1.05rem; font-weight: 650; color: var(--ink); cursor: pointer;
+}
+.mback[hidden] { display: none; }
+.mback svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
 @media (max-width: 899px) {
-  body.mobile.in-player .mtitle-wrap { visibility: hidden; }
-  body.mobile.in-player #nav-settings { display: none; }
-  body.mobile.in-player .player .p-eyebrow {
-    position: fixed; z-index: 41; top: var(--safe-t); left: var(--gutter); right: 128px;
-    height: var(--mtop-h); min-height: 0;
-  }
-  body.mobile.in-player .player .p-eyebrow .p-count { margin-left: auto; font-size: .74rem; }
-  body.mobile.in-player .mview { padding-top: .35rem; }
+  body.mobile.in-player .mtitle-wrap { display: none; }
+  body.mobile.in-player .player .p-eyebrow .p-back { display: none; }
+  body.mobile.in-player .mview { padding-top: .2rem; }
 }
 @media (max-width: 899px) and (max-height: 900px) {
   body.mobile .player .p-img { height: clamp(136px, 21svh, 178px); }
@@ -372,7 +372,18 @@ body.mobile .today .crow-shot { width: 66px; height: 48px; }
 body.mobile .weeksec .weekcat.tappable { padding: .55rem .6rem; gap: .35rem; }
 body.mobile .weeksec .weekcat.tappable .wclabel { font-size: .85rem; }
 body.mobile .weeksec .weekcat.tappable .wchead { flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: 0 .4rem; }
+
+/* the player's transport dock sits above the tab bar, in the flow */
+body.mobile .player .p-actions { bottom: calc(var(--mtab-h) + var(--safe-b)); }
+/* the current tab: turquoise icon on its tint */
+.mtabs button { transition: color var(--tab-ms) var(--ease); }
+.mtabs button svg { transition: background var(--tab-ms) var(--ease); }
 @media (max-width: 899px) {
-  body.mobile.in-player .player .p-eyebrow .p-count { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-  body.mobile.in-player .player .p-eyebrow .p-wake { display: none; }
+  .mtabs button.on { color: var(--accent); }
+  .mtabs button.on svg { background: var(--accent-soft); border-radius: 14px; padding: 3px 14px; box-sizing: content-box; }
 }
+body.mobile .btn.go { min-height: 54px; padding: .45rem 1rem .45rem .55rem; font-size: 1.12rem; border-radius: var(--radius-btn); }
+body.mobile .today input[type=checkbox].tick { width: 30px; height: 30px; }
+body.mobile .player .btn.big { min-height: 54px; font-size: 1.05rem; font-weight: 700; border-radius: var(--radius-btn); }
+body.mobile .player .p-link.btn { font-size: .98rem; min-height: 44px; white-space: nowrap; }
+@media (max-width: 360px) { body.mobile .player .p-link.btn { font-size: .88rem; gap: .25rem; padding-inline: .2rem; } }

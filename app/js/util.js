@@ -186,7 +186,7 @@ export function applyTheme(pref) {
   const dark = pref === 'dark'
     || (pref === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute('content', dark ? '#101115' : '#F5F5F8');
+  if (meta) meta.setAttribute('content', dark ? '#10151A' : '#F3F5F6');
   return dark;
 }
 
