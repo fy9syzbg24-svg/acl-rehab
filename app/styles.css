@@ -949,7 +949,14 @@ ol.steps li { font-size: .82rem; margin: .18rem 0; }
 .supp-input:checked + .supptick { background: var(--good); border-color: var(--good); color: var(--on-good); }
 .supp-input:focus-visible + .supptick { outline: 2px solid var(--accent); outline-offset: 3px; }
 .suppname { flex: 1; min-width: 0; font-size: 1.05rem; font-weight: 550; overflow-wrap: anywhere; }
-.supprow.pop .supptick { animation: tickpop .35s var(--ease-settle); }
+/* A taken supplement pops exactly like a ticked exercise (his report,
+   2026-09-15): the same bounce and the same green ring bursting out. */
+.supptick { position: relative; }
+.supprow.pop .supp-input:checked + .supptick { animation: tickpop .35s cubic-bezier(.2, 1.5, .4, 1); }
+.supprow.pop .supp-input:checked + .supptick::after {
+  content: ''; position: absolute; inset: -4px; border-radius: 50%;
+  border: 2px solid var(--good); animation: ringout .55s ease-out forwards; pointer-events: none;
+}
 @keyframes tickpop { 0% { transform: scale(.7); } 60% { transform: scale(1.12); } 100% { transform: scale(1); } }
 .supptime {
   position: relative; flex: none; display: inline-grid; place-items: center; min-width: 96px; min-height: 44px; padding: 0 .75rem;
@@ -964,7 +971,7 @@ ol.steps li { font-size: .82rem; margin: .18rem 0; }
 .supps-bar { display: flex; align-items: center; justify-content: space-between; gap: .8rem; margin-top: .5rem; }
 .supps-count { font-size: 1.2rem; font-weight: 700; }
 .supp-add { width: 100%; min-height: 54px; font-size: 1.05rem; border-radius: var(--radius-btn); border-color: var(--line); color: var(--accent); background: var(--panel); }
-@media (prefers-reduced-motion: reduce) { .supprow.pop .supptick { animation: none; } .sg-chev svg { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .supprow.pop .supptick, .supprow.pop .supp-input:checked + .supptick { animation: none; } .supprow.pop .supptick::after { display: none; } .sg-chev svg { transition: none; } }
 
 /* drag-to-reorder, and the compact as-needed row */
 .supphandle {
@@ -1977,11 +1984,13 @@ table.tbl { font-size: .9rem; }
 .dr-check.play svg path { stroke-dasharray: 24; animation: drcheck calc(var(--finish-ms) * .7) var(--ease-settle) calc(var(--finish-ms) * .3) both; }
 .dayring2.celebrate::after {
   content: ''; position: absolute; inset: 6%; border-radius: 50%; border: 2px solid var(--good);
-  animation: ringout var(--finish-ms) var(--ease) both; pointer-events: none;
+  animation: dayringout var(--finish-ms) var(--ease) both; pointer-events: none;
 }
 .dayring2.celebrate svg { animation: capsettle var(--finish-ms) var(--ease-settle) both; }
 @keyframes drcheck { from { stroke-dashoffset: 24; } to { stroke-dashoffset: 0; } }
-@keyframes ringout { from { transform: scale(.85); opacity: .8; } to { transform: scale(1.25); opacity: 0; } }
+/* Its own name (2026-09-15): sharing "ringout" with the tick's burst replaced
+   the tick's 1.9x ring with this gentle 1.25x one everywhere. */
+@keyframes dayringout { from { transform: scale(.85); opacity: .8; } to { transform: scale(1.25); opacity: 0; } }
 @keyframes capsettle { from { transform: scale(.97); } to { transform: none; } }
 .dr-legend { display: flex; flex-wrap: wrap; gap: .15rem .7rem; font-size: .78rem; color: var(--ink-2); }
 .dr-legend span::before { content: ''; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--seg); margin-right: .3rem; }
@@ -2194,6 +2203,10 @@ button.recovery-line span { color: var(--ink); text-decoration: underline; text-
 .fold-body.animating { transition: grid-template-rows var(--open-ms) var(--ease-panel); }
 .fold-body.animating.closing { transition-duration: var(--close-ms); }
 .fold-body > .fold-clip { min-height: 0; overflow: hidden; }
+/* Clipped only while it folds (2026-09-15): left clipped, it cut the green wash
+   that runs 8px past a taken supplement, and the tick's pop and ring. */
+.fold-body:not(.animating) > .fold-clip { overflow: visible; }
+.suppgroup > .fold-body > .fold-clip { margin-inline: -12px; padding-inline: 12px; }
 .fold-body.fading > .fold-clip > * { animation: bodyfade 100ms linear 80ms both; }
 details.fold.closing > summary::before { transform: none; }
 .suppgroup > .fold-body { margin-top: 0; }
