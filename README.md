@@ -974,13 +974,14 @@ a bug; never take motion out to fix speed. The five he picked:
 
 `roll` and `settling` are in morph.js's MOTION list so a patch never strips them mid-move.
 
-**Changing exercise slides** (his note the same afternoon: the old 160 ms fade with a 24 px nudge was so subtle he
-never noticed it). `playSlide` in `player.js`: the redraw only detaches the exercise being left, which is put back
-in the same grid cell (`.p-stage`), on top, and slides 56 px out and fades in 260 ms while the new one slides 72 px
-in over 460 ms. Finishing and carrying on, the arrows and a swipe forward come from the right; back from the left.
-Nothing is copied or measured (a copy plus a position read cost 5 ms more per tap at 6x CPU). While it runs the
-view clips sideways and the dock's ground reaches both screen edges, so the moving page never shows beside it.
-Crossfade in light motion, nothing under Reduce Motion. Headless Chrome on this Mac sometimes runs at 30 frames,
+**Changing exercise pushes, like pages** (his notes the same afternoon: the old 160 ms fade with a 24 px nudge was
+so subtle he never noticed it; then a crossfade showed two workouts at once and "looks bad". **Never crossfade two
+workouts.**) `playSlide` in `player.js`: the redraw only detaches the exercise being left, which goes back into the
+same grid cell (`.p-stage`) one width plus 28 px over, and both move together over 420 ms at full opacity, so they
+never overlap. Finishing and carrying on, the arrows and a swipe forward push from the right; back from the left.
+Nothing is copied or measured (a copy plus a position read cost 5 ms more per tap at 6x CPU). While it runs the view
+clips sideways and the dock's ground reaches both screen edges. In light motion the old one goes at once and the
+new one slides 32 px in; nothing moves under Reduce Motion. Headless Chrome on this Mac sometimes runs at 30 frames,
 which turns light motion on by itself: force `rehab.motion` to `full` when checking full motion.
 
 Rules the audit added:

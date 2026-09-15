@@ -513,14 +513,16 @@ let lastContentKey = null;   // which run the screen last showed
 let pendingSlide = null;     // the exercise being left, until the new one is on screen
 
 /**
- * Changing exercise slides (2026-09-15, his note: the old fade was so subtle he
- * never noticed it). The redraw only detaches the exercise being left; it is
- * put back in the same grid cell as the new one (`.p-stage`), on top, and slides
- * out while the new one slides in from the side it came from. Finishing and
- * carrying on, the arrows and a swipe forward come in from the right, going back
- * from the left. Nothing is copied or measured, the pictures stay decoded, and
- * only transform and opacity move; a crossfade at 30 frames; nothing under
- * Reduce Motion.
+ * Changing exercise pushes (2026-09-15). His notes: the old fade was so subtle
+ * he never noticed it, then the crossfade that replaced it showed two workouts
+ * at once and "looks bad". So the two never overlap and never fade: the redraw
+ * only detaches the exercise being left, it goes back into the same grid cell
+ * (`.p-stage`) one width over, and both move together like pages, the old one
+ * out as the new one comes in. Finishing and carrying on, the arrows and a
+ * swipe forward push from the right; going back from the left. Nothing is
+ * copied or measured and the pictures stay decoded. At 30 frames (Low Power
+ * Mode) the old one goes at once and the new one slides a short way in, so
+ * still only one is ever on screen; nothing moves under Reduce Motion.
  */
 function captureLeaving(dir) {
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) return null;
@@ -528,38 +530,47 @@ function captureLeaving(dir) {
   return old ? { dir, old } : null;   // opened from Today: the page fade covers it
 }
 
+const PUSH_MS = 420;
+const PUSH_EASE = 'cubic-bezier(.32, .72, 0, 1)';
+const PUSH_GAP = 28;   // px between the two pages while they move
+
 function playSlide(player) {
   const s = pendingSlide;
   pendingSlide = null;
   const stage = player?.querySelector('.p-stage');
   const content = stage?.querySelector(':scope > .p-content');
   if (!s || !content) return;
-  const lite = liteMotion();
   const view = player.parentElement;
+  // Counted, so a second change during a push keeps the sides clipped.
+  const clip = () => { if (view) { view.dataset.pushes = String((Number(view.dataset.pushes) || 0) + 1); view.classList.add('p-sliding'); } };
+  const unclip = () => {
+    if (!view) return;
+    const left = Math.max(0, (Number(view.dataset.pushes) || 1) - 1);
+    view.dataset.pushes = String(left);
+    if (!left) view.classList.remove('p-sliding');
+  };
+  const once = (fn) => { let done = false; return () => { if (!done) { done = true; fn(); } }; };
+  clip();
+  if (liteMotion()) {
+    const end = once(unclip);
+    content.animate([{ transform: `translateX(${s.dir * 32}px)` }, { transform: 'none' }],
+      { duration: 200, easing: 'cubic-bezier(.16, 1, .3, 1)' }).finished.then(end, end);
+    setTimeout(end, 500);
+    return;
+  }
   const old = s.old;
   old.classList.add('p-leaving');
   old.setAttribute('aria-hidden', 'true');
   old.inert = true;
   old.querySelectorAll('[id]').forEach((el) => el.removeAttribute('id'));
-  stage.appendChild(old);   // after the new one: on top, and never the first match for a query
-  if (!lite) view?.classList.add('p-sliding');
-  const out = old.animate(lite
-    ? [{ opacity: 1 }, { opacity: 0 }]
-    : [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: `translateX(${-s.dir * 56}px)` }],
-  { duration: lite ? 140 : 260, easing: 'cubic-bezier(.4, 0, .9, .6)', fill: 'forwards' });
-  const drop = () => old.remove();
-  out.finished.then(drop, drop);
-  setTimeout(drop, 600);
-  const inn = content.animate(lite
-    ? [{ opacity: 0 }, { opacity: 1 }]
-    : [
-      { opacity: 0, transform: `translateX(${s.dir * 72}px)` },
-      { opacity: 1, offset: 0.55 },
-      { opacity: 1, transform: 'none' },
-    ],
-  { duration: lite ? 220 : 460, delay: lite ? 0 : 40, easing: 'cubic-bezier(.16, 1, .3, 1)', fill: 'backwards' });
-  const done = () => view?.classList.remove('p-sliding');
-  inn.finished.then(done, done);
+  stage.appendChild(old);   // after the new one, so a query never finds it first
+  const over = `(100% + ${PUSH_GAP}px)`;
+  const timing = { duration: PUSH_MS, easing: PUSH_EASE };
+  const out = old.animate([{ transform: 'none' }, { transform: `translateX(calc(${-s.dir} * ${over}))` }], { ...timing, fill: 'forwards' });
+  const inn = content.animate([{ transform: `translateX(calc(${s.dir} * ${over}))` }, { transform: 'none' }], timing);
+  const clean = once(() => { old.remove(); unclip(); });
+  Promise.all([out.finished, inn.finished]).then(clean, clean);
+  setTimeout(clean, PUSH_MS + 300);
 }
 
 const stepKey = (run) => `${run.runId}:${run.i}:${run.state}`;
