@@ -69,6 +69,9 @@
   --phase-ms: 160ms;
   --set-ms: 180ms;
   --open-ms: 220ms;
+  --panel-open-ms: 280ms;
+  --panel-close-ms: 240ms;
+  --ease-panel: cubic-bezier(.45, 0, .2, 1);
   --close-ms: 180ms;
   --chev-ms: 160ms;
   --receipt-ms: 240ms;
@@ -920,6 +923,12 @@ ol.steps li { font-size: .82rem; margin: .18rem 0; }
 .supps .supplist { background: none; padding: 0; }
 .supprow { display: flex; align-items: center; gap: .6rem; min-height: 60px; border-bottom: 1px solid var(--line-2); }
 .supprow:last-child { border-bottom: 0; }
+/* a taken supplement's whole row washes green behind it, lines kept (2026-09-15) */
+.supprow { position: relative; isolation: isolate; }
+.supprow.on::before { content: ''; position: absolute; inset: 5px -8px; border-radius: 12px; background: var(--good-soft); z-index: -1; }
+.supprow.on.pop::before { animation: washin var(--set-ms, 180ms) var(--ease) both; }
+.supprow.on .supptime.set { background: var(--panel); }
+@media (prefers-reduced-motion: reduce) { .today .crow.done.pop::before, .supprow.on.pop::before { animation: none; } }
 .supp-check { flex: 1; min-width: 0; display: flex; align-items: center; gap: .8rem; min-height: 56px; cursor: pointer; }
 .supp-input { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
 .supptick {
@@ -2073,23 +2082,66 @@ button.recovery-line span { color: var(--ink); text-decoration: underline; text-
 .crow-chev svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .crow.open .crow-chev { transform: rotate(180deg); }
 .today .crow.done { background: none; box-shadow: none; }
+/* Done rows get the green wash back, and keep the lines between rows
+   (2026-09-15, his ask: "the entire bar kind of turns slightly tinted").
+   The wash is drawn behind the row, inset from its lines, so ticking changes
+   no size or position and no separator disappears. The old rule that hid the
+   line under a done row is undone here for Today. */
+.today .crow { position: relative; isolation: isolate; }
+.today .crow.done, .today .crow.done + .crow { border-top-color: var(--line-2); }
+.today .checklist > .crow.done:first-child { border-top-color: transparent; }
+.today .crow.done::before {
+  content: ''; position: absolute; inset: 5px -8px; border-radius: 12px; background: var(--good-soft); z-index: -1;
+}
+.today .crow.done.pop::before { animation: washin var(--set-ms, 180ms) var(--ease) both; }
+.today .crow.open.done::before { display: none; }
+@keyframes washin { from { opacity: 0; } }
 .today .crow.done .crow-name { color: var(--ink); }
 .today .crow.done .crow-mins b, .today .crow.done .crow-mins small { color: var(--good); }
-.today .crow.done .crow-sub .sumchip { color: var(--good); background: var(--good-soft); }
+.today .crow.done .crow-sub .sumchip { color: var(--good); background: var(--panel); }
 
 /* an open row: one outline around the summary and its content, closed at the bottom */
 .today .crow.open, .program-page .prog-row.open {
   border: 1px solid var(--line); border-radius: var(--radius); margin: .5rem -.35rem; padding: .35rem .35rem .4rem;
   background: var(--panel); box-shadow: none;
 }
-.today .crow.open + .crow, .program-page .prog-row.open + .prog-row { border-top-color: transparent; }
-.crow-body {
-  margin: .35rem .1rem 0; padding: .75rem; border-top: 1px solid var(--line-2); border-radius: 0 0 12px 12px;
-  background: var(--panel-2); display: flex; flex-direction: column; gap: .7rem; overflow: hidden;
+/* The outline must not move the row it outlines (2026-09-15, "choppy"): the
+   summary stayed put horizontally only to within 2px, which re-wrapped the
+   title, and dropped 4px. Margin plus border plus padding now equal the closed
+   row's border plus padding on every side, so opening adds the outline and
+   nothing shifts. */
+.today .crow.open {
+  margin: calc(.6rem - .35rem) calc(-.35rem - 1px) .5rem;
+  padding: .35rem .35rem .4rem;
 }
-.crow-body.opening { transition: height var(--open-ms) var(--ease); }
-.crow-body.opening > * { animation: bodyfade 100ms linear 120ms both; }
-.crow-body.closing { transition: height var(--close-ms) var(--ease); }
+.today .crow.open + .crow, .program-page .prog-row.open + .prog-row { border-top-color: transparent; }
+.crow-body { display: grid; grid-template-rows: 1fr; }
+.crow-body.shut { grid-template-rows: 0fr; }
+/* A tall panel is hundreds of pixels: an ease-out curve moved 180px in the
+   first frame and read as a snap. A gentle in-out curve, a little longer. */
+.crow-body.animating { transition: grid-template-rows var(--panel-open-ms) var(--ease-panel); }
+.crow-body.animating.closing { transition-duration: var(--panel-close-ms); }
+.crow-body-clip { min-height: 0; overflow: hidden; }
+.crow-body-in {
+  margin: .35rem .1rem 0; padding: .75rem; border-top: 1px solid var(--line-2); border-radius: 0 0 12px 12px;
+  background: var(--panel-2); display: flex; flex-direction: column; gap: .7rem;
+}
+.crow-body.fading .crow-body-in > * { animation: bodyfade 100ms linear 120ms both; }
+
+/* Opening and closing move nothing but the body (2026-09-15). The open outline
+   fades in, and on close it eases back to exactly a plain row's spacing before
+   the body is removed, so the last frame and the plain row are identical. */
+@keyframes rowoutline { from { border-color: transparent; border-top-color: var(--line-2); background-color: transparent; } }
+@keyframes chevup { from { transform: rotate(0deg); } to { transform: rotate(180deg); } }
+.today .crow.open.just-open { animation: rowoutline var(--panel-open-ms) var(--ease-panel); }
+.today .crow.open.just-open .crow-chev { animation: chevup var(--chev-ms) var(--ease); }
+.today .crow.open.closing {
+  margin-bottom: 0; padding-bottom: calc(.6rem - 1px);
+  border-color: transparent; border-top-color: var(--line-2); background-color: transparent;
+  transition: margin var(--panel-close-ms) var(--ease-panel), padding var(--panel-close-ms) var(--ease-panel),
+    border-color var(--panel-close-ms) var(--ease-panel), background-color var(--panel-close-ms) var(--ease-panel);
+}
+.today .crow.open.closing .crow-chev { transform: none; }
 @keyframes bodyfade { from { opacity: 0; } to { opacity: 1; } }
 .row-begin { min-height: 54px; }
 .row-cat { font-size: .85rem; font-weight: 750; letter-spacing: .05em; text-transform: uppercase; color: var(--cat); }
@@ -2127,7 +2179,8 @@ details.row-disc[open] .disc-chev { transform: rotate(90deg); }
 }
 @media (prefers-reduced-motion: reduce) {
   .crow-chev, .disc-chev, .go-play { transition: none; }
-  .crow-body.opening > * { animation: none; }
+  .crow-body.fading .crow-body-in > * { animation: none; }
+  .today .crow.open.just-open, .today .crow.open.just-open .crow-chev { animation: none; }
 }
 
 /* --------------------------------------------------- Progress, ring design -- */

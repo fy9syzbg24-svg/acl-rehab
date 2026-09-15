@@ -359,7 +359,7 @@ function checkRow(item, iso, entries, ctx) {
         <span class="crow-chev" aria-hidden="true">${ICON.down}</span>
       </button>
     </div>
-    ${open ? `<div class="crow-body" id="${bodyId}">${rowBody(item, ex, iso, mine, confirmed)}</div>` : ''}
+    ${open ? `<div class="crow-body" id="${bodyId}"><div class="crow-body-clip"><div class="crow-body-in">${rowBody(item, ex, iso, mine, confirmed)}</div></div></div>` : ''}
   </div>`;
 }
 
@@ -422,7 +422,7 @@ function extraRow(e, iso, ctx) {
         <span class="crow-chev" aria-hidden="true">${ICON.down}</span>
       </button>
     </div>
-    ${open ? `<div class="crow-body" id="${bodyId}">${entryFields(e, ex)}${detailBar(null, ex, e)}</div>` : ''}
+    ${open ? `<div class="crow-body" id="${bodyId}"><div class="crow-body-clip"><div class="crow-body-in">${entryFields(e, ex)}${detailBar(null, ex, e)}</div></div></div>` : ''}
   </div>`;
 }
 
@@ -1263,12 +1263,21 @@ export function bindToday(root, ctx, rerender) {
     const body = row?.querySelector('.crow-body');
     const closing = ctx.editing === key;
     if (closing && body && !reducedMotion()) {
-      // Fold from the measured height, then repaint without the body (180 ms).
+      // Fold up (180 ms) while the outline eases back to a plain row and the
+      // chevron turns back, then take the body out in place. No repaint of the
+      // page at the end (2026-09-15, "choppier when closing"): the old version
+      // redrew everything as the fold finished, and the outline's spacing
+      // vanished in that frame, so every row below jumped up at once.
       el.setAttribute('aria-expanded', 'false');
-      row.classList.remove('open');
-      body.style.height = `${body.scrollHeight}px`;
-      requestAnimationFrame(() => { body.classList.add('closing'); body.style.height = '0px'; });
-      setTimeout(() => { if (ctx.editing === key) { ctx.editing = null; rerender(); } }, 180);
+      row.classList.add('closing');
+      body.classList.add('animating', 'closing');
+      requestAnimationFrame(() => body.classList.add('shut'));
+      setTimeout(() => {
+        if (ctx.editing !== key) return;
+        ctx.editing = null;
+        body.remove();
+        row.classList.remove('open', 'editing', 'closing');
+      }, 260);
       return;
     }
     const d = ensureDay(iso);
@@ -1280,18 +1289,28 @@ export function bindToday(root, ctx, rerender) {
     ctx.justOpened = closing ? null : key;
     rerender();
   }));
-  // The row that just opened grows from under its summary (220 ms), then settles to auto.
+  // The row that just opened grows from under its summary (220 ms).
+  //
+  // 2026-09-15, "a bit choppy" on his iPhone. Measured: the old version read
+  // the body's height before the exercise photo had loaded, animated to that
+  // (307px), then snapped to the real height (477px) when the photo arrived.
+  // Now the body is a one-row grid going from 0fr to 1fr: the row tracks the
+  // content itself, so a photo that loads mid-way just carries on growing, and
+  // nothing is measured or snapped.
   if (ctx.justOpened) {
     const key = ctx.justOpened;
     ctx.justOpened = null;
     const body = [...root.querySelectorAll('.crow.open .crow-body')].find((b) => b.id === `row-${key}`);
     if (body && !reducedMotion()) {
-      const h = body.scrollHeight;
-      body.style.height = '0px';
-      body.classList.add('opening');
+      const row = body.closest('.crow');
+      row?.classList.add('just-open');              // outline and chevron ease in
+      setTimeout(() => row?.classList.remove('just-open'), 300);
+      body.classList.add('shut');
+      void body.offsetHeight;                       // start from closed
+      body.classList.add('animating', 'fading');
       requestAnimationFrame(() => {
-        body.style.height = `${h}px`;
-        setTimeout(() => { body.style.height = ''; body.classList.remove('opening'); }, 230);
+        body.classList.remove('shut');
+        setTimeout(() => body.classList.remove('animating', 'fading'), 300);
       });
     }
   }
