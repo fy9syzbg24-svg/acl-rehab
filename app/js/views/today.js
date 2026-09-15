@@ -1244,7 +1244,19 @@ function patchToday(page, iso, ctx, keys, { rows = true, rest = true, rerender =
   if (!!footLive !== (footTpl?.tagName === 'BUTTON')) return false;
   if (footLive) pairs.push([footLive, footTpl]);
 
+  // The count, the estimate and the ring's number roll to their new values
+  // (2026-09-15, his pick) instead of changing in place.
+  const rollSel = ':scope > header.today-head :is(.sum-count, .sum-est, .dr-count b)';
+  const before = new Map([...page.querySelectorAll(rollSel)].map((el) => [el, el.textContent]));
   for (const [live, tpl] of pairs) if (!tpl || !morph(live, tpl)) return false;
+  for (const el of page.querySelectorAll(rollSel)) {
+    if (!before.has(el) || before.get(el) === el.textContent) continue;
+    el.classList.remove('roll');
+    requestAnimationFrame(() => {
+      el.classList.add('roll');
+      setTimeout(() => el.classList.remove('roll'), 420);
+    });
+  }
   return true;
 }
 

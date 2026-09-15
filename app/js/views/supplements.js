@@ -202,6 +202,8 @@ export function renderSuppGroups(iso, ctx, { edit = false } = {}) {
     const done = rows.length > 0 && taken === rows.length;
     // 2026-09-14 revision 3 (F20): a finished group stays open until he folds
     // it, so the row he just ticked (and its time) does not jump away.
+    // Superseded 2026-09-15 by his pick: finishing a group lets it settle
+    // closed after a moment (settleIfDone), unless he is still using it.
     const open = ctx.suppOpen?.[key] ?? true;
     return `
       <section class="suppgroup ${done ? 'done' : ''}">
@@ -248,21 +250,23 @@ function suppRow(s, iso, ticks, ctx, edit) {
     </div>`;
 }
 
+const settleTimers = new Map();   // group key -> the pending settle
+
 /** Tick and fold handlers for the shared rows. */
 export function bindSuppGroups(root, iso, ctx, rerender) {
   // A group folds and unfolds in place (Fable B5); while reordering, the
   // whole list repaints so the drag handles are bound.
-  root.querySelectorAll('[data-suppgroup]').forEach((b) => b.addEventListener('click', () => {
+  const setGroup = (b, open, ms = 180) => {
     const k = b.dataset.suppgroup;
     ctx.suppOpen = { ...(ctx.suppOpen || {}) };
-    ctx.suppOpen[k] = !(ctx.suppOpen[k] ?? true);
+    ctx.suppOpen[k] = open;
     const sec = b.closest('.suppgroup');
     const edit = !!sec?.querySelector('.supplist.editing') || !!(ctx.suppEdit && b.closest('.supps-page'));
     if (!sec || edit) { rerender(); return; }
     const tpl = [...parse(`<div>${renderSuppGroups(iso, ctx)}</div>`).firstElementChild.children]
       .find((x) => x.querySelector(`[data-suppgroup="${CSS.escape(k)}"]`));
     if (!tpl) { rerender(); return; }
-    if (ctx.suppOpen[k]) {
+    if (open) {
       const body = insertBody(sec, tpl, '.fold-body');
       if (!body) { rerender(); return; }
       bindSuppGroups(body, iso, ctx, rerender);
@@ -271,8 +275,40 @@ export function bindSuppGroups(root, iso, ctx, rerender) {
     }
     const body = sec.querySelector(':scope > .fold-body');
     if (!body || !patchHead(sec, tpl, '.fold-body')) { rerender(); return; }
-    foldAway(body, 180, () => { if (!(ctx.suppOpen?.[k] ?? true)) body.remove(); });
+    if (ms > 180) body.classList.add('settling');
+    foldAway(body, ms, () => { if (!(ctx.suppOpen?.[k] ?? true)) body.remove(); });
+  };
+  root.querySelectorAll('[data-suppgroup]').forEach((b) => b.addEventListener('click', () => {
+    clearTimeout(settleTimers.get(b.dataset.suppgroup));
+    setGroup(b, !(ctx.suppOpen?.[b.dataset.suppgroup] ?? true));
   }));
+
+  /**
+   * The last supplement in a group ticked (2026-09-15, his pick): "All taken"
+   * slides in, then after a moment the group settles closed. Anything he does
+   * in the group before then (the time chip, another tick) keeps it open, and
+   * a tap on its heading opens it again.
+   */
+  const settleIfDone = (k) => {
+    const view = document.getElementById('view') || document;
+    const head = view.querySelector(`[data-suppgroup="${CSS.escape(k)}"]`);
+    const sec = head?.closest('.suppgroup');
+    const count = head?.querySelector('.sg-count');
+    if (!sec || !count?.classList.contains('good') || sec.querySelector('.supplist.editing')) return;
+    if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      count.animate([{ transform: 'translateX(18px)', opacity: 0 }, { transform: 'none', opacity: 1 }],
+        { duration: 360, easing: 'cubic-bezier(.16, 1, .3, 1)' });
+    }
+    clearTimeout(settleTimers.get(k));
+    const cancel = () => clearTimeout(settleTimers.get(k));
+    sec.addEventListener('pointerdown', cancel, { once: true, capture: true });
+    settleTimers.set(k, setTimeout(() => {
+      sec.removeEventListener('pointerdown', cancel, { capture: true });
+      if (!sec.isConnected || !head.querySelector('.sg-count.good') || (ctx.suppOpen?.[k] ?? true) === false) return;
+      if (sec.contains(document.activeElement) && document.activeElement.matches('input[type=time]')) return;   // the time wheel is open
+      setGroup(head, false, 380);
+    }, 1400));
+  };
 
   // The time wheel on a ticked row: when he actually took it, for the mornings
   // he logs later.
@@ -320,9 +356,12 @@ export function bindSuppGroups(root, iso, ctx, rerender) {
     const tpl = row && parse(`<div>${renderSuppGroups(iso, ctx, { edit })}</div>`).firstElementChild
       .querySelector(`.supprow[data-row="${CSS.escape(id)}"]`);
     const ok = !!tpl && morph(row, tpl);
+    const group = row?.closest('.suppgroup')?.querySelector('[data-suppgroup]')?.dataset.suppgroup;
     if (!ok) rerender({ soft: true });
     ctx.suppPop = null;
-    if (ok) requestAnimationFrame(() => setTimeout(() => { if (cb.isConnected) rerender({ soft: true }); }, 0));
+    if (ok) requestAnimationFrame(() => setTimeout(() => { if (cb.isConnected) rerender({ soft: true }); if (on && group) settleIfDone(group); }, 0));
+    else if (on && group) settleIfDone(group);
+    if (!on && group) clearTimeout(settleTimers.get(group));
   }));
 }
 

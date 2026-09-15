@@ -48,6 +48,13 @@ export function dayRing(planned, entries, { size = 88, stroke = 8, center = 'cou
   const markR = r + stroke / 2 + 3;
   const TAU = Math.PI * 2;
   let segs = '';
+  // Plan Complete (2026-09-15, his pick): the done segments draw in turn, then
+  // the check, then the milestone badge lands. Each drawn segment gets its
+  // order; the whole fill's length is published as --fill-end for what follows.
+  let onIndex = 0;
+  const fillStep = Math.round(Math.min(90, 1100 / Math.max(1, total)));
+  const fill = () => (celebrate ? ` pathLength="1"` : '');
+  const nth = () => (celebrate ? `;--i:${onIndex++}` : '');
 
   if (!total) {
     segs = `<circle class="dr-track" cx="${c}" cy="${c}" r="${r}" stroke-width="${stroke}"/>`;
@@ -58,7 +65,10 @@ export function dayRing(planned, entries, { size = 88, stroke = 8, center = 'cou
       const a0 = i * each + gap / 2;
       const a1 = (i + 1) * each - gap / 2;
       const col = CATEGORIES[catOf(p)]?.color || 'var(--ink-2)';
-      segs += `<path class="dr-seg ${doneFlags[i] ? 'on' : ''}" d="${arc(c, c, r, a0, a1)}" stroke-width="${stroke}" style="--seg:${col}"/>`;
+      if (celebrate && doneFlags[i]) segs += `<path class="dr-seg" d="${arc(c, c, r, a0, a1)}" stroke-width="${stroke}"/>`;
+      segs += doneFlags[i]
+        ? `<path class="dr-seg on" d="${arc(c, c, r, a0, a1)}" stroke-width="${stroke}"${fill()} style="--seg:${col}${nth()}"/>`
+        : `<path class="dr-seg" d="${arc(c, c, r, a0, a1)}" stroke-width="${stroke}" style="--seg:${col}"/>`;
       const mid0 = (a0 + a1) / 2 - Math.min(0.09, (a1 - a0) / 3);
       const mid1 = (a0 + a1) / 2 + Math.min(0.09, (a1 - a0) / 3);
       segs += `<path class="dr-mark" d="${arc(c, c, markR, mid0, mid1)}" style="--seg:${col}"/>`;
@@ -84,7 +94,7 @@ export function dayRing(planned, entries, { size = 88, stroke = 8, center = 'cou
       segs += `<path class="dr-seg" d="${arc(c, c, r, a0, a1)}" stroke-width="${stroke}" style="--seg:${col}"/>`;
       if (doneBy[k]) {
         const f = a0 + (a1 - a0) * (doneBy[k] / counts[k]);
-        segs += `<path class="dr-seg on" d="${arc(c, c, r, a0, Math.max(a0 + 0.001, f))}" stroke-width="${stroke}" style="--seg:${col}"/>`;
+        segs += `<path class="dr-seg on" d="${arc(c, c, r, a0, Math.max(a0 + 0.001, f))}" stroke-width="${stroke}"${fill()} style="--seg:${col}${nth()}"/>`;
       }
       segs += `<path class="dr-mark" d="${arc(c, c, markR, a0, a1)}" style="--seg:${col}"/>`;
       a += span;
@@ -95,10 +105,11 @@ export function dayRing(planned, entries, { size = 88, stroke = 8, center = 'cou
     : complete && center === 'check'
       ? `<span class="dr-check ${celebrate ? 'play' : ''}" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 12.5l4 4L18 8"/></svg></span>`
       : `<span class="dr-count"><b class="${`${done}/${total}`.length > 4 ? 'long' : ''}">${done}/${total}</b><small>${esc(label)}</small></span>`;
-  const html = `<span class="dayring2 ${complete ? 'complete' : ''} ${celebrate ? 'celebrate' : ''}" style="--dr:${size}px"
+  const fillEnd = celebrate ? 150 + Math.max(0, onIndex - 1) * fillStep + 420 : 0;
+  const html = `<span class="dayring2 ${complete ? 'complete' : ''} ${celebrate ? 'celebrate' : ''}" style="--dr:${size}px${celebrate ? `;--fill-step:${fillStep}ms;--fill-end:${fillEnd}ms` : ''}"
     role="img" aria-label="${done} of ${total} planned exercises done${complete ? ', plan complete' : ''}">
     <svg viewBox="0 0 ${size} ${size}" aria-hidden="true">${segs}</svg>${middle}</span>`;
-  return { html, done, total, complete };
+  return { html, done, total, complete, fillEnd };
 }
 
 /** The categories in a plan, for a small legend under a dense ring. */

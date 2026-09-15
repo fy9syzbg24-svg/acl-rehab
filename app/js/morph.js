@@ -66,7 +66,7 @@ export const stats = { changes: 0 };
 //             kept for SHOT_MS after it appeared, then free to go
 //   MOTION    added by the fold and drag code while something moves
 const ONE_SHOT = new Set(['pop', 'flash']);
-const MOTION = new Set(['animating', 'fading', 'shut', 'closing', 'litein', 'liteout', 'just-open', 'sess-leaving', 'tr-enter', 'dragging']);
+const MOTION = new Set(['animating', 'fading', 'shut', 'closing', 'litein', 'liteout', 'just-open', 'sess-leaving', 'tr-enter', 'dragging', 'roll', 'settling']);
 const SHOT_MS = 900;
 const shotAt = new WeakMap();
 

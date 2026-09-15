@@ -1786,6 +1786,18 @@ table.tbl { font-size: .9rem; }
   position: absolute; width: 160px; aspect-ratio: 1; left: 50%; top: 50%; transform: translate(-50%, -50%);
   background: var(--dial-bezel) center / contain no-repeat; pointer-events: none; z-index: 0;
 }
+/* A confirmed set's pulse, and the sweep when rest turns back into work
+   (player.js dialMoments). Invisible until animated. */
+.p-dial__sweep, .p-dial__pulse {
+  position: absolute; width: 160px; aspect-ratio: 1; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  border-radius: 50%; pointer-events: none; z-index: 2; opacity: 0;
+}
+.p-dial__sweep {
+  background: conic-gradient(from 0deg, transparent 0 58%, color-mix(in srgb, var(--cat, var(--accent)) 25%, transparent) 80%, color-mix(in srgb, var(--cat, var(--accent)) 80%, #fff 20%) 100%);
+  -webkit-mask: radial-gradient(circle closest-side, transparent 70%, #000 72%, #000 87%, transparent 89%);
+  mask: radial-gradient(circle closest-side, transparent 70%, #000 72%, #000 87%, transparent 89%);
+}
+.p-dial__pulse { border: 3px solid var(--good); }
 .p-adj {
   position: relative; z-index: 1; justify-self: center; width: 48px; height: 48px; border-radius: 13px;
   border: 1px solid var(--line); background: var(--panel); color: var(--ink); display: grid; place-items: center; cursor: pointer;
@@ -1950,10 +1962,18 @@ table.tbl { font-size: .9rem; }
   padding: 1rem 1.1rem; border-radius: var(--radius); background: var(--good-soft); position: relative;
 }
 .fin-ms .ms-badge { background: none; }
-.fin-ms.play .ms-badge { animation: badgein var(--milestone-ms) var(--ease-settle) both; }
+.fin-ms.play { animation: pfade 240ms var(--ease) var(--land-at, 0ms) both; }
+.fin-ms.play .ms-badge { animation: badgeland 620ms linear var(--land-at, 0ms) both; }
+@keyframes badgeland {
+  0% { transform: translateY(-18px) scale(.4); opacity: 0; }
+  45% { transform: translateY(0) scale(1.18); opacity: 1; }
+  65% { transform: scale(.93); }
+  82% { transform: scale(1.04); }
+  100% { transform: none; }
+}
 .fin-ms.play::after {
   content: ''; position: absolute; left: 1.1rem; top: 50%; width: 52px; height: 52px; margin-top: -26px; border-radius: 14px;
-  border: 2px solid var(--good); animation: msout var(--milestone-ms) var(--ease) both; pointer-events: none;
+  border: 2px solid var(--good); animation: msout var(--milestone-ms) var(--ease) calc(var(--land-at, 0ms) + 280ms) both; pointer-events: none;
 }
 @keyframes msout { from { transform: scale(.9); opacity: .9; } to { transform: scale(1.35); opacity: 0; } }
 .fin-act { width: 100%; margin-top: 1.1rem; }
@@ -1981,21 +2001,34 @@ table.tbl { font-size: .9rem; }
 .dr-count b.long { font-size: calc(var(--dr) * .2); }
 .dr-check { width: 64%; height: 64%; border-radius: 50%; display: grid; place-items: center; background: var(--good-soft); color: var(--good); }
 .dr-check svg { position: static; width: 52%; height: 52%; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
-.dr-check.play svg path { stroke-dasharray: 24; animation: drcheck calc(var(--finish-ms) * .7) var(--ease-settle) calc(var(--finish-ms) * .3) both; }
+/* Plan Complete, in order (2026-09-15, his pick): each done segment draws in
+   turn around the ring, then the check strokes in and the ring rings out, then
+   the milestone badge lands with a bounce. */
+.dayring2.celebrate .dr-seg.on {
+  stroke-dasharray: 1 1; stroke-dashoffset: 1;
+  animation: drfill 420ms var(--ease-settle) both;
+  animation-delay: calc(150ms + var(--i, 0) * var(--fill-step, 70ms));
+}
+/* hidden until its turn: a zero-length dash still draws its round cap as a dot */
+@keyframes drfill { 0% { stroke-dashoffset: 1; opacity: 0; } 6% { opacity: 1; } 100% { stroke-dashoffset: 0; opacity: 1; } }
+.dr-check.play svg path { stroke-dasharray: 24; animation: drcheck calc(var(--finish-ms) * .7) var(--ease-settle) var(--fill-end, calc(var(--finish-ms) * .3)) both; }
+.dayring2.celebrate .dr-check { animation: checkin .55s cubic-bezier(.2, 1.5, .4, 1) var(--fill-end, 0ms) both; }
+@keyframes checkin { 0% { transform: scale(.6); opacity: 0; } 55% { transform: scale(1.12); opacity: 1; } 100% { transform: none; opacity: 1; } }
 .dayring2.celebrate::after {
   content: ''; position: absolute; inset: 6%; border-radius: 50%; border: 2px solid var(--good);
-  animation: dayringout var(--finish-ms) var(--ease) both; pointer-events: none;
+  animation: dayringout var(--finish-ms) var(--ease) var(--fill-end, 0ms) both; pointer-events: none;
 }
 .dayring2.celebrate svg { animation: capsettle var(--finish-ms) var(--ease-settle) both; }
 @keyframes drcheck { from { stroke-dashoffset: 24; } to { stroke-dashoffset: 0; } }
 /* Its own name (2026-09-15): sharing "ringout" with the tick's burst replaced
    the tick's 1.9x ring with this gentle 1.25x one everywhere. */
-@keyframes dayringout { from { transform: scale(.85); opacity: .8; } to { transform: scale(1.25); opacity: 0; } }
+@keyframes dayringout { 0% { transform: scale(.85); opacity: 0; } 2% { opacity: .8; } 100% { transform: scale(1.25); opacity: 0; } }
 @keyframes capsettle { from { transform: scale(.97); } to { transform: none; } }
 .dr-legend { display: flex; flex-wrap: wrap; gap: .15rem .7rem; font-size: .78rem; color: var(--ink-2); }
 .dr-legend span::before { content: ''; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--seg); margin-right: .3rem; }
 @media (prefers-reduced-motion: reduce) {
-  .fin-ms.play .ms-badge, .fin-ms.play::after, .ms-badge.resolve, .dr-check.play svg path, .dayring2.celebrate::after, .dayring2.celebrate svg { animation: none; }
+  .fin-ms.play, .fin-ms.play .ms-badge, .fin-ms.play::after, .ms-badge.resolve, .dr-check.play svg path, .dayring2.celebrate::after, .dayring2.celebrate svg, .dayring2.celebrate .dr-check { animation: none; }
+  .dayring2.celebrate .dr-seg.on { animation: none; stroke-dasharray: none; stroke-dashoffset: 0; }
   .fin-ms.play::after, .dayring2.celebrate::after { display: none; }
 }
 
@@ -2046,6 +2079,9 @@ table.tbl { font-size: .9rem; }
 .sum-count { font-size: 1.2rem; font-weight: 650; color: var(--ink); overflow-wrap: anywhere; }
 .sum-plan { display: block; font-size: .9rem; font-weight: 600; color: var(--ink-2); }
 .sum-est { font-size: 1.05rem; color: var(--ink-2); }
+/* A changed count rolls up into place (2026-09-15, his pick). */
+.today-head .roll { animation: numroll 360ms var(--ease-settle) both; }
+@keyframes numroll { from { transform: translateY(.55em); opacity: 0; } 55% { opacity: 1; } }
 .today-sum .dr-legend { margin-top: .3rem; }
 
 /* the primary action: Start, Begin, View today's log */
@@ -2202,6 +2238,8 @@ button.recovery-line span { color: var(--ink); text-decoration: underline; text-
 .fold-body.shut { grid-template-rows: 0fr; }
 .fold-body.animating { transition: grid-template-rows var(--open-ms) var(--ease-panel); }
 .fold-body.animating.closing { transition-duration: var(--close-ms); }
+/* a finished supplement group settles closed more slowly than a tap folds it */
+.fold-body.animating.closing.settling { transition-duration: 380ms; transition-timing-function: cubic-bezier(.4, 0, .2, 1); }
 .fold-body > .fold-clip { min-height: 0; overflow: hidden; }
 /* Clipped only while it folds (2026-09-15): left clipped, it cut the green wash
    that runs 8px past a taken supplement, and the tick's pop and ring. */

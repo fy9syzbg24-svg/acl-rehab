@@ -72,3 +72,19 @@ if (typeof document !== 'undefined') {
   });
   document.addEventListener('pointerdown', () => sample(6), { capture: true, passive: true });
 }
+
+/**
+ * A new page, or a new Progress panel, fades up into place instead of cutting
+ * in (2026-09-15, his pick). Web Animations on opacity and transform, so the
+ * system draws it; opacity only at 30 frames; nothing under Reduce Motion.
+ */
+export function pageEnter(els) {
+  if (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const lite = liteMotion();
+  for (const el of els) {
+    el?.animate?.(lite
+      ? [{ opacity: 0 }, { opacity: 1 }]
+      : [{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }],
+    { duration: lite ? 160 : 240, easing: 'cubic-bezier(.2, .8, .2, 1)' });
+  }
+}

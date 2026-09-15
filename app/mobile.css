@@ -464,7 +464,7 @@ body.mobile .player .p-link.btn { font-size: .98rem; min-height: 44px; white-spa
    10 percent added for the iPhone's wider digits (FABLE-BUILD handover). */
 @media (min-width: 390px) and (min-height: 501px) {
   body.mobile .player .p-ring { width: 200px; height: 200px; }
-  body.mobile .player .p-dial__bezel { width: 200px; }
+  body.mobile .player .p-dial__bezel, body.mobile .player .p-dial__sweep, body.mobile .player .p-dial__pulse { width: 200px; }
   body.mobile .player .p-dial { min-height: 228px; }
   body.mobile .player .p-center { inset: 27px; }
   body.mobile .player .p-num { font-size: 48px; }

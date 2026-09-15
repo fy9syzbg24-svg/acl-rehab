@@ -2,6 +2,7 @@ import { load, state, update, flushEdits, recoverEdits, subscribe, runSync, sync
 import { guardPaint, whenIdle } from './editguard.js';
 import { capture, restore, scrollTop, edgeCues } from './paintkeep.js';
 import { morphView, markOneShots } from './morph.js';
+import { pageEnter } from './motion.js';
 import { chipState } from './status.js';
 import { esc, todayIso, postOp, applyStoredTheme, applyTheme, THEME_KEY } from './util.js';
 import { isConfigured } from './sync/config.js';
@@ -50,6 +51,7 @@ const ctx = {
 const viewEl = document.getElementById('view');
 
 let lastView = null;
+let lastGtab;
 
 const scrollMemo = {};
 const scrollKey = () => `${ctx.view}|${ctx.view === 'today' ? ctx.date : ''}|${ctx.gtab || ''}`;
@@ -99,6 +101,10 @@ function rawPaint(opts = {}) {
   // where it was, for the same date; a new view starts at the top.
   const back = scrollMemo[scrollKey()];
   window.scrollTo({ top: ctx.view === lastView ? y : (ctx.view !== 'player' && back != null ? back : 0) });
+  // A new page fades up; a new Progress panel fades up under its tabs.
+  if (lastView && ctx.view !== lastView) pageEnter([viewEl]);
+  else if (ctx.view === 'progress' && ctx.gtab !== lastGtab) pageEnter([...viewEl.querySelectorAll('.progress > .subnav ~ *')]);
+  lastGtab = ctx.gtab;
   lastView = ctx.view;
 }
 

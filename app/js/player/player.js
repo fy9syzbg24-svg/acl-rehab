@@ -32,6 +32,7 @@ import { planStreak, dayComplete } from '../planstreak.js';
 import { unseenMilestones, markSeen, markFinishSeen, finishSeen, milestoneSentence, needsSeed } from '../milestones.js';
 import * as E from './engine.js';
 import * as A from './audio.js';
+import { liteMotion } from '../motion.js';
 import * as S from './songs.js';
 
 const ALL_ITEMS = REHAB_PROGRAM.concat(GYM_PROGRAM);
@@ -555,6 +556,8 @@ export function renderPlayer(ctx) {
       <div class="p-phaserow" data-slot="phase">${phaseRow(run)}</div>
       <div class="p-dial">
         <span class="p-dial__bezel" aria-hidden="true"></span>
+        <span class="p-dial__sweep" aria-hidden="true"></span>
+        <span class="p-dial__pulse" aria-hidden="true"></span>
         <button class="p-adj" data-p="reps-" data-step="${stepKey(run)}" aria-label="One fewer rep this set" ${repsEditable(run) ? '' : 'disabled'}>${I.minus}</button>
         <div class="p-ring" role="group" aria-label="Current step" data-slot="ring">${ringInner(run)}</div>
         <button class="p-adj" data-p="reps+" data-step="${stepKey(run)}" aria-label="One more rep this set" ${repsEditable(run) ? '' : 'disabled'}>${I.plus}</button>
@@ -598,6 +601,7 @@ function refresh() {
   put('phase', phaseRow(run));
   put('ring', ringInner(run));
   put('next', esc(nextLine(run)));
+  dialMoments(root, run);
   paintNow();
   patchTools(root, run);
   const key = stepKey(run);
@@ -617,6 +621,47 @@ function refresh() {
   set('reps-', { disabled: !repsEditable(run) });
   set('reps+', { disabled: !repsEditable(run) });
   paintWake();
+}
+
+// ------------------------------------------------------ dial moments ----
+// 2026-09-15, his pick: a confirmed set pulses the ring, and the moment a rest
+// (or the get ready, or a switch) turns back into work a light sweeps once
+// round the dial. Both are Web Animations on transform and opacity; at 30
+// frames (Low Power Mode) the sweep is a glow without the turn; nothing under
+// Reduce Motion.
+let lastDialKind = { runId: null, kind: null };
+const WAITING = new Set(['rest', 'ready', 'switch']);
+function dialMoments(root, run) {
+  const kind = E.step(run)?.kind || null;
+  const prev = lastDialKind.runId === run.runId ? lastDialKind.kind : null;
+  lastDialKind = { runId: run.runId, kind };
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const lite = liteMotion();
+  // On the Set done tap itself: the ring may already show the other leg's sets.
+  const pulse = P.pulseSet;
+  P.pulseSet = false;
+  if (pulse) {
+    root.querySelector('.p-ring')?.animate(
+      [{ transform: 'scale(1)' }, { transform: 'scale(1.05)', offset: 0.35 }, { transform: 'scale(1)' }],
+      { duration: 380, easing: 'cubic-bezier(.2, .8, .2, 1)' });
+    root.querySelector('.p-dial__pulse')?.animate(
+      [{ transform: 'translate(-50%, -50%) scale(.92)', opacity: 0.85 }, { transform: 'translate(-50%, -50%) scale(1.28)', opacity: 0 }],
+      { duration: 560, easing: 'ease-out' });
+  }
+  if (prev && WAITING.has(prev) && E.WORK.has(kind)) {
+    const sweep = root.querySelector('.p-dial__sweep');
+    if (!sweep) return;
+    if (lite) {
+      sweep.animate([{ opacity: 0 }, { opacity: 0.9, offset: 0.3 }, { opacity: 0 }], { duration: 480, easing: 'ease-out' });
+    } else {
+      sweep.animate([
+        { transform: 'translate(-50%, -50%) rotate(-90deg)', opacity: 0 },
+        { opacity: 1, offset: 0.15 },
+        { opacity: 1, offset: 0.75 },
+        { transform: 'translate(-50%, -50%) rotate(270deg)', opacity: 0 },
+      ], { duration: 720, easing: 'cubic-bezier(.45, 0, .2, 1)' });
+    }
+  }
 }
 
 /** What is playing, patched on its own when the song's state changes. */
@@ -1011,7 +1056,7 @@ function renderDone(ctx) {
         <div class="fin-count"><b>${ring.done} of ${ring.total}</b><span>planned exercises</span></div>
         ${mins != null ? `<div class="fin-row"><span>${mins.partial ? 'Recorded workout time' : 'Recorded workout time'}</span><b>${esc(fmtMins(mins.min))}</b></div>` : ''}
       </section>
-      ${moment ? `<div class="fin-ms ${reduce ? '' : 'play'}"><span class="ms-badge earned">${BADGE_ICON}</span>
+      ${moment ? `<div class="fin-ms ${reduce ? '' : 'play'}" style="--land-at:${(ring.fillEnd || 0) + 200}ms"><span class="ms-badge earned">${BADGE_ICON}</span>
         <span class="ms-text"><b>${esc(moment.headline)}</b><span>Milestone unlocked</span></span></div>` : ''}
       <button class="btn big primary fin-act" data-p="viewlog">${I.list}<span>View today's log</span></button>
     </div>
@@ -1563,7 +1608,7 @@ export function bindPlayer(root, ctx, rerender) {
     if (k === 'done') {
       const st = E.step(r);
       const adj = P.repsAdjust && P.repsAdjust.i === r.i ? P.repsAdjust.n : undefined;
-      if (st && E.WORK.has(st.kind)) P.justDone = { runId: r.runId, i: r.i };
+      if (st && E.WORK.has(st.kind)) { P.justDone = { runId: r.runId, i: r.i }; P.pulseSet = true; }
       act((x, now, wall) => E.setDone(x, now, wall, adj));
       return;
     }
