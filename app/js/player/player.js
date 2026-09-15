@@ -355,6 +355,11 @@ function loop() {
     announceEvents(events);
     writeDraft();
     if (run.state === 'review' && P.phase === 'run' && currentCtx) { finishRun(currentCtx); return; }
+    // A step that ended on its own restarts the clock, the cues and the music
+    // for the next one, exactly as a tap does (act). Patching the screen alone
+    // left the loop stopped: a hold sat at 0:00 until Next was pressed (his
+    // report 2026-09-15; broken since the in-place patch of aa962b2).
+    syncEffects();
     refresh();
     return;
   }
