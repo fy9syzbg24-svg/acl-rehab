@@ -4,7 +4,7 @@
 // Per set, per side, as recorded: "12 + 10", never sets multiplied by the
 // best set. Work plus recovery is the player's own time; time away is kept
 // separate, in the detail. The source says where a record came from (the
-// player, a PhysiApp import, or "Entered here": a tick or typed numbers, which
+// player, a PhysiApp import, or "Recorded in app": a tick or typed numbers, which
 // older records cannot tell apart, so neither is guessed; revision 3 F45). The detail opens
 // the same record in the same editor Today uses; nothing here is a second
 // editable copy.
@@ -20,7 +20,7 @@ const ITEM = Object.fromEntries(REHAB_PROGRAM.concat(GYM_PROGRAM).map((p) => [p.
 function sourceOf(rows) {
   if (rows.some((e) => e.timing?.runId)) return 'Player';
   if (rows.some((e) => e.via === 'physiapp')) return 'PhysiApp';
-  return 'Entered here';
+  return 'Recorded in app';
 }
 
 const PAGE = 50;
@@ -168,7 +168,7 @@ export function renderSessions(ctx, { limit = null } = {}) {
         <option value="old" ${h.sort === 'old' ? 'selected' : ''}>Oldest first</option>
         <option value="name" ${h.sort === 'name' ? 'selected' : ''}>Exercise name</option></select></label>
       <label class="fld">Source<select data-hist="src">
-        ${['all', 'Player', 'Entered here', 'PhysiApp'].map((v) => `<option value="${v}" ${h.src === v ? 'selected' : ''}>${v === 'all' ? 'Every source' : v}</option>`).join('')}</select></label>
+        ${['all', 'Player', 'Recorded in app', 'PhysiApp'].map((v) => `<option value="${v}" ${h.src === v ? 'selected' : ''}>${v === 'all' ? 'Every source' : v}</option>`).join('')}</select></label>
       <label class="fld wide">Exercise<select data-hist="ex">
         <option value="all">Every exercise</option>
         ${exOptions.map(([k, n]) => `<option value="${esc(k)}" ${h.ex === k ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></label>

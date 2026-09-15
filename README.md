@@ -853,3 +853,6 @@ activity heatmap: each date against the plan recorded for it. Markers say Met or
 Target not met; no calendar pace judgement.
 
 **Touch targets:** 44px after the cascade on touch devices. Tests: `dev-rev3.js`.
+
+Correction, same night: History's source label for ticks and typed records is "Recorded in app", not
+"Entered here" (ChatGPT's final handoff wording for F45).
