@@ -19,7 +19,7 @@ import {
 } from './store.js';
 import { guardPaint, whenIdle } from './editguard.js';
 import { capture, restore, scrollTop, edgeCues } from './paintkeep.js';
-import { morphView } from './morph.js';
+import { morphView, markOneShots } from './morph.js';
 import { chipState } from './status.js';
 import { todayIso, postOp, applyStoredTheme, applyTheme, THEME_KEY } from './util.js';
 import { renderToday, bindToday } from './views/today.js';
@@ -125,6 +125,7 @@ function rawPaint(opts = {}) {
   flushEdits();   // a typed value is committed before its field is replaced
   viewEl.innerHTML = render(ctx);
   bind?.(viewEl, ctx, paint);
+  markOneShots(viewEl);   // a patch right after a repaint keeps a tick's pop
   restore(viewEl, keep);
   // The player belongs to the tab it was opened from.
   const tabView = ctx.view === 'player' ? (ctx.playerFrom || 'today') : ctx.view;

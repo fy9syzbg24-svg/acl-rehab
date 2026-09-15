@@ -315,6 +315,7 @@ export function bindSuppGroups(root, iso, ctx, rerender) {
     // frame is drawn.
     ctx.suppPop = on ? id : null;    // one render's worth of pop
     const row = cb.closest('.supprow');
+    if (!on) row?.classList.remove('pop');   // so ticking again replays it
     const edit = !!row?.closest('.supplist.editing');
     const tpl = row && parse(`<div>${renderSuppGroups(iso, ctx, { edit })}</div>`).firstElementChild
       .querySelector(`.supprow[data-row="${CSS.escape(id)}"]`);

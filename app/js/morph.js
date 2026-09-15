@@ -59,17 +59,53 @@ function dataStable(cur, next) {
 
 export const stats = { changes: 0 };
 
+// Classes that belong to an animation in flight, never to the data (his
+// report, 2026-09-15: no tick animation on supplements, because the patch that
+// follows a tick took `pop` off one frame in). A patch keeps them:
+//   ONE_SHOT  drawn by a render for one moment (a tick's pop, a row's flash);
+//             kept for SHOT_MS after it appeared, then free to go
+//   MOTION    added by the fold and drag code while something moves
+const ONE_SHOT = new Set(['pop', 'flash']);
+const MOTION = new Set(['animating', 'fading', 'shut', 'closing', 'litein', 'liteout', 'just-open', 'sess-leaving', 'tr-enter', 'dragging']);
+const SHOT_MS = 900;
+const shotAt = new WeakMap();
+
+/** Note the one-shot classes a full repaint just drew, so a patch right after keeps them. */
+export function markOneShots(root) {
+  const now = Date.now();
+  root?.querySelectorAll?.('.pop, .flash').forEach((el) => shotAt.set(el, now));
+}
+
+function syncClass(cur, next) {
+  const have = cur.classList;
+  const want = new Set((next.getAttribute('class') || '').split(/\s+/).filter(Boolean));
+  const recent = Date.now() - (shotAt.get(cur) || 0) < SHOT_MS;
+  for (const c of [...have]) {
+    if (want.has(c) || MOTION.has(c) || (ONE_SHOT.has(c) && recent)) continue;
+    have.remove(c);
+    stats.changes++;
+  }
+  for (const c of want) {
+    if (have.contains(c)) continue;
+    have.add(c);
+    stats.changes++;
+    if (ONE_SHOT.has(c)) shotAt.set(cur, Date.now());
+  }
+}
+
 function syncAttrs(cur, next) {
   for (const { name } of [...cur.attributes]) {
     if (!next.hasAttribute(name)) {
       if (cur.tagName === 'DETAILS' && name === 'open') continue;
       if (BOUND.has(name)) continue;
+      if (name === 'class') { syncClass(cur, next); continue; }
       cur.removeAttribute(name);
       stats.changes++;
     }
   }
   for (const { name, value } of [...next.attributes]) {
     if (cur.tagName === 'DETAILS' && name === 'open') continue;
+    if (name === 'class') { if (cur.getAttribute('class') !== value) syncClass(cur, next); continue; }
     if (cur.getAttribute(name) !== value) { cur.setAttribute(name, value); stats.changes++; }
   }
 }

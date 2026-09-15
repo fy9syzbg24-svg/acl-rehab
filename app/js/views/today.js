@@ -1182,7 +1182,7 @@ function editReadyTime(iso, rerender) {
  * The ticked row is patched in the tap; everything else once that frame has
  * been drawn, so the tick itself shows at once (tickPatch).
  */
-function patchToday(page, iso, ctx, keys, { rows = true, rest = true } = {}) {
+function patchToday(page, iso, ctx, keys, { rows = true, rest = true, rerender = null } = {}) {
   if (!page || !page.isConnected || (ctx.date || todayIso()) !== iso) return false;
   const day = getDay(iso);
   const entries = day?.entries || [];
@@ -1217,7 +1217,14 @@ function patchToday(page, iso, ctx, keys, { rows = true, rest = true } = {}) {
   const rec = page.querySelector(':scope > .recovery-line');
   if (first && planned.some((p) => !p.first)) {
     if (!rec) return false;
-    pairs.push([rec, one(recoveryLine(first, iso, planned, entries))]);
+    const recTpl = one(recoveryLine(first, iso, planned, entries));
+    if (recTpl && rec.tagName !== recTpl.tagName) {
+      // Ticking the tendon loading makes the line a button (tap to correct the
+      // time). Swap that one line and bind it, rather than redrawing the page,
+      // which replaced the ticked row mid-animation (his report, 2026-09-15).
+      rec.replaceWith(recTpl);
+      if (recTpl.matches('[data-act="readytime"]') && rerender) recTpl.addEventListener('click', () => editReadyTime(iso, rerender));
+    } else pairs.push([rec, recTpl]);
   } else if (rec) return false;
 
   // The fold summaries are plain text; render them without their rows.
@@ -1260,7 +1267,7 @@ function tickPatch(page, iso, ctx, key, rerender) {
   if (!patchToday(page, iso, ctx, [key], { rest: false })) { rerender({ soft: true }); return; }
   requestAnimationFrame(() => setTimeout(() => {
     if (!page.isConnected || (ctx.date || todayIso()) !== iso) return;
-    if (!patchToday(page, iso, ctx, [], { rows: false })) rerender({ soft: true });
+    if (!patchToday(page, iso, ctx, [], { rows: false, rerender })) rerender({ soft: true });
     sayStatus(page);
   }, 0));
 }
@@ -1438,6 +1445,8 @@ export function bindToday(root, ctx, rerender) {
     // Patched in place (Fable B2): the row, the count, the ring, Start and the
     // status line change; nothing is rebuilt, so no photo decodes again.
     ctx.pop = cb.checked ? pid : null;
+    // An untick clears the pop at once, so ticking again straight after replays it.
+    if (!cb.checked) cb.closest('.crow')?.classList.remove('pop');
     tickPatch(cb.closest('.today'), iso, ctx, pid, rerender);
     ctx.pop = null;
   }));
@@ -1453,6 +1462,7 @@ export function bindToday(root, ctx, rerender) {
       testToast(e ? recordAsTests(iso, [e]) : []);
     }
     ctx.pop = cb.checked ? cb.dataset.etoggle : null;
+    if (!cb.checked) cb.closest('.crow')?.classList.remove('pop');
     tickPatch(cb.closest('.today'), iso, ctx, cb.dataset.etoggle, rerender);
     ctx.pop = null;
   }));
