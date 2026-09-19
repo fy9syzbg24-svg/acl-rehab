@@ -1,0 +1,150 @@
+// The sync orchestration: pull, merge, push, retry. Backend-agnostic, it is
+// handed a local getter/setter and talks to whatever github.js provides.
+//
+// The shape of one sync:
+//   1. GET remote state.json (+ its sha)
+//   2. merge remote INTO local; if local changed, persist it
+//   3. if local now holds anything remote lacks, PUT it back quoting the sha
+//   4. on 409 (someone else wrote between our GET and PUT): re-GET, re-merge,
+//      retry: bounded, because each retry strictly incorporates more
+//
+// Every step is idempotent. A sync interrupted anywhere loses nothing: the
+// local document already holds the change (stamped, queued), so the next sync
+// simply tries again. Nothing is marked "sent" until GitHub confirms the PUT.
+//
+// 2026-09-15 (audit A01): what goes up is a frozen copy taken before the
+// request, and the acknowledgement is that copy's exact stamps (`ack`, kept on
+// this device only). An edit made while the PUT is on its way is not in the
+// copy, so it stays pending instead of being marked sent by a cursor read off
+// the live document afterwards.
+
+import { getConfig, setConfig } from './config.js';
+import { ghGetFile, ghPutFile, ghCheckAccess, ConflictError, GitHubError } from './github.js';
+import { mergeDocs, maxStamp, ackOf } from './merge.js';
+
+const MAX_CONFLICT_RETRIES = 5;
+
+class PrivacyRefused extends Error {
+  constructor(privacy) { super(privacy === 'public' ? 'the sync repository is public' : 'could not confirm the sync repository is private'); this.privacy = privacy; }
+}
+
+function classifyFailure(err) {
+  if (err instanceof PrivacyRefused) {
+    return { ok: false, reason: err.privacy === 'public' ? 'public-repo' : 'privacy-unknown', error: String(err.message) };
+  }
+  if (err instanceof GitHubError && err.status === 401) return { ok: false, reason: 'auth', error: String(err) };
+  if (err instanceof GitHubError && err.status === 404) return { ok: false, reason: 'no-repo', error: String(err) };
+  if (err instanceof GitHubError && err.status === 403) return { ok: false, reason: 'forbidden', error: String(err) };
+  return { ok: false, reason: 'network', error: String(err) };
+}
+
+/**
+ * Run one full sync.
+ *
+ * @param getLocal  () => the current in-memory document
+ * @param setLocal  async (doc) => persist + adopt a merged document
+ * @param opts.deviceId  stamped into the commit message
+ * @param opts.recordCount () => number, for the "created" result
+ */
+export async function syncNow(getLocal, setLocal, opts = {}) {
+  // The transport is injectable purely so the tests can drive outages,
+  // interruptions and concurrent writers deterministically.
+  const getFile = opts.getFile || ghGetFile;
+  const rawPut = opts.putFile || ghPutFile;
+  const checkAccess = opts.checkAccess || ghCheckAccess;
+  // 2026-09-15 (Codex audit B01): nothing is uploaded unless GitHub says, just
+  // now, that the repository is private. A repo made public after connecting,
+  // or a check that cannot be answered, stops the upload; the data stays on
+  // this device and nothing is lost. Checked once per sync, before the first
+  // write, so a sync with nothing to send costs nothing extra.
+  let privacy = null;
+  const putFile = async (...args) => {
+    if (!privacy) {
+      let check;
+      try { check = await checkAccess(conn); } catch { check = null; }
+      privacy = !check || !check.ok ? 'unknown' : check.private === true ? 'private' : check.private === false ? 'public' : 'unknown';
+    }
+    if (privacy !== 'private') throw new PrivacyRefused(privacy);
+    return rawPut(...args);
+  };
+  const cfg = opts.config || getConfig();
+  const save = opts.setConfig || setConfig;
+  if (!cfg.token || !cfg.owner || !cfg.repo) return { ok: false, reason: 'unconfigured' };
+  const conn = { token: cfg.token, owner: cfg.owner, repo: cfg.repo, path: cfg.path || 'state.json' };
+  const msg = `rehab sync from ${opts.deviceId || 'device'}`;
+
+  // ---- 1. pull ------------------------------------------------------
+  let pulled;
+  try {
+    pulled = await getFile(conn);
+  } catch (err) {
+    return classifyFailure(err);
+  }
+
+  // ---- empty repo: create the file from what we have ----------------
+  if (!pulled.doc) {
+    try {
+      const doc = freeze(getLocal());
+      const put = await putFile(conn, doc, null, `rehab sync (init) from ${opts.deviceId || 'device'}`);
+      save({ remoteSha: put.sha, lastSyncedAt: Date.now(), lastPushedAt: maxStamp(doc), ack: ackOf(doc) });
+      return { ok: true, created: true, pulled: 0, pushed: 'all', deleted: 0 };
+    } catch (err) {
+      // Lost a race to create it, fall through to the normal path next time.
+      if (err instanceof ConflictError) return { ok: false, reason: 'retry' };
+      return classifyFailure(err);
+    }
+  }
+
+  // ---- 2. merge remote into local -----------------------------------
+  let local = getLocal();
+  const merge = mergeDocs(local, pulled.doc);
+  if (merge.changed) {
+    local = merge.doc;
+    await setLocal(local);
+  }
+
+  // ---- 3. push, only if we hold something remote does not -----------
+  if (merge.pushed === 0) {
+    // The remote already holds everything: acknowledge ITS stamps, not ours.
+    save({ remoteSha: pulled.sha, lastSyncedAt: Date.now(), lastPushedAt: maxStamp(pulled.doc), ack: ackOf(pulled.doc) });
+    return { ok: true, pulled: merge.pulled, pushed: 0, deleted: merge.deleted };
+  }
+
+  let sha = pulled.sha;
+  let toPush = freeze(local);
+  for (let attempt = 0; attempt < MAX_CONFLICT_RETRIES; attempt++) {
+    try {
+      const put = await putFile(conn, toPush, sha, msg);
+      // Acknowledge exactly the copy that went up. Anything edited since is
+      // not in it, so it is still pending.
+      save({ remoteSha: put.sha, lastSyncedAt: Date.now(), lastPushedAt: maxStamp(toPush), ack: ackOf(toPush) });
+      return { ok: true, pulled: merge.pulled, pushed: merge.pushed, deleted: merge.deleted };
+    } catch (err) {
+      if (!(err instanceof ConflictError)) return classifyFailure(err);
+      // Someone wrote between our read and write. Re-read, fold their change
+      // in, and try again against the newer sha.
+      let re;
+      try {
+        re = await getFile(conn);
+      } catch (e2) {
+        return classifyFailure(e2);
+      }
+      // Fold the newer remote into what is on this device NOW (it may hold
+      // edits made during the failed PUT), adopt that, and push a fresh copy.
+      const m2 = mergeDocs(getLocal(), re.doc);
+      sha = re.sha;
+      if (m2.changed) await setLocal(m2.doc);
+      if (m2.pushed === 0) {
+        save({ remoteSha: re.sha, lastSyncedAt: Date.now(), lastPushedAt: maxStamp(re.doc), ack: ackOf(re.doc) });
+        return { ok: true, pulled: merge.pulled + m2.pulled, pushed: 0, deleted: merge.deleted + m2.deleted };
+      }
+      toPush = freeze(m2.changed ? m2.doc : getLocal());
+    }
+  }
+  return { ok: false, reason: 'conflict', error: 'too many concurrent writes' };
+}
+
+/** A deep copy, so what is sent and acknowledged cannot change under us. */
+function freeze(doc) {
+  return JSON.parse(JSON.stringify(doc));
+}
