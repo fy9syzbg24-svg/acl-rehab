@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- viewport-fit=cover is what lets the app paint under the Dynamic Island and
+     the home indicator, and what makes env(safe-area-inset-*) return real
+     numbers instead of zero. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<!-- TWO metas, one per system scheme, and BOTH start on the light colour;
+     applyTheme (util.js) sets both to whatever the app is actually painting.
+     Two reasons it has to be this shape, both learned the hard way:
+     iOS reads these once at LAUNCH, before any script runs, so a dark value
+     sitting here gave an iPad in system dark mode a black status bar over a
+     light app; and iOS 26 only takes a theme-color that MATCHES the current
+     appearance, so with one media-less meta it found nothing in dark mode,
+     fell back to sampling the page and painted its Liquid Glass blur down
+     over the app name. Both are his reports, 2026-09-21. -->
+<meta name="theme-color" content="#F3F5F6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#F3F5F6" media="(prefers-color-scheme: dark)">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<!-- 2026-09-15: "default", not "black-translucent". Under a translucent status
+     bar, iOS 26 paints a Liquid Glass blur that spilled over the app name on
+     every screen, and a solid strip behind it did not stop it. With "default"
+     the status bar is iOS's own and the page starts below it. iOS reads this
+     only when the app is added to the Home Screen, so it needs a reinstall. -->
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Rehab">
+<title>Rehab tracker</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+<!-- The launch screen on his iPhone 15 Pro (Fable C7). iOS reads these when the
+     app is added to the Home Screen, so they show from the next install on. -->
+<link rel="apple-touch-startup-image" href="./icons/startup-iphone-15-pro-light.png" media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait) and (prefers-color-scheme: light)">
+<link rel="apple-touch-startup-image" href="./icons/startup-iphone-15-pro-dark.png" media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait) and (prefers-color-scheme: dark)">
+<link rel="stylesheet" href="./styles.css">
+<link rel="stylesheet" href="./mobile.css">
+</head>
+<body class="mobile">
+<div class="sb-fill" aria-hidden="true"></div>
+
+<header class="mtop">
+  <div class="mtop-in">
+    <button class="msync" id="sync-btn" aria-label="Sync now">
+      <span class="msync-dot" id="sync-dot" aria-hidden="true"></span>
+      <span id="sync-label">·</span>
+    </button>
+    <button class="mback" id="nav-back" hidden aria-label="Back to Today">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg><span id="nav-back-label">Today</span>
+    </button>
+    <div class="mtitle-wrap">
+      <div class="app-title" id="app-title">Rehab</div>
+      <span class="mpostop" id="postop-strip"></span>
+    </div>
+    <button class="micon" id="nav-settings" aria-label="Settings">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2.2"/><circle cx="9" cy="17" r="2.2"/></svg>
+    </button>
+  </div>
+</header>
+
+<!-- class="view" so every desktop stylesheet rule applies unchanged -->
+<main id="view" class="view mview"></main>
+
+<nav class="mtabs" id="mtabs" aria-label="Sections">
+  <button data-view="today" class="on">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16 9.5"/></svg>
+    <span>Today</span>
+  </button>
+  <button data-view="program">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6.5h11M9 12h11M9 17.5h11"/><path d="M4.5 6.5h.01M4.5 12h.01M4.5 17.5h.01"/></svg>
+    <span>Program</span>
+  </button>
+  <button data-view="supplements">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.6 20.4a4.9 4.9 0 0 1-6.9-6.9l6.2-6.2a4.9 4.9 0 0 1 6.9 6.9z"/><path d="M6.8 10.4l6.8 6.8"/></svg>
+    <span>Supps</span>
+  </button>
+  <button data-view="plan">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>
+    <span>Plan</span>
+  </button>
+  <button data-view="progress">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16"/><path d="M6.5 16v-4M11 16V8.5M15.5 16v-6M20 16V5"/></svg>
+    <span>Progress</span>
+  </button>
+  <!-- 2026-09-20, his ask: on a device with a side rail (the iPad in landscape,
+       the Mac) the medication level and the ring are places of their own. Held
+       back below 900px, where the dock is a phone's five: there they stay
+       inside Progress. Named and shown from his own data (railpages.js). -->
+  <button data-view="meds" id="tab-meds" class="rail-only" hidden>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 15.5c3.2 0 3.2-7 6.4-7s3.2 7 6.4 7 2.9-4.4 5.2-4.4"/></svg>
+    <span id="tab-meds-label">Level</span>
+  </button>
+  <button data-view="recovery" id="tab-recovery" class="rail-only" hidden>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 13.6A8.2 8.2 0 0 1 10.4 4a8.4 8.4 0 1 0 9.6 9.6z"/></svg>
+    <span id="tab-recovery-label">Ring</span>
+  </button>
+  <button data-view="settings" class="rail-only">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2.2"/><circle cx="9" cy="17" r="2.2"/></svg>
+    <span>Settings</span>
+  </button>
+</nav>
+
+<div id="modal-root"></div>
+<div id="live-root" class="sr-only" aria-live="polite"></div>
+<!-- Today's status line, said once per change and outside the repainted view (Fable D2). -->
+<div id="today-live" class="sr-only" aria-live="polite"></div>
+
+<script type="module" src="./js/mobile.js"></script>
+</body>
+</html>

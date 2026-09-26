@@ -1,0 +1,155 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Audio probe</title>
+<style>
+  :root { color-scheme: light dark; --line:#8884; }
+  body { font: 15px/1.45 -apple-system, system-ui, sans-serif; margin: 0; padding: 16px calc(16px + env(safe-area-inset-left)) calc(24px + env(safe-area-inset-bottom)); }
+  h1 { font-size: 1.1rem; margin: 0 0 .2rem; }
+  p.sub { margin: 0 0 1rem; opacity: .7; }
+  fieldset { border: 1px solid var(--line); border-radius: 12px; margin: 0 0 14px; padding: 10px 12px 14px; }
+  legend { font-weight: 700; padding: 0 6px; }
+  button { font: inherit; min-height: 44px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--line); background: #8881; margin: 4px 4px 0 0; }
+  button.on { background: #0a84ff; color: #fff; border-color: #0a84ff; }
+  pre { background: #8881; border-radius: 10px; padding: 10px; overflow-x: auto; font-size: 12px; white-space: pre-wrap; }
+  .row { display: flex; flex-wrap: wrap; gap: 4px; }
+</style>
+
+<h1>Audio probe</h1>
+<p class="sub">Isolated from the app. Nothing here is saved anywhere.</p>
+
+<fieldset>
+  <legend>1. Pick a session type, then tap Start</legend>
+  <div class="row" id="types"></div>
+  <p class="sub" style="margin:.6rem 0 0">Pick before starting. Changing it after audio has played is the thing suspected of breaking sound, so reload the page to try another.</p>
+  <button id="start">Start audio</button>
+</fieldset>
+
+<fieldset>
+  <legend>2. Can you hear it?</legend>
+  <button id="webaudio">Web Audio beep</button>
+  <button id="media">Media element beep</button>
+  <p class="sub" style="margin:.6rem 0 0">Both should be clearly audible. Tell Claude which you heard.</p>
+</fieldset>
+
+<fieldset>
+  <legend>3. Background test, 30 seconds</legend>
+  <button id="bgweb">Web Audio, beep every 5 s</button>
+  <button id="bgmedia">Media element, beep every 5 s</button>
+  <p class="sub" style="margin:.6rem 0 0">Start one, then immediately leave this app (Home, or switch to another app, or lock the phone). Count how many of the six beeps you hear while away, then come back.</p>
+</fieldset>
+
+<fieldset>
+  <legend>4. State</legend>
+  <button id="refresh">Refresh</button>
+  <pre id="out">tap Refresh</pre>
+</fieldset>
+
+<script>
+const TYPES = ['auto', 'playback', 'transient', 'transient-solo', 'ambient'];
+let chosen = 'playback', ctx = null, el = null, beeps = [], timer = null;
+const log = [];
+
+const typesEl = document.getElementById('types');
+for (const t of TYPES) {
+  const b = document.createElement('button');
+  b.textContent = t;
+  b.onclick = () => { chosen = t; [...typesEl.children].forEach(c => c.classList.toggle('on', c.textContent === t)); note('picked ' + t); };
+  if (t === chosen) b.classList.add('on');
+  typesEl.appendChild(b);
+}
+
+function note(s) { log.unshift(new Date().toLocaleTimeString() + '  ' + s); render(); }
+
+// A short beep as a data URI WAV, so the media element needs no network.
+function beepWav(seconds = 0.25, freq = 880, rate = 8000) {
+  const n = Math.floor(seconds * rate), bytes = 44 + n * 2, b = new ArrayBuffer(bytes), v = new DataView(b);
+  const str = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  str(0, 'RIFF'); v.setUint32(4, bytes - 8, true); str(8, 'WAVEfmt ');
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+  str(36, 'data'); v.setUint32(40, n * 2, true);
+  for (let i = 0; i < n; i++) {
+    const env = Math.min(1, i / 80, (n - i) / 80);
+    v.setInt16(44 + i * 2, Math.sin(2 * Math.PI * freq * i / rate) * 0.6 * env * 32767, true);
+  }
+  return 'data:audio/wav;base64,' + btoa(String.fromCharCode(...new Uint8Array(b)));
+}
+
+// Silence plus beeps at fixed offsets: the pre-rendered timeline idea, as one file.
+function timelineWav(total = 32, every = 5, freq = 880, rate = 8000) {
+  const n = Math.floor(total * rate), bytes = 44 + n * 2, b = new ArrayBuffer(bytes), v = new DataView(b);
+  const str = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  str(0, 'RIFF'); v.setUint32(4, bytes - 8, true); str(8, 'WAVEfmt ');
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+  str(36, 'data'); v.setUint32(40, n * 2, true);
+  for (let k = 1; k * every <= total; k++) {
+    const start = Math.floor(k * every * rate), len = Math.floor(0.25 * rate);
+    for (let i = 0; i < len && start + i < n; i++) {
+      const env = Math.min(1, i / 80, (len - i) / 80);
+      v.setInt16(44 + (start + i) * 2, Math.sin(2 * Math.PI * freq * i / rate) * 0.6 * env * 32767, true);
+    }
+  }
+  return 'data:audio/wav;base64,' + btoa(String.fromCharCode(...new Uint8Array(b)));
+}
+
+document.getElementById('start').onclick = () => {
+  try {
+    if (navigator.audioSession && chosen !== 'auto') { navigator.audioSession.type = chosen; note('set audioSession.type = ' + chosen); }
+    else note(navigator.audioSession ? 'left audioSession.type at auto' : 'navigator.audioSession NOT SUPPORTED');
+  } catch (e) { note('setting type threw: ' + e.message); }
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    ctx = new AC();
+    ctx.resume().then(() => note('ctx resumed, state ' + ctx.state)).catch((e) => note('ctx resume refused: ' + e.message));
+  } catch (e) { note('AudioContext threw: ' + e.message); }
+  el = new Audio(); el.src = beepWav(); el.play().then(() => note('media element played')).catch((e) => note('media play refused: ' + e.message));
+  render();
+};
+
+function tone(at, freq = 880, dur = 0.25) {
+  if (!ctx) return note('tap Start first');
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = 'sine'; o.frequency.value = freq;
+  g.gain.setValueAtTime(0.0001, at);
+  g.gain.exponentialRampToValueAtTime(0.4, at + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+  o.connect(g).connect(ctx.destination); o.start(at); o.stop(at + dur + 0.05);
+}
+
+document.getElementById('webaudio').onclick = () => { if (!ctx) return note('tap Start first'); tone(ctx.currentTime + 0.05); note('scheduled one Web Audio beep'); };
+document.getElementById('media').onclick = () => { const a = new Audio(beepWav()); a.play().then(() => note('media beep played')).catch((e) => note('media beep refused: ' + e.message)); };
+
+document.getElementById('bgweb').onclick = () => {
+  if (!ctx) return note('tap Start first');
+  for (let k = 1; k <= 6; k++) tone(ctx.currentTime + k * 5);
+  note('scheduled 6 Web Audio beeps, 5 s apart, on the audio clock. Leave the app NOW.');
+};
+document.getElementById('bgmedia').onclick = () => {
+  if (el) { try { el.pause(); } catch {} }
+  el = new Audio(timelineWav(32, 5));
+  el.play().then(() => note('playing a 32 s file with 6 beeps baked in. Leave the app NOW.')).catch((e) => note('media play refused: ' + e.message));
+};
+
+function render() {
+  const s = [];
+  s.push('audioSession       ' + (navigator.audioSession ? 'supported' : 'NOT SUPPORTED'));
+  try { s.push('audioSession.type  ' + (navigator.audioSession ? navigator.audioSession.type : 'n/a')); } catch { s.push('audioSession.type  threw'); }
+  try { s.push('audioSession.state ' + (navigator.audioSession && navigator.audioSession.state ? navigator.audioSession.state : 'n/a')); } catch {}
+  s.push('asked for          ' + chosen);
+  s.push('ctx.state          ' + (ctx ? ctx.state : 'no context'));
+  s.push('ctx.currentTime    ' + (ctx ? ctx.currentTime.toFixed(2) : 'n/a'));
+  s.push('media currentTime  ' + (el ? el.currentTime.toFixed(2) : 'no element'));
+  s.push('media paused       ' + (el ? el.paused : 'n/a'));
+  s.push('standalone         ' + (window.navigator.standalone === true || matchMedia('(display-mode: standalone)').matches));
+  s.push('visibility         ' + document.visibilityState);
+  s.push('');
+  s.push(log.slice(0, 14).join('\n'));
+  document.getElementById('out').textContent = s.join('\n');
+}
+document.getElementById('refresh').onclick = render;
+document.addEventListener('visibilitychange', () => note('visibility ' + document.visibilityState));
+render();
+</script>
