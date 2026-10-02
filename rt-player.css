@@ -1,0 +1,525 @@
+/* Rehab Test v3: the workout player (2026-09-30). Loaded after rt.css.
+   Owner: the player builder. Markup: js/player/player.js renderPlayer (.player.v3).
+
+   Why it looks like this (research 09 motives, 07 rulings):
+     M4 momentum and M5 his body sets the clock: every state is one screen with
+       the dock; the number in front of him is the biggest thing on it.
+     K4: a picture of the exercise is on screen in every state. One frame of it
+       (frames.js), big beside the title while he gets ready or rests, a chip
+       beside the title while he works, when the ring grows sideways into the
+       room it leaves (M6: grow the hero sideways, never downwards).
+     His loves kept: the textured dial with its bezel and the SOLID disc behind
+       the digits (T12), the leg in its colour (blue left, orange right), gold
+       only at a finish, more motion, never a crossfade.
+     Never list: no grey capital eyebrows, no monospaced digits, the state word
+       once (on the disc), no outlined chips.
+
+   One size variable drives the dial, set by data-size on .player (player.js
+   sizeOf): 'calm' (get ready, rest, switch) and 'work' (a set in hand). It is a
+   registered length, so it springs between the two and everything drawn on the
+   160 unit face (bezel, glow, veil, breath, digits) follows it exactly; the
+   celebration moments read the ring's real size, so they land on it at any size. */
+
+@property --tring { syntax: '<length>'; inherits: true; initial-value: 200px; }
+@property --pframe { syntax: '<length>'; inherits: true; initial-value: 76px; }
+
+:root body.mobile #view .player.v3 {
+  --tring-calm: min(246px, 29svh);
+  --tring-work: min(334px, calc(100vw - 60px), 41svh);
+  --pframe-calm: min(134px, 16svh);
+  --pframe-work: 72px;
+  --tring: var(--tring-calm);
+  --pframe: var(--pframe-calm);
+  transition: --tring .64s var(--spring-soft), --pframe .64s var(--spring-soft);
+}
+:root body.mobile #view .player.v3[data-size="work"] { --tring: var(--tring-work); --pframe: var(--pframe-work); }
+@media (prefers-reduced-motion: reduce) { :root body.mobile #view .player.v3 { transition: none; } }
+/* The tablet keeps its own ring (mobile.css, --tring there); only the phone springs. */
+@media (min-width: 768px) and (min-height: 600px) {
+  :root body.mobile #view .player.v3, :root body.mobile #view .player.v3[data-size] { --tring: clamp(230px, 30svh, 300px); --pframe: 140px; }
+}
+
+/* ------------------------------------------------------------ top line --- */
+/* Back (the bar's glass capsule), the count that opens the day's exercises, the
+   sound button, then the native lock. Sentence case in ink, not grey capitals. */
+:root body.mobile #view .player.v3 .p-eyebrow { gap: 6px; text-transform: none; }
+:root body.mobile #view .player.v3 .p-count {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 6px 0 2px; margin: 0 auto 0 0;
+  border: 0; background: none; color: var(--ink); cursor: pointer;
+  font: 600 17px/1 var(--font); letter-spacing: -.41px; text-transform: none;
+}
+:root body.mobile #view .player.v3 .p-count .p-cnum { font-family: var(--round); font-weight: 700; }
+:root body.mobile #view .player.v3 .p-cchev { display: inline-grid; color: var(--ink-2); }
+:root body.mobile #view .player.v3 .p-cchev svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+:root body.mobile #view .player.v3 .p-count:active { opacity: .6; }
+:root body.mobile #view .player.v3 .p-soundbtn {
+  position: relative; display: inline-grid; place-items: center; flex: none; width: 34px; height: 34px; padding: 0;
+  border: 0; border-radius: 50%; color: var(--ink); background: var(--glass); cursor: pointer;
+  -webkit-backdrop-filter: blur(20px) saturate(180%); backdrop-filter: blur(20px) saturate(180%);
+  box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-hi), inset 0 0 0 .5px var(--glass-rim);
+  transition: transform .3s var(--spring);
+}
+:root body.mobile #view .player.v3 .p-soundbtn::after { content: ''; position: absolute; inset: -5px; }   /* 44 pt to the finger */
+:root body.mobile #view .player.v3 .p-soundbtn:active { transform: scale(.9); }
+:root body.mobile #view .player.v3 .p-soundbtn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+:root body.mobile #view .player.v3 .p-soundbtn[data-mode="off"] { color: var(--ink-2); }
+/* The app keeps the screen awake natively: the web wake mark says nothing there. */
+html.native body.mobile #view .player.v3 .p-wake { display: none; }
+
+/* ------------------------------------------------------------- header --- */
+:root body.mobile #view .player.v3 .p-head {
+  display: grid; grid-template-columns: var(--pframe) minmax(0, 1fr); column-gap: 14px; align-items: center;
+  margin-top: 6px;
+}
+:root body.mobile #view .player.v3 .p-head .p-img.p-frame {
+  position: relative; display: block; width: var(--pframe); height: var(--pframe); margin: 0; padding: 0; opacity: 1;
+  border: 0; border-radius: calc(var(--pframe) * .2); background: #fff; overflow: hidden; cursor: pointer;
+  pointer-events: auto; -webkit-tap-highlight-color: transparent;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .08), 0 8px 22px rgba(0, 0, 0, .10);
+  transition: transform .35s var(--spring);
+}
+:root body.mobile #view .player.v3 .p-head .p-img.p-frame:active { transform: scale(.96); }
+:root body.mobile #view .player.v3 .p-head .p-img.p-frame > .frame-tile { display: block; border-radius: 0 !important; }
+:root body.mobile #view .player.v3 .p-head .p-img.plain { display: grid; place-items: center; background: var(--panel-2); }
+:root body.mobile #view .player.v3 .p-head .vid-tag { width: 34px; height: 34px; margin: 0; left: auto; top: auto; right: 6px; bottom: 6px; transition: opacity .25s ease; }
+:root body.mobile #view .player.v3 .p-head .vid-tag svg { width: 15px; height: 15px; }
+:root body.mobile #view .player.v3:not([data-size="calm"]) .p-head .vid-tag { opacity: 0; }
+:root body.mobile #view .player.v3 .p-headtext { min-width: 0; display: flex; flex-direction: column; justify-content: center; }
+:root body.mobile #view .player.v3 h1.p-title {
+  display: block; min-height: 0; margin: 0; padding: 0;
+  font-size: 22px; line-height: 26px; font-weight: 800; letter-spacing: .1px; text-wrap: balance;
+}
+:root body.mobile #view .player.v3 h1.p-title.long { font-size: 18px; line-height: 22px; }
+:root body.mobile #view .player.v3 .p-status { min-height: 20px; margin: 3px 0 0; font-size: 15px; line-height: 20px; color: var(--ink-2); }
+/* Where he is in the progressions, and Try: while he gets ready or rests. While
+   he works it folds away (it is one tap away in the steps sheet). */
+:root body.mobile #view .player.v3 .p-levelrow {
+  margin: 4px 0 0; max-height: 48px; overflow: hidden; opacity: 1;
+  transition: max-height .5s var(--spring-soft), opacity .25s ease, margin .5s var(--spring-soft);
+}
+:root body.mobile #view .player.v3:not([data-size="calm"]) .p-levelrow { max-height: 0; opacity: 0; margin-top: 0; pointer-events: none; }
+/* One line, full width: "Where you are  Base >" on the left, Try on the right. */
+:root body.mobile #view .player.v3 .p-levelrow { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; }
+/* The level as a chip with a stairs glyph ("Where you are" is its spoken name),
+   so the next step's Try beside it has the room to read in full. */
+:root body.mobile #view .player.v3 .p-level {
+  flex: 0 1 auto; min-width: 0; min-height: 36px; padding: 0 10px 0 10px; justify-content: flex-start;
+  border-radius: 18px; background: var(--panel); box-shadow: inset 0 0 0 .5px var(--line-2);
+}
+:root body.mobile #view .player.v3 .p-level > span:first-child { display: none; }
+:root body.mobile #view .player.v3 .p-level-now { gap: 6px; min-width: 0; }
+:root body.mobile #view .player.v3 .p-level b { font-size: 15px; font-weight: 700; color: var(--ink); }
+:root body.mobile #view .player.v3 .p-level svg.p-stairs { width: 16px; height: 16px; color: var(--ink-2); }
+:root body.mobile #view .player.v3 .p-try { flex: 0 1 auto; max-width: 70%; min-width: 0; }
+:root body.mobile #view .player.v3 .p-try { min-height: 36px; border-radius: 18px; padding: 0 12px; border: 0; background: var(--accent-soft); color: var(--accent); font-size: 14px; font-weight: 700; }
+/* Change exercise without looking: the arrows stay for VoiceOver; the eye uses a
+   swipe or the count in the top line. */
+:root body.mobile #view .player.v3 .p-pick {
+  position: absolute; width: 1px; height: 1px; margin: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+}
+:root body.mobile #view .player.v3 [data-p-swipe] { touch-action: pan-y; }
+
+/* ---------------------------------------------------------------- leg --- */
+:root body.mobile #view .player.v3 .p-phaserow { display: flex; justify-content: center; align-items: center; margin: 12px 0 0; gap: 0; }
+:root body.mobile #view .player.v3 .p-phaserow .p-side { font-size: 16px; padding: 7px 20px; letter-spacing: .03em; }
+:root body.mobile #view .player.v3 .p-phaserow .p-side.B { background: var(--fill); color: var(--ink); }
+
+/* --------------------------------------------------------------- dial --- */
+/* The signature (07 4.6): the textured instrument panel, full width, with the
+   dot grid that wakes turquoise while he works, the bezel's ticks and its solid
+   white disc, and the ring. Round 2 hid all of it; it is back. */
+:root body.mobile #view .player.v3 .p-dial {
+  display: grid; grid-template-columns: 1fr; place-items: center; margin: 10px 0 0; padding: 13px; min-height: 0;
+  border: 0; border-radius: 30px; overflow: hidden;
+  background-color: var(--panel);
+  background-image: var(--dial-texture), var(--dial-surface);
+  background-size: 12px 12px, 100% 100%; background-repeat: repeat, no-repeat; background-position: center, center;
+  box-shadow: inset 0 0 0 .5px var(--line-2), 0 1px 3px rgba(0, 0, 0, .05);
+  transform: none;
+}
+:root body.mobile #view .player.v3 .p-dial.working { margin: 10px 0 0; }
+:root body.mobile #view .player.v3 .p-dial .p-dial__grid { opacity: .2; }
+:root body.mobile #view .player.v3 .p-dial.working .p-dial__grid { opacity: .42; }
+:root body.mobile #view .player.v3 .p-dial .p-dial__lift { opacity: 0; }
+:root body.mobile #view .player.v3 .p-dial.working .p-dial__lift { opacity: .6; }
+:root body.mobile #view .player.v3 .p-ring,
+:root body.mobile #view .player.v3 .p-dial.working .p-ring { grid-area: 1 / 1; width: var(--tring); height: var(--tring); transform: none; }
+:root body.mobile #view .player.v3 .p-ring[data-p]:active { transform: scale(.97); }
+:root body.mobile #view .player.v3 .p-dial__bezel, :root body.mobile #view .player.v3 .p-dial__sweep,
+:root body.mobile #view .player.v3 .p-dial__pulse, :root body.mobile #view .player.v3 .p-dial__veil,
+:root body.mobile #view .player.v3 .p-dial__breath { width: var(--tring); }
+:root body.mobile #view .player.v3 .p-dial__glow { width: calc(var(--tring) * .845); height: calc(var(--tring) * .845); }
+/* Centred by margins, never by a percentage translate: WebKit fixes a percentage
+   in a composited layer's transform when an animation starts on it, and the
+   breath, the bloom and the sweep start while the dial springs to a new size
+   (seen: the rest's breath drawn as a grey moon up and to the left). */
+:root body.mobile #view .player.v3 :is(.p-dial__bezel, .p-dial__sweep, .p-dial__pulse, .p-dial__veil, .p-dial__breath, .p-dial__glow) {
+  inset: 0; margin: auto; transform: none;
+}
+:root body.mobile #view .player.v3 :is(.p-dial__bezel, .p-dial__sweep, .p-dial__pulse, .p-dial__veil, .p-dial__breath) { height: var(--tring); }
+:root body.mobile #view .player.v3 .p-dial__energy { left: 32%; right: 32%; bottom: 7px; height: 3px; border-radius: 2px; }
+:root body.mobile #view .player.v3 .p-center { inset: calc(var(--tring) * .14); padding: 0; gap: 0; }
+:root body.mobile #view .player.v3 .p-num { font-family: var(--round); font-weight: 800; font-size: calc(var(--tring) * .235); letter-spacing: -.02em; }
+:root body.mobile #view .player.v3 .p-num.long { font-size: calc(var(--tring) * .18); }
+:root body.mobile #view .player.v3 .p-num.reps { font-size: calc(var(--tring) * .26); }
+:root body.mobile #view .player.v3 .p-num.words { font-size: calc(var(--tring) * .1); }
+/* The state word on the disc, in the exercise's colour while he works, grey while
+   he waits. Sentence case, one line. It and the caption hold equal room, so the
+   number sits on the ring's centre. */
+:root body.mobile #view .player.v3 .p-center .p-label {
+  min-height: 1.35em; margin: 0 0 calc(var(--tring) * .012); white-space: nowrap;
+  font-size: max(13px, calc(var(--tring) * .062)); line-height: 1.35; font-weight: 800; letter-spacing: .01em;
+  text-transform: none; color: var(--cat, var(--ink)); transition: color .3s ease;
+}
+:root body.mobile #view .player.v3 .p-center .p-label.neutral { color: var(--ink-2); }
+:root body.mobile #view .player.v3 .p-center .p-label .p-default { margin-left: .35em; font-size: .8em; font-weight: 600; color: var(--ink-2); }
+:root body.mobile #view .player.v3 .p-center .p-cap {
+  min-height: 2.5em; margin-top: calc(var(--tring) * .018); max-width: calc(var(--tring) * .58);
+  font-size: max(13px, calc(var(--tring) * .052)); line-height: 1.25;
+}
+/* No typewriter digits anywhere in the player (Never 7): rounded, tabular. */
+:root body.mobile #view .player.v3 .mono { font-family: var(--round); font-variant-numeric: tabular-nums; letter-spacing: 0; }
+
+/* One more and one fewer rep: round buttons either side of the line under the
+   dial, mirrored (symmetry), in the room under the ring, so the ring can be as
+   big as a hold's. Hidden in place on any other step (his "hidden rather than
+   disabled"), so the line between them never moves. */
+:root body.mobile #view .player.v3 .p-nextrow {
+  display: grid; grid-template-columns: 56px minmax(0, 1fr) 56px; align-items: center; column-gap: 8px;
+}
+:root body.mobile #view .player.v3 .p-nextrow > .p-next { grid-column: 2; text-align: center; }
+:root body.mobile #view .player.v3 .p-adj {
+  position: relative; z-index: 1; width: 56px; height: 56px; border-radius: 50%; justify-self: center;
+  border: 0; background: var(--panel); color: var(--ink);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, .08), inset 0 0 0 .5px var(--line-2);
+  transition: transform .3s var(--spring);
+}
+:root body.mobile #view .player.v3 .p-adj:not(:disabled, [aria-disabled="true"]):active { transform: scale(.9); }
+:root body.mobile #view .player.v3 .p-adj svg { width: 24px; height: 24px; }
+
+/* Alive while he works (his "pulsating in the timer"): the bloom round the ring
+   swells slowly and the dot grid breathes. Slow and fixed, so it never reads as a
+   pace; a reps set keeps its own 4.8 s breath (styles.css setbreath). Paused,
+   waiting, Low Power Mode and Reduce Motion are still. */
+:root body.mobile #view .player.v3 .p-dial.working:not(.paused) .p-dial__glow { animation: v3glow 2.6s ease-in-out infinite; }
+:root body.mobile #view .player.v3 .p-dial.working:not(.paused) .p-dial__grid { animation: v3grid 3.4s ease-in-out infinite; }
+/* The individual scale property, never transform: the element's centring
+   translate is a percentage, which WebKit fixes when an animation starts, and
+   these start while the dial is still springing to its new size. */
+@keyframes v3glow {
+  0%, 100% { opacity: .55; scale: .99; }
+  50% { opacity: 1; scale: 1.035; }
+}
+:root body.mobile #view .player.v3 .p-dial.working.reps .p-dial__pulse { animation-name: v3setbreath; }
+@keyframes v3setbreath {
+  0%, 100% { scale: .985; opacity: .16; }
+  50% { scale: 1.02; opacity: .42; }
+}
+@keyframes v3grid { 0%, 100% { opacity: .34; } 50% { opacity: .52; } }
+:root.lite-motion body.mobile #view .player.v3 .p-dial .p-dial__glow,
+:root.lite-motion body.mobile #view .player.v3 .p-dial .p-dial__grid { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  :root body.mobile #view .player.v3 .p-dial .p-dial__glow, :root body.mobile #view .player.v3 .p-dial .p-dial__grid { animation: none; }
+}
+
+/* -------------------------------------------------------- next, music --- */
+:root body.mobile #view .player.v3 .p-nextrow,
+:root body.mobile #view .player.v3:has(.p-dial.working) .p-nextrow { display: grid; margin-top: 12px; min-height: 56px; }
+:root body.mobile #view .player.v3 .p-next { margin: 0; padding: 0; background: none; border-radius: 0; font-size: 15px; color: var(--ink-2); }
+:root body.mobile #view .player.v3 .p-ntile { border: 0; background: var(--panel); border-radius: 20px; box-shadow: inset 0 0 0 .5px var(--line-2); }
+:root body.mobile #view .player.v3 .p-ntile.ex .frame-tile { box-shadow: 0 1px 3px rgba(0, 0, 0, .1); }
+:root body.mobile #view .player.v3 .p-nlabel { text-transform: none; letter-spacing: -.08px; font-size: 13px; font-weight: 600; }
+:root body.mobile #view .player.v3 .p-chips li { border: 0; background: var(--panel); box-shadow: inset 0 0 0 .5px var(--line-2); font-size: 15px; padding: 6px 13px; }
+:root body.mobile #view .player.v3 .p-chips li.L { background: color-mix(in srgb, var(--left-fill) 16%, var(--panel)); box-shadow: none; }
+:root body.mobile #view .player.v3 .p-chips li.R { background: color-mix(in srgb, var(--right-fill) 18%, var(--panel)); box-shadow: none; }
+:root body.mobile #view .player.v3 .p-nbig { font-family: var(--round); }
+:root body.mobile #view .player.v3 .p-now { margin-top: 8px; padding: 2px 4px 2px 12px; min-height: 44px; border-radius: 22px; gap: 10px; }
+:root body.mobile #view .player.v3 .p-now-ico svg { width: 22px; height: 22px; }
+:root body.mobile #view .player.v3 .p-skip { min-height: 40px; }
+:root body.mobile #view .player.v3 .p-skip:disabled { display: none; }
+:root body.mobile #view .player.v3 .p-now:has(.p-skip:disabled) { grid-template-columns: auto minmax(0, 1fr); }
+/* With the music line on screen the dial gives up a little height, so nothing
+   sits under the dock (06 P8). */
+:root body.mobile #view .player.v3:has(.p-now:not(:empty)) { --tring-calm: min(216px, 25svh); --tring-work: min(296px, calc(100vw - 74px), 35svh); --pframe-calm: min(118px, 14svh); }
+:root body.mobile #view .player.v3 .p-now-text b { font-size: 15px; }
+:root body.mobile #view .player.v3 .p-now-text > span { font-size: 13px; }
+
+/* --------------------------------------------------------------- dock --- */
+/* Pause and Set done large; Previous, +30 s, Skip rest and Next icon over word.
+   A small control that does not apply is hidden in its place (his "hidden
+   rather than disabled"), so nothing ever moves under his thumb. */
+/* Hidden, never disabled (audit P12, P15, B1): a control that cannot act is not
+   drawn at all (player.js dockShow). Set done appears only on a set; alone,
+   Pause (or Resume, turquoise then: the one main action) takes the whole row. */
+:root body.mobile #view .player.v3 .p-actions [hidden] { display: none !important; }
+:root body.mobile #view .player.v3 .p-row1 { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
+:root body.mobile #view .player.v3 .p-row1 > .btn { transition: background .3s ease, color .3s ease; }
+:root body.mobile #view .player.v3 .p-row1 > .p-pause.go { background: linear-gradient(180deg, var(--action-fill), var(--action-end)); color: var(--on-accent); }
+/* The small controls that apply, spread evenly on one centred line: never a gap
+   where a hidden one was, never one pushed to an edge. */
+:root body.mobile #view .player.v3 .p-row2,
+:root body.mobile #view .player.v3 .p-row2:not(.one) { display: flex; justify-content: space-evenly; gap: 0; }
+:root body.mobile #view .player.v3 .p-row2 .p-link.btn { flex: 0 1 88px; }
+/* One small control left: it joins the first row as a third pill (C15, nothing
+   alone on a line), icon and word side by side like its neighbours. */
+:root body.mobile #view .player.v3 .p-actions.solo { flex-direction: row; align-items: stretch; gap: 10px; padding-bottom: 10px; }
+:root body.mobile #view .player.v3 .p-actions.solo > .p-row1 { flex: 1 1 auto; min-width: 0; }
+:root body.mobile #view .player.v3 .p-actions.solo > .p-row2 { display: contents; }
+:root body.mobile #view .player.v3 .p-actions.solo > .p-row2 .p-link.btn {
+  flex: 0 0 72px; gap: 2px; min-height: 58px; padding: 0; margin: 0; border-radius: 29px;
+  background: var(--fill); font-size: 12px; font-weight: 700;
+}
+:root body.mobile #view .player.v3 .p-row1 > .btn { white-space: nowrap; justify-content: center; }
+
+/* No dead space between the stage and the dock (audit P14, C2): the stage
+   reaches down to the dock (player.js fitStage measures the gap), and the dial's
+   textured panel takes the room, the ring centred in it. */
+:root body.mobile #view .player.v3 .p-stage > .p-content { display: flex; flex-direction: column; min-height: var(--pfill, 0px); }
+:root body.mobile #view .player.v3 .p-stage > .p-content > .p-dial { flex: 1 0 auto; }
+
+/* ----------------------------------------------------------- sheets --- */
+/* The exercise list (the count's web sheet) and the leave sheet. */
+.p-exlist { display: flex; flex-direction: column; gap: 2px; }
+.p-exrow {
+  display: grid; grid-template-columns: 52px minmax(0, 1fr) 22px; align-items: center; gap: 12px; width: 100%;
+  min-height: 64px; padding: 6px 8px; border: 0; border-radius: 16px; background: none; color: var(--ink);
+  font: 600 16px/1.25 var(--font); text-align: left; cursor: pointer;
+}
+.p-exrow.on { background: var(--accent-soft); }
+.p-exrow:active { background: var(--fill); }
+.p-exrow > svg { width: 22px; height: 22px; fill: none; stroke: var(--accent); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.p-exnum { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 12px; background: var(--fill); font-family: var(--round); font-weight: 700; }
+.p-extitle { min-width: 0; }
+.p-leave { display: flex; flex-direction: column; gap: 10px; }
+.p-leave .btn { min-height: 52px; border-radius: 26px; font-size: 17px; font-weight: 600; }
+:root body.mobile #view .player.v3 .p-ntile.row { flex-direction: row; align-items: baseline; gap: 10px; padding: 8px 18px; }
+:root body.mobile #view .player.v3 .p-ntile.row .p-nbig { font-size: 20px; }
+:root body.mobile #view .p-leave .btn, .p-leave .btn { justify-content: center; text-align: center; }
+
+/* The sets still to do on a reps ring, tinted with the exercise's colour: in
+   the track's grey they vanished on the bezel's white face. Done stays green. */
+:root body.mobile #view .player.v3 .p-ring .p-seg.todo { stroke: color-mix(in srgb, var(--cat) 24%, var(--track)); }
+
+/* The web Sound sheet (the app shows a native menu): cues as three filled
+   choices, the music switches as rows with a switch. */
+.p-sheetsound { display: flex; flex-direction: column; gap: 10px; }
+.p-sopts { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 8px; }
+.p-sopt {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 64px;
+  border: 0; border-radius: 18px; background: var(--fill); color: var(--ink); font: 600 15px/1.2 var(--font); cursor: pointer;
+  transition: background .25s ease, color .25s ease, transform .3s var(--spring);
+}
+.p-sopt:active { transform: scale(.96); }
+.p-sopt.on { background: var(--action-fill); color: var(--on-accent); }
+.p-sopt svg, .p-stog svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.p-stog {
+  display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; align-items: center; gap: 12px; min-height: 52px; padding: 0 14px;
+  border: 0; border-radius: 16px; background: var(--fill); color: var(--ink); font: 500 16px/1.25 var(--font); text-align: left; cursor: pointer;
+}
+.p-sw { position: relative; width: 50px; height: 30px; border-radius: 15px; background: var(--track); transition: background .25s ease; }
+.p-sw::after { content: ''; position: absolute; top: 2px; left: 2px; width: 26px; height: 26px; border-radius: 50%; background: #fff; box-shadow: 0 2px 4px rgba(0, 0, 0, .2); transition: transform .3s var(--spring); }
+.p-stog.on .p-sw { background: var(--action-fill); }
+.p-stog.on .p-sw::after { transform: translateX(20px); }
+
+/* The screen between exercises: one big frame of the next one, on white. */
+:root body.mobile #view .player .p-betweenpic { height: auto; padding: 12px 0; display: grid; place-items: center; }
+/* The seal's words in sentence case, gold for the name (a finish), never
+   letter spaced capitals. */
+.cel-orbit .cel-eyebrow { text-transform: none; letter-spacing: 0; font-size: 17px; font-weight: 700; }
+/* The band loop trails the title's last word (a no break space binds them). */
+:root body.mobile #view .player.v3 .p-title .p-band { white-space: nowrap; }
+:root body.mobile #view .player.v3 .p-title .band-mark { display: inline-block; width: 30px; height: 19px; vertical-align: -1px; }
+:root body.mobile #view .player.v3 .p-title .band-mark svg { width: 30px; height: 19px; }
+
+/* ----------------------------------------------------- finish screens --- */
+/* One way out (audit P13, Never 9): Done, filled turquoise, is the exit; the
+   shell's back capsule is hidden while a finish screen is up. The content sits
+   in the middle of the room, never piled at the top with the lower half empty. */
+body.mobile.in-player:has(#view .player.done-screen) #nav-back { visibility: hidden; }
+/* With no back beside it, the top line's label would float alone; the ring and
+   the title below already say what it said (Never 8). */
+:root body.mobile #view .player.done-screen .p-eyebrow .p-count { visibility: hidden; }
+:root body.mobile #view .player.done-screen .fin,
+:root body.mobile #view .player.done-screen .cel-day {
+  min-height: calc(100svh - var(--safe-t, 47px) - 150px); justify-content: center;
+}
+:root body.mobile #view .player.done-screen.part .fin { gap: 10px; padding: 0; }
+:root body.mobile #view .player.done-screen.part .fin-ringhost { display: grid; place-items: center; margin: 0 0 8px; }
+:root body.mobile #view .player.done-screen.part .fin-title { margin: 8px 0 0; font-size: 28px; line-height: 34px; letter-spacing: -.3px; }
+:root body.mobile #view .player.done-screen.part .cel-fact { margin: 0; font-size: 17px; }
+:root body.mobile #view .player.done-screen .fin-act,
+:root body.mobile #view .player.done-screen .cel-daydone {
+  width: min(100%, 320px); min-height: 56px; margin-top: 22px; border: 0; border-radius: 999px;
+  background: linear-gradient(180deg, var(--action-fill), var(--action-end)); color: var(--on-accent);
+  font-size: 18px; font-weight: 700; justify-content: center;
+}
+/* The day finish: the facts in body size, sentence case, no letter spaced eyebrow. */
+:root body.mobile #view .player.done-screen .cel-day .fin-ringhost { margin: 3.5rem 0 2.75rem; }
+:root body.mobile #view .player.done-screen .cel-daycopy { gap: 10px; }
+:root body.mobile #view .player.done-screen .cel-daycopy .cel-fact,
+:root body.mobile #view .player.done-screen .cel-daycopy .cel-streak { margin: 0; font-size: 17px; }
+:root body.mobile #view .player.done-screen .dayring2 .dr-custom b { font-weight: 800; font-family: var(--round); }
+
+/* ------------------------------------------- words whole, one form --- */
+/* Next is the same pill in every state (audit P21); a longer line ("log it and
+   carry on") wraps inside it rather than running out. */
+:root body.mobile #view .player.v3 .p-ntile.row.line { display: block; max-width: 100%; padding: 8px 18px; text-align: center; text-wrap: balance; }
+:root body.mobile #view .player.v3 .p-ntile.row.line .p-nlabel { display: inline; margin-right: 8px; }
+:root body.mobile #view .player.v3 .p-ntile.row.line .p-nbig { display: inline; font-size: 17px; }
+:root body.mobile #view .player.v3 .p-ntile.row.line .p-nbig b { white-space: normal; }
+/* Full exercise titles, never cut (audit P22, K2): the carry on tile's title
+   and the Logged line wrap instead of ending in an ellipsis. */
+:root body.mobile #view .player.v3 .p-ntitle { white-space: normal; overflow: visible; text-overflow: clip; display: block; }
+:root body.mobile #view .player.v3 .p-status { overflow: visible; }
+:root body.mobile #view .player.v3 .p-logged > span { white-space: normal; overflow: visible; text-overflow: clip; text-wrap: balance; }
+
+/* ------------------------------------------- round 3: house lights --- */
+/* A6, the web fallback of the day finish's lighting cue (celebrate.js houseLights):
+   one flat layer with a soft hole round the ring, never catching a tap; the ring's
+   host is lifted above it so the gold and the burst stay lit. */
+.cel-house { position: fixed; inset: 0; pointer-events: none; z-index: 60; }
+.cel-houselit { position: relative; z-index: 61; }
+
+/* A control that does not apply is hidden in its place, never shown disabled
+   (his rule): Skip in the now playing strip with one song. */
+:root body.mobile #view .player .p-skip.gone { visibility: hidden; }
+
+/* A12: the TheraBand loop stretches and snaps back as an exercise is finished
+   (transform only; Reduce Motion keeps the two taps and no stretch). */
+@keyframes rt-band-snap {
+  0% { transform: scaleX(1); }
+  38% { transform: scaleX(1.18); }
+  70% { transform: scaleX(.94); }
+  100% { transform: scaleX(1); }
+}
+:root body.mobile #view .player .p-band.snap > * { display: inline-block; transform-origin: left center; animation: rt-band-snap 420ms cubic-bezier(.3, 1.4, .4, 1) both; }
+@media (prefers-reduced-motion: reduce) {
+  :root body.mobile #view .player .p-band.snap > * { animation: none; }
+}
+
+/* ================================================= iPad, regular width === */
+/* 2026-09-30, the iPad builder. His words: "the iPad layout should probably be a bit more robust and
+   capable than the iPhone one, or at least show things at a lot easier flow because it's such a big
+   screen." His 11 inch M1 iPad Pro is 834 x 1194 pt upright and 1194 x 834 on its side. History it
+   must not repeat (SKILL 2026-09-20): the phone layout stretched left 233 px of nothing under the
+   ring and a 140 pt picture chip on a 834 pt page.
+   RULES for this block:
+   1. Everything sits inside a query no iPhone matches: 700 pt wide AND 600 pt tall (a phone on its
+      side is at most 440 tall), so the phone player is byte for byte what it was.
+   2. Upright: the picture is BIG and sits ABOVE the ring, both centred in one column; the title
+      and the state line under the picture. On its side (900 pt and wider): the picture and the
+      title on one side, the leg, the ring and what is next on the other, the dock under both.
+   3. The ring and the picture keep ONE size in every state here (get ready, work, rest). The phone
+      springs its ring between a calm and a work size because it is short of room; a tablet has
+      the room, and a picture that shrinks while he is holding a position is the wrong way round.
+   4. Sizes follow the height (svh) so the dock never covers the ring: ring 26 svh, picture 25 svh
+      upright (310 pt and 298 pt on the 1194 pt page); 40 svh and 41 svh on its side (334 and 342
+      pt on the 834 pt page). Words are never cut and the dock keeps its controls (hidden, never
+      disabled, is still the phone's rule).
+   5. The dock is one centred glass bar with a comfortable width, not a strip to both screen edges. */
+@media (min-width: 700px) and (min-height: 600px) {
+  :root body.mobile #view .player.v3,
+  :root body.mobile #view .player.v3[data-size] {
+    --tring: clamp(230px, 26svh, 312px);
+    --ppic: clamp(200px, 25svh, 330px);
+    --pframe: var(--ppic);
+    transition: none;
+  }
+  :root body.mobile #view .player.v3 { max-width: 760px; }
+
+  /* The picture above the title, one square tile centred. */
+  :root body.mobile #view .player.v3 .p-head {
+    display: flex; flex-direction: column; align-items: center; text-align: center; row-gap: 14px; margin-top: 10px;
+  }
+  :root body.mobile #view .player.v3 .p-head .p-img.p-frame {
+    width: var(--ppic); height: var(--ppic); border-radius: 34px; flex: none;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .10), 0 14px 34px rgba(0, 0, 0, .12);
+  }
+  :root body.mobile #view .player.v3 .p-head .vid-tag { width: 44px; height: 44px; right: 12px; bottom: 12px; }
+  :root body.mobile #view .player.v3 .p-head .vid-tag svg { width: 20px; height: 20px; }
+  :root body.mobile #view .player.v3 .p-head .p-img.plain { border-radius: 34px; }
+  :root body.mobile #view .player.v3:not([data-size="calm"]) .p-head .vid-tag { opacity: 1; }
+  :root body.mobile #view .player.v3 .p-headtext { align-items: center; max-width: 100%; }
+  :root body.mobile #view .player.v3 h1.p-title { font-size: 30px; line-height: 36px; letter-spacing: -.3px; }
+  :root body.mobile #view .player.v3 h1.p-title.long { font-size: 26px; line-height: 32px; }
+  :root body.mobile #view .player.v3 .p-status { font-size: 18px; line-height: 24px; margin-top: 6px; }
+  :root body.mobile #view .player.v3 .p-levelrow,
+  :root body.mobile #view .player.v3:not([data-size="calm"]) .p-levelrow { max-height: 56px; opacity: 1; margin-top: 14px; pointer-events: auto; justify-content: center; gap: 12px; }
+  :root body.mobile #view .player.v3 .p-level { min-height: 44px; padding: 0 14px; border-radius: 22px; }
+  :root body.mobile #view .player.v3 .p-level b { font-size: 17px; }
+  :root body.mobile #view .player.v3 .p-try { min-height: 44px; padding: 0 16px; border-radius: 22px; font-size: 16px; }
+  :root body.mobile #view .player.v3 .p-phaserow { margin-top: 14px; }
+  :root body.mobile #view .player.v3 .p-phaserow .p-side { font-size: 18px; padding: 9px 26px; }
+
+  /* The dial: the same instrument, in a roomier panel. */
+  :root body.mobile #view .player.v3 .p-dial { margin-top: 14px; padding: 20px; border-radius: 36px; }
+  :root body.mobile #view .player.v3 .p-dial.working { margin-top: 14px; }
+  :root body.mobile #view .player.v3 .p-dial__energy { left: 34%; right: 34%; bottom: 14px; height: 4px; }
+  :root body.mobile #view .player.v3 .p-nextrow,
+  :root body.mobile #view .player.v3:has(.p-dial.working) .p-nextrow { grid-template-columns: 64px minmax(0, 1fr) 64px; margin-top: 14px; min-height: 64px; }
+  :root body.mobile #view .player.v3 .p-adj { width: 64px; height: 64px; }
+  :root body.mobile #view .player.v3 .p-adj svg { width: 28px; height: 28px; }
+  :root body.mobile #view .player.v3 .p-next { font-size: 17px; }
+  :root body.mobile #view .player.v3 .p-now { margin-top: 12px; min-height: 52px; }
+  :root body.mobile #view .player.v3 .p-now-text b { font-size: 17px; }
+  :root body.mobile #view .player.v3 .p-now-text > span { font-size: 15px; }
+
+  /* The dock: one centred glass bar. */
+  :root body.mobile #view .player .p-actions {
+    left: 0; right: 0; width: min(760px, calc(100% - 32px)); margin-inline: auto; bottom: 14px; padding: 12px 12px 8px;
+  }
+  :root body.mobile #view .player .p-row1 > .btn { min-height: 64px; font-size: 20px; }
+  :root body.mobile #view .player .p-row2 .p-link.btn { min-height: 54px; font-size: 14px; }
+  :root body.mobile #view .player.v3 .p-row2 .p-link.btn { flex: 0 1 120px; }
+}
+
+/* On its side: two columns. The picture and the title lead; the leg, the ring and what is next
+   trail; the dock stays one bar under both. */
+@media (min-width: 900px) and (min-height: 600px) and (orientation: landscape) {
+  :root body.mobile #view .player.v3,
+  :root body.mobile #view .player.v3[data-size] {
+    --tring: clamp(240px, 40svh, 340px);
+    --ppic: clamp(240px, 41svh, 380px);
+  }
+  :root body.mobile #view .player.v3 { max-width: 1160px; }
+  :root body.mobile #view .player.v3 .p-stage > .p-content {
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr); grid-template-rows: auto minmax(0, 1fr) auto auto;
+    column-gap: 32px; align-items: start; align-content: stretch; min-height: var(--pfill, 0px);
+  }
+  :root body.mobile #view .player.v3 .p-stage > .p-content > .p-head { grid-column: 1; grid-row: 1 / span 2; align-self: center; margin-top: 0; }
+  :root body.mobile #view .player.v3 .p-stage > .p-content > .p-levelrow { grid-column: 1; grid-row: 3; align-self: start; }
+  :root body.mobile #view .player.v3 .p-stage > .p-content > .p-phaserow { grid-column: 2; grid-row: 1; margin-top: 0; }
+  :root body.mobile #view .player.v3 .p-stage > .p-content > .p-dial { grid-column: 2; grid-row: 2; align-self: stretch; }
+  :root body.mobile #view .player.v3 .p-stage > .p-content > .p-nextrow { grid-column: 2; grid-row: 3; }
+  :root body.mobile #view .player.v3 .p-stage > .p-content > .p-now { grid-column: 2; grid-row: 4; }
+  :root body.mobile #view .player.v3 .p-stage > .p-content > .p-pick { grid-column: 1; grid-row: 4; }
+  :root body.mobile #view .player.v3 .p-actions { flex-direction: row; align-items: center; width: min(920px, calc(100% - 48px)); }
+  :root body.mobile #view .player.v3 .p-actions > .p-row1 { flex: 1.3 1 0; }
+  :root body.mobile #view .player.v3 .p-actions > .p-row2 { flex: 1 1 0; }
+}
+
+/* 2026-09-30, the web port (his report: "I can't press the buttons at the bottom when I'm doing a
+   workout"): the test app's native tab bar hides during a workout; the web dock did not, so it
+   sat over Pause, Set done and Next, and the page scrolled under the header. On a phone and an
+   upright iPad the dock steps aside while the player is open; the iPad's side rail stays. */
+@media (max-width: 899.98px) {
+  :root body.mobile.in-player #mtabs { display: none !important; }
+}
+
+/* Same report: the reserved 150px under the player made the page taller than the screen, so it
+   scrolled and the exercise title slid under the header's words. The dock floats over the
+   stage's own empty foot, so the web player needs no extra room below it. The workout count
+   sits on a solid pill (words on solid ground) in case a long step still scrolls. */
+:root:not(.native) body.mobile.in-player #view.mview { padding-bottom: 0; }
+:root:not(.native) body.mobile #view .player .p-eyebrow .p-count {
+  background: var(--panel); border-radius: 22px; padding: 0 12px 0 8px; height: 40px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .08);
+}
+
+/* The iPad with its side rail (the web app only; the test app has no rail): the fixed workout
+   controls and the top line were centred in the whole window, so they ran under the rail.
+   They sit beside it instead. */
+@media (min-width: 900px) {
+  :root:not(.native) body.mobile.in-player #view .player .p-actions { left: var(--rail-w); width: min(920px, calc(100% - var(--rail-w) - 48px)); }
+  :root:not(.native) body.mobile #view .player .p-eyebrow { left: calc(var(--rail-w) + 12px); }
+}

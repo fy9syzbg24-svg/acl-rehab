@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rehab tracker</title>
+<!-- 2026-09-30, his pick: the Mac opens the same shell as his iPad and iPhone (m.html), with the
+     side rail and two panes at this width. The old desktop shell (js/app.js) had none of the
+     v3 styles and is retired; revert tag pre-v3-port-2026-09-30 holds it. The hash and query
+     carry over so every deep link still lands. -->
+<script>location.replace('./m.html' + location.search + location.hash);</script>
+</head>
+<body><a href="./m.html">Open the tracker</a></body>
+</html>

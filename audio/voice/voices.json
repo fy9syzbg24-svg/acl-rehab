@@ -1,0 +1,26 @@
+{
+ "default": "alice",
+ "made": "2026-09-30",
+ "voices": [
+  {
+   "id": "alice",
+   "name": "Alice",
+   "desc": "British, bright and upbeat. The coach who gets you going"
+  },
+  {
+   "id": "charlie",
+   "name": "Charlie",
+   "desc": "Australian, big energy. Your Adelaide hype man"
+  },
+  {
+   "id": "brian",
+   "name": "Brian",
+   "desc": "Deep and steady. Calm focus for late sessions"
+  },
+  {
+   "id": "alice-classic",
+   "name": "Alice (classic)",
+   "desc": "The first recordings, 23 Sep"
+  }
+ ]
+}

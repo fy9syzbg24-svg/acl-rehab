@@ -1,0 +1,75 @@
+/* ==========================================================================
+   Rehab Test v3: the consistency pass (2026-09-30). Loaded LAST.
+   Five builders redesigned the screens in parallel; this file only makes them
+   one app where they drifted apart. Each rule names what it lines up with.
+   Notes: design-pass/v3/consistency-notes.md. Nothing here changes a behaviour.
+   ========================================================================== */
+
+/* ---- Marks trail the last word (never alone on a line). Shared by Today, Program. */
+:root body.mobile .rt-nw { white-space: nowrap; }
+
+/* ---- Cards are solid, never outlined (DESIGN-LANGUAGE Surfaces; rt.css .card rule).
+   Legacy rims were left on Plan's key dates and findings, What If's range and pen
+   tiles, and the "see the original" link. */
+:root body.mobile #view :is(.sc-date, .sc-tile, .pk-pen, .plan-origlink) {
+  border: 0; box-shadow: none; border-radius: var(--radius);
+}
+
+/* ---- Oura: onto the app's type scale, surfaces and numerals.
+   It was the one screen still on the web app's rem sizes (text at 9.9 to 11 pt, under
+   Apple's 12 pt Caption), with a letter spaced grey label, system numerals and a rim on
+   every box inside a card. Now: Caption 12 floor, Footnote 13 notes, Subheadline 15
+   labels, rounded numerals, nested boxes filled not outlined, one nested corner (16). */
+:root body.mobile #view .rc-pick { border: 0; border-radius: var(--radius); }
+:root body.mobile #view :is(.rc-cols, .rc-stack, .rc-scard, .rc-mark, .rc-tile) { border: 0; }
+:root body.mobile #view :is(.rc-cols, .rc-stack, .rc-scard, .rc-mark) { background: var(--panel-2); border-radius: 16px; }
+:root body.mobile #view .rc-tile { border-radius: 16px; }
+:root body.mobile #view .rc-shot { border: 0; background: transparent; padding: 0; }
+:root body.mobile #view .rc-mark.met { background: color-mix(in srgb, var(--good) 13%, var(--panel)); }
+:root body.mobile #view .rc-scard.on { background: color-mix(in srgb, var(--rc-hrv) 13%, var(--panel-2)); }
+
+:root body.mobile #view .rc-nlab { font-size: 15px; line-height: 20px; font-weight: 600; letter-spacing: -.24px; }
+:root body.mobile #view .rc-nbig { font-family: var(--round); font-size: 48px; font-weight: 800; letter-spacing: 0; }
+:root body.mobile #view .rc-nsub { font-size: 15px; line-height: 20px; }
+:root body.mobile #view :is(.rc-nspan, .rc-spanshort) { font-size: 13px; }
+:root body.mobile #view :is(.rc-axis span, .rc-collab, .rc-goal, .rc-chip, .rc-skey b, .rc-sbar i b) { font-size: 12px; }
+:root body.mobile #view :is(.rc-note, .rc-foot, .rc-msub, .rc-mfoot, .rc-estl, .rc-oneline span) { font-size: 13px; line-height: 18px; }
+:root body.mobile #view :is(.rc-lname, .rc-slab, .rc-stitle) { font-size: 15px; }
+:root body.mobile #view .rc-lpct { font-size: 13px; }
+:root body.mobile #view .rc-mark .rc-mtitle, :root body.mobile #view .rc-tile .rc-lab { font-size: 15px; font-weight: 600; letter-spacing: -.24px; }
+:root body.mobile #view .rc-gtitle { font-size: 15px; font-weight: 600; letter-spacing: -.24px; }
+:root body.mobile :is(#view, #modal-root) :is(.rc-ytick, .rc-xtick, .rc-ev text) { font-size: 11px; }
+:root body.mobile #view :is(.rc-nbig, .rc-val, .rc-sval, .rc-col b, .rc-lrow b, .rc-oneline b, .rc-sbar i b) {
+  font-family: var(--round); font-variant-numeric: tabular-nums;
+}
+
+/* ---- Small words: Apple's floor is Caption 2 (11 pt) for axis ticks and Caption 1 (12)
+   for labels. Today's "This week" labels (11.2) and Program's planned day pips (9) were
+   under it. */
+:root body.mobile #view .today :is(.wf-k, .tiny) { font-size: 12px; }
+:root body.mobile #view .pr-pips i { width: 18px; height: 18px; border-radius: 5px; font-size: 11px; }
+
+/* ---- One switch size. Settings drew Apple's 51 x 31; the exercise sheet's Guided switch
+   was the WebKit default scaled 1.12 (about 44 x 22), so the same control had two sizes. */
+:root body.mobile #modal-root .exs-switch input[type=checkbox][switch] {
+  width: 51px; height: 31px; min-width: 51px; transform: none; accent-color: var(--action-fill);
+}
+
+/* ---- A sheet takes focus for VoiceOver but never draws a focus ring round itself. Today's
+   builder turned it off for its two sheets; the player's leave sheet and every other sheet
+   still drew a turquoise rim (turquoise means action or selected, not "this has focus"). */
+:root body.mobile #modal-root .modal:is(:focus, :focus-visible),
+:root body.mobile .rt-menu:is(:focus, :focus-visible) { outline: none; }
+
+/* ---- One card corner on the page (24, DESIGN-LANGUAGE Surfaces). Cards that sit straight on
+   the page had drifted to 18 (Progress's road strip and milestone button), 20 (What If's
+   schedules) and 22 (Cravings' two big numbers). Buttons and boxes inside a card keep theirs. */
+:root body.mobile #view :is(.ov-top > .rd-strip, .ov-top > .ov-ms, .pk-plan, .g1-bignum) { border-radius: var(--radius); }
+
+/* ---- One empty state: centred, Subheadline, secondary ink. They were 13.6 pt tertiary and
+   centred (legacy .empty) in some places and 15 pt left aligned (Supplements) in another. */
+:root body.mobile #view :is(.empty, .rs-empty, .ms-empty, .queue-empty):not(.player) {
+  color: var(--ink-2); font-size: 15px; line-height: 20px; text-align: center; padding: 12px 0; margin: 0;
+}
+/* A folded Supplements band is a card on the page too. */
+:root body.mobile #view .rs-bandhead.suppgrouphead { border-radius: var(--radius); }

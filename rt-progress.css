@@ -1,0 +1,1096 @@
+/* Rehab Test v3: progress screens (2026-09-30). Loaded after rt.css.
+   Owner: the Progress, Plan and Program builder. Progress (Overview, Trends, History, Clinical,
+   Oura), Plan and Program. Tokens come from rt.css; nothing here defines a new meaning for a
+   contract colour. Signature of Progress: the butterfly board. Signature of Plan: the road. */
+
+:root body.mobile #view,
+:root body.mobile #modal-root { --pg-num: var(--round); }
+
+/* ------------------------------------------------------------------ kit: glass button */
+:root body.mobile #view .pg-glassbtn {
+  width: 36px; height: 36px; border-radius: 50%; border: 0; padding: 0; flex: none;
+  display: inline-grid; place-items: center; color: var(--accent);
+  background: var(--glass); box-shadow: inset 0 0 0 .5px var(--glass-rim), 0 1px 2px rgba(0,0,0,.06);
+  -webkit-backdrop-filter: blur(14px) saturate(1.6); backdrop-filter: blur(14px) saturate(1.6);
+  transition: transform .35s var(--spring);
+}
+:root body.mobile #view .pg-glassbtn:active { transform: scale(.9); }
+:root body.mobile #view .pg-glassbtn svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+:root body.mobile .pg-check { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+:root body.mobile .pg-chev { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; flex: none; opacity: .6; }
+:root body.mobile .pg-down { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+:root body.mobile .pg-info { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+
+/* ------------------------------------------------------------------ kit: the web menu */
+:root body.mobile #modal-root .pg-menu { display: flex; flex-direction: column; background: var(--panel-2); border-radius: 14px; overflow: hidden; }
+:root body.mobile #modal-root .pg-menu-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 50px;
+  padding: 0 16px; border: 0; background: transparent; color: var(--ink); font: 400 17px/22px var(--font); text-align: left;
+}
+:root body.mobile #modal-root .pg-menu-row + .pg-menu-row { box-shadow: inset 0 .5px 0 var(--line); }
+:root body.mobile #modal-root .pg-menu-row.on { color: var(--accent); font-weight: 600; }
+:root body.mobile #modal-root .pg-menu-row.bad { color: var(--bad); }
+:root body.mobile #modal-root .pg-menu-row:active { background: var(--fill); }
+
+/* ------------------------------------------------------------------ kit: bullet bar */
+:root body.mobile .pg-bullet { position: relative; width: 100%; }
+:root body.mobile .pg-bullet .pkb-track { position: relative; display: block; height: 12px; border-radius: 6px; background: var(--track); overflow: visible; }
+:root body.mobile .pg-bullet .pkb-track > i {
+  position: absolute; left: 0; top: 0; bottom: 0; border-radius: 6px; width: calc(var(--p) * 100%);
+  background: var(--ink-3); transform-origin: left center;
+}
+:root body.mobile .pg-bullet.L .pkb-track > i { background: var(--left-fill); }
+:root body.mobile .pg-bullet.R .pkb-track > i { background: var(--right-fill); }
+:root body.mobile .pg-bullet.met .pkb-track > i { background: var(--good-fill); }
+:root body.mobile .pg-bullet.B .pkb-track > i { background: color-mix(in srgb, var(--ink) 62%, var(--panel)); }
+:root body.mobile .pg-bullet .pkb-tick { position: absolute; top: -4px; bottom: -4px; width: 2.5px; margin-left: -1.25px; border-radius: 2px; background: var(--ink); }
+:root body.mobile .pg-bullet .pkb-tick.ref { width: 0; margin-left: 0; background: none; border-left: 2px dashed color-mix(in srgb, var(--ink) 55%, transparent); }
+:root body.mobile .pg-bullet .pkb-labs { position: relative; display: block; height: 16px; margin-top: 7px; }
+:root body.mobile .pg-bullet .pkb-labs > span {
+  position: absolute; top: 0; white-space: nowrap; font: 600 12px/16px var(--font); color: var(--ink-2);
+  transform: translateX(calc(-50% + var(--dx, 0px)));
+}
+:root body.mobile .pg-bullet .pkb-labs > span.goal { color: var(--ink); }
+:root body.mobile .pg-bullet .pkb-labs.two { height: 34px; }
+:root body.mobile .pg-bullet .pkb-labs > span.lift { top: 18px; }
+
+/* ------------------------------------------------------------------ kit: the chart */
+:root body.mobile .kc { position: relative; width: 100%; height: var(--kc-h); touch-action: pan-y; user-select: none; -webkit-user-select: none; }
+:root body.mobile .kc-svg { display: block; width: 100%; height: 100%; overflow: visible; }
+:root body.mobile .kc-grid { stroke: var(--line-2); stroke-width: 1; }
+:root body.mobile .kc-tick, :root body.mobile .kc-date { font: 500 11px var(--round); fill: var(--ink-3); font-variant-numeric: tabular-nums; }
+:root body.mobile .kc-rule { stroke-width: 1.5; stroke: var(--ink); opacity: .45; }
+:root body.mobile .kc-rule.ref { stroke-dasharray: 4 4; opacity: .35; }
+:root body.mobile .kc-rule.goal { opacity: .55; }
+:root body.mobile .kc-rulelab { font: 700 11px var(--font); fill: var(--ink-2); }
+:root body.mobile .kc-rulelab.goal { fill: var(--ink); }
+:root body.mobile .kc-line { fill: none; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+:root body.mobile .kc-line.L { stroke: var(--left-fill); }
+:root body.mobile .kc-line.R { stroke: var(--right-fill); stroke-width: 5; }
+:root body.mobile .kc-line.L { stroke-width: 2.2; }
+:root body.mobile .kc .kc-cursor { display: none; }
+:root body.mobile .kc.scrub .kc-cursor { display: inline; }
+:root body.mobile .kc-line.B { stroke: var(--ink-2); }
+:root body.mobile .kc-mk { stroke: var(--panel); stroke-width: 2; transition: transform .3s var(--spring); transform-box: fill-box; transform-origin: center; }
+:root body.mobile .kc-mk.L { fill: var(--left-fill); stroke-width: 1.5; }
+:root body.mobile .kc-mk.R { fill: var(--right-fill); }
+:root body.mobile .kc-mk.B { fill: var(--ink-2); }
+:root body.mobile .kc-mk.hot { transform: scale(1.55); }
+:root body.mobile .kc-cur { stroke: var(--ink); stroke-width: 1.2; opacity: .5; }
+
+/* ======================================================================= PROGRESS */
+/* The five sections stay one glass switch (the native shell adds Oura); tighter so the
+   board starts high. */
+:root body.mobile #view .progress > .subnav { margin-bottom: 4px; }
+
+/* ------------------------------------------------------------ Overview: the top row */
+:root body.mobile #view .ov3 { display: flex; flex-direction: column; gap: 10px; }
+:root body.mobile #view .ov-top { display: flex; align-items: stretch; gap: 10px; }
+:root body.mobile #view .rd-strip {
+  flex: 1; min-width: 0; display: grid; grid-template-columns: 1fr auto; grid-template-rows: auto 10px; column-gap: 8px; row-gap: 8px;
+  padding: 10px 14px 11px; border: 0; border-radius: 18px; background: var(--panel); color: var(--ink); text-align: left;
+  transition: transform .35s var(--spring);
+}
+:root body.mobile #view .rd-strip:active { transform: scale(.98); }
+:root body.mobile #view .rd-strip-t { display: flex; align-items: baseline; gap: 7px; min-width: 0; font-size: 15px; line-height: 20px; }
+:root body.mobile #view .rd-strip-t b { font-weight: 700; }
+:root body.mobile #view .rd-strip-t span { color: var(--ink-2); white-space: nowrap; }
+:root body.mobile #view .rd-strip-t .ov-streak { color: var(--ink-2); }
+:root body.mobile #view .rd-strip-t .ov-streak::before { content: "·"; margin-right: 7px; }
+:root body.mobile #view .rd-strip-due { font-size: 13px; line-height: 20px; color: var(--ink-2); white-space: nowrap; }
+:root body.mobile #view .rd-mini { grid-column: 1 / -1; position: relative; height: 6px; margin-top: 2px; }
+:root body.mobile #view .rd-mini > i { position: absolute; top: 0; bottom: 0; background: var(--c); border-radius: 3px; box-shadow: 0 0 0 1px var(--panel); opacity: .9; }
+:root body.mobile #view .rd-mini > i.now { top: -2px; bottom: -2px; opacity: 1; }
+:root body.mobile #view .rd-minihere {
+  position: absolute; top: 50%; left: var(--x); width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%;
+  background: var(--action-fill); box-shadow: 0 0 0 3px var(--panel), 0 1px 4px rgba(0,0,0,.25);
+}
+:root body.mobile #view .ov-ms {
+  flex: none; width: 64px; border: 0; border-radius: 18px; background: var(--panel); color: var(--ink);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 6px 0;
+  transition: transform .35s var(--spring);
+}
+:root body.mobile #view .ov-ms:active { transform: scale(.94); }
+:root body.mobile #view .ov-ms .ms-badge { width: 30px; height: 30px; margin: 0; }
+:root body.mobile #view .ov-ms b { font: 800 13px/15px var(--round); font-variant-numeric: tabular-nums; color: var(--ink-2); }
+
+/* ------------------------------------------------------------ the butterfly board */
+:root body.mobile #view .bf { background: var(--panel); border-radius: var(--radius); padding: 8px 14px 10px; }
+:root body.mobile #view .bf-head { display: flex; align-items: center; justify-content: space-between; min-height: 34px; margin-bottom: 0; }
+:root body.mobile #view .bf-head h2 { margin: 0; font-size: 20px; line-height: 25px; font-weight: 700; letter-spacing: .38px; }
+:root body.mobile #view .bf-head .pg-glassbtn { background: var(--fill-2); box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+:root body.mobile #view .bf-rows { display: flex; flex-direction: column; }
+:root body.mobile #view .bf-row {
+  --numw: 60px;
+  position: relative; display: grid; grid-template-columns: var(--numw) 1fr 2px 1fr var(--numw);
+  grid-template-rows: 19px 24px; column-gap: 0; row-gap: 3px; align-items: center;
+  width: 100%; padding: 6px 0 6px; border: 0; background: transparent; color: var(--ink); text-align: left;
+  border-radius: 12px; transition: background .2s ease, transform .35s var(--spring);
+}
+:root body.mobile #view .bf-row + .bf-row::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: .5px; background: var(--line-2); }
+:root body.mobile #view .bf-row:active { background: var(--fill-2); transform: scale(.985); }
+:root body.mobile #view .bf-name { grid-column: 1 / 3; grid-row: 1; font-size: 15px; line-height: 20px; font-weight: 600; white-space: nowrap; }
+:root body.mobile #view .bf-gap {
+  grid-column: 3 / 6; grid-row: 1; justify-self: end; font-size: 13px; line-height: 18px; color: var(--ink-2);
+  white-space: nowrap; display: block;
+}
+:root body.mobile #view .bf-gap b { font: 700 13px/18px var(--round); font-variant-numeric: tabular-nums; }
+:root body.mobile #view .bf-gap b.L { color: var(--left); }
+:root body.mobile #view .bf-gap b.R { color: var(--right); }
+:root body.mobile #view .bf-gap i { font-style: normal; margin: 0 4px; }
+:root body.mobile #view .bf-met .pg-check { vertical-align: -3px; margin-right: 3px; }
+:root body.mobile #view .bf-met { display: inline; align-items: center; gap: 3px; color: var(--good); font-weight: 600; }
+:root body.mobile #view .bf-num {
+  grid-row: 2; font: 800 21px/26px var(--round); font-variant-numeric: tabular-nums; letter-spacing: -.3px; white-space: nowrap;
+}
+:root body.mobile #view .bf-num small { font: 600 12px var(--round); margin-left: 1px; opacity: .8; letter-spacing: 0; }
+:root body.mobile #view .bf-num em { font: 500 13px var(--font); font-style: normal; color: var(--ink-3); }
+:root body.mobile #view .bf-num.L { grid-column: 1; color: var(--left); text-align: left; }
+:root body.mobile #view .bf-num.R { grid-column: 5; color: var(--right); text-align: right; }
+:root body.mobile #view .bf-num.B { grid-column: 1; color: var(--ink); }
+:root body.mobile #view .bf-axis { grid-column: 3; grid-row: 2; align-self: stretch; margin: -3px 0; background: var(--ink); opacity: .22; border-radius: 1px; }
+:root body.mobile #view .bf-half { grid-row: 2; position: relative; height: 16px; }
+:root body.mobile #view .bf-half.L { grid-column: 2; }
+:root body.mobile #view .bf-half.R { grid-column: 4; }
+:root body.mobile #view .bf-half::before { content: ""; position: absolute; inset: 5px 0; border-radius: 3px; background: var(--track); opacity: .8; }
+:root body.mobile #view .bf-fill { position: absolute; top: 0; bottom: 0; width: calc(var(--p) * 100%); }
+:root body.mobile #view .bf-half.L .bf-fill { right: 0; border-radius: 8px 3px 3px 8px; background: var(--left-fill); transform-origin: right center; }
+:root body.mobile #view .bf-half.R .bf-fill { left: 0; border-radius: 3px 8px 8px 3px; background: var(--right-fill); transform-origin: left center; }
+:root body.mobile #view .bf-none { position: absolute; inset: 3px 0; border-radius: 6px;
+  background: repeating-linear-gradient(135deg, transparent 0 4px, color-mix(in srgb, var(--ink) 14%, transparent) 4px 5px); }
+:root body.mobile #view .bf-tick { position: absolute; top: -5px; bottom: -5px; width: 2.5px; border-radius: 2px; background: var(--ink); }
+:root body.mobile #view .bf-half.L .bf-tick { right: calc(var(--at) * 100%); margin-right: -1.25px; }
+:root body.mobile #view .bf-half.R .bf-tick { left: calc(var(--at) * 100%); margin-left: -1.25px; }
+:root body.mobile #view .bf-tick.ref { width: 0; background: none; border-left: 2px dashed color-mix(in srgb, var(--ink) 50%, transparent); }
+:root body.mobile #view .bf-half.met .bf-fill::after {
+  content: ""; position: absolute; top: 50%; width: 8px; height: 8px; margin-top: -4px; border-radius: 50%;
+  background: var(--good-fill); box-shadow: 0 0 0 2px var(--panel);
+}
+:root body.mobile #view .bf-half.L.met .bf-fill::after { left: -2px; }
+:root body.mobile #view .bf-half.R.met .bf-fill::after { right: -2px; }
+/* PSP-07: beside the Standing Figure the board carries no numbers (the chips do); the bars take the width. */
+:root body.mobile #view .bf.bare .bf-row { --numw: 0px; column-gap: 0; }
+:root body.mobile #view .bf.bare .bf-name { grid-column: 1 / 3; }
+:root body.mobile #view .bf.bare .bf-fnbar { grid-column: 1 / 6; }
+/* Function: one bullet bar across the row. */
+:root body.mobile #view .bf-fn { grid-template-rows: 20px auto; }
+:root body.mobile #view .bf-fnbar { grid-column: 2 / 6; grid-row: 2; }
+:root body.mobile #view .bf-fn .bf-num.B { align-self: start; }
+:root body.mobile #view .bf-fn .bf-gap { grid-column: 3 / 6; }
+:root body.mobile #view .bf-key { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 16px; padding-top: 7px; margin-top: 2px; border-top: .5px solid var(--line-2); font-size: 12px; line-height: 16px; color: var(--ink-2); }
+:root body.mobile #view .bf-key span, :root body.mobile .rs-about li { display: inline-flex; align-items: center; gap: 6px; }
+:root body.mobile .k-l, :root body.mobile .k-r { width: 10px; height: 10px; border-radius: 50%; background: var(--left-fill); display: inline-block; }
+:root body.mobile .k-r { border-radius: 2px; background: var(--right-fill); }
+:root body.mobile .k-goal { width: 3px; height: 13px; border-radius: 2px; background: var(--ink); display: inline-block; flex: none; }
+:root body.mobile .k-ref { width: 0; height: 13px; border-left: 2px dashed color-mix(in srgb, var(--ink) 55%, transparent); display: inline-block; flex: none; }
+
+@media (prefers-reduced-motion: no-preference) {
+  :root:not(.lite-motion) body.mobile #view .bf-row { animation: rt-rise .55s var(--spring-soft) both; animation-delay: calc(var(--i, 0) * 35ms + 80ms); }
+  :root:not(.lite-motion) body.mobile #view .bf-half .bf-fill { animation: bf-grow .9s var(--spring-soft) both; animation-delay: calc(var(--i, 0) * 35ms + 160ms); }
+  :root:not(.lite-motion) body.mobile .pg-bullet .pkb-track > i { animation: bf-grow .9s var(--spring-soft) .2s both; }
+}
+@keyframes bf-grow { from { transform: scaleX(0); } }
+
+/* ------------------------------------------------------------ Melbourne: five segments */
+:root body.mobile #view .ml { background: var(--panel); border-radius: var(--radius); padding: 14px 14px 12px; }
+:root body.mobile #view .ml-head { display: flex; flex-direction: column; gap: 1px; margin-bottom: 12px; }
+:root body.mobile #view .ml-head h2 { margin: 0; font-size: 20px; line-height: 25px; font-weight: 700; }
+:root body.mobile #view .ml-head span { font-size: 13px; color: var(--ink-2); }
+:root body.mobile #view .ml-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; }
+:root body.mobile #view .ml-seg { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 0; border: 0; background: transparent; color: var(--ink); transition: transform .35s var(--spring); }
+:root body.mobile #view .ml-seg:active { transform: scale(.95); }
+:root body.mobile #view .ml-bar {
+  width: 100%; height: 26px; border-radius: 8px; background: var(--fill-2); display: flex; align-items: center; justify-content: space-evenly; padding: 0 5px;
+  box-shadow: inset 0 0 0 1px var(--line-2);
+}
+:root body.mobile #view .ml-seg.done .ml-bar { background: var(--good-soft); box-shadow: inset 0 0 0 1.5px var(--good-fill); }
+:root body.mobile #view .ml-seg.now .ml-bar { box-shadow: inset 0 0 0 2px var(--action-fill); background: var(--accent-soft); }
+:root body.mobile #view .ml-bar i { width: 3px; height: 12px; border-radius: 2px; background: var(--ink-2); }
+:root body.mobile #view .ml-bar i.ok { height: 16px; background: var(--good-fill); }
+:root body.mobile #view .ml-bar i.na { background: none; box-shadow: inset 0 0 0 1px var(--ink-3); opacity: .6; }
+:root body.mobile #view .ml-lab { font-size: 12px; line-height: 15px; font-weight: 600; white-space: nowrap; }
+:root body.mobile #view .ml-seg.now .ml-lab { color: var(--accent); }
+:root body.mobile #view .ml-n { font: 600 12px/14px var(--round); color: var(--ink-2); font-variant-numeric: tabular-nums; min-height: 14px; }
+
+/* ------------------------------------------------------------ the region sheet */
+:root body.mobile #modal-root .modal.pg-sheet:focus, :root body.mobile #modal-root .modal.pg-menu-sheet:focus { outline: none; }
+:root body.mobile #modal-root .modal.rs-sheet .mbody { padding-top: 4px; }
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs { display: flex; flex-direction: column; gap: 10px; padding-bottom: 12px; }
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-top { text-align: center; }
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-title { font-size: 17px; line-height: 22px; font-weight: 600; }
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-meta { font-size: 13px; line-height: 18px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-hero { display: flex; justify-content: center; gap: 36px; padding: 2px 0; }
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-big { display: grid; grid-template-columns: auto auto; align-items: baseline; justify-content: center; column-gap: 3px; min-width: 96px; }
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-big small { grid-column: 1 / -1; justify-self: center; }
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-big small { font-size: 13px; font-weight: 600; color: var(--ink-2); }
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-big b { font: 800 52px/58px var(--round); font-variant-numeric: tabular-nums; letter-spacing: -1px; }
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-big b em { font: 500 17px var(--font); font-style: normal; color: var(--ink-3); }
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-big i { font: 600 13px var(--round); font-style: normal; color: var(--ink-2); }
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-big.L b { color: var(--left); }
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-big.R b { color: var(--right); }
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-big.pain b { display: flex; gap: 8px; }
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-big.pain .L { color: var(--left); }
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-big.pain .R { color: var(--right); }
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-big.pain .sep { color: var(--ink-3); }
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-hero.scrub b { transition: none; }
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-words { text-align: center; font-size: 15px; line-height: 20px; font-weight: 600; }
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-chart { margin: 4px -2px 0; }
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-bullet { padding: 6px 4px 0; }
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-since { text-align: center; font-size: 13px; line-height: 18px; color: var(--ink-2); }
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-h { margin: 12px 0 0; font-size: 20px; line-height: 25px; font-weight: 700; }
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-tests { display: flex; flex-direction: column; background: var(--panel-2); border-radius: 14px; overflow: hidden; }
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-test {
+  display: grid; grid-template-columns: 1fr 72px auto; align-items: center; gap: 10px; min-height: 52px; padding: 8px 12px;
+  border: 0; background: transparent; color: var(--ink); text-align: left;
+}
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-test + .rs-test { box-shadow: inset 0 .5px 0 var(--line); }
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-test.on { background: var(--accent-soft); }
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-test.on .rs-tname { color: var(--accent); font-weight: 600; }
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-tname { font-size: 15px; line-height: 19px; }
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-spark { width: 72px; height: 26px; }
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-spark polyline { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-spark polyline.L { stroke: var(--left-fill); }
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-spark polyline.R { stroke: var(--right-fill); }
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-spark polyline.B { stroke: var(--ink-2); }
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-tval { display: flex; align-items: baseline; gap: 6px; font: 700 15px var(--round); font-variant-numeric: tabular-nums; white-space: nowrap; }
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-tval .L { color: var(--left); }
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-tval .R { color: var(--right); }
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-tval small { font-size: 12px; color: var(--ink-2); font-weight: 600; }
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-facts { margin: 0; display: flex; flex-direction: column; gap: 8px; background: var(--panel-2); border-radius: 14px; padding: 12px; }
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-facts dt { font-size: 13px; color: var(--ink-2); }
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-facts dd { margin: 1px 0 0; font-size: 15px; line-height: 20px; }
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-about { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; font-size: 13px; line-height: 18px; color: var(--ink-2); }
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-about li { align-items: flex-start; gap: 10px; }
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-about li > i { margin-top: 3px; }
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-about b { display: block; color: var(--ink); font-weight: 600; font-size: 15px; }
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-about a { color: var(--accent); }
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-note { margin: 0; font-size: 13px; color: var(--ink-2); }
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-more {
+  display: flex; align-items: center; justify-content: space-between; min-height: 50px; margin-top: 8px; padding: 0 14px;
+  border: 0; border-radius: 14px; background: var(--panel-2); color: var(--accent); font: 600 17px var(--font);
+}
+
+/* ======================================================================= TRENDS */
+:root body.mobile #view .tr3 { gap: 12px; }
+:root body.mobile #view .t3-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+:root body.mobile #view .t3-pick, :root body.mobile #view .t3-unit {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 14px 0 16px; border: 0; border-radius: 999px;
+  background: var(--panel); color: var(--accent); font: 600 17px var(--font); transition: transform .35s var(--spring);
+}
+:root body.mobile #view .t3-pick { font-size: 20px; font-weight: 700; color: var(--ink); padding-left: 4px; background: transparent; }
+:root body.mobile #view .t3-pick .pg-down { color: var(--accent); width: 18px; height: 18px; }
+:root body.mobile #view .t3-pick:active, :root body.mobile #view .t3-unit:active { transform: scale(.95); }
+:root body.mobile #view .t3-card { background: var(--panel); border-radius: var(--radius); padding: 14px 14px 10px; display: flex; flex-direction: column; gap: 2px; }
+:root body.mobile #view .t3-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+:root body.mobile #view .t3-name { font-size: 17px; line-height: 22px; font-weight: 600; }
+:root body.mobile #view .t3-i { flex: none; width: 30px; height: 30px; margin: -4px -4px 0 0; border: 0; border-radius: 50%; background: transparent; color: var(--accent); display: grid; place-items: center; }
+:root body.mobile #view .t3-sub { font-size: 13px; line-height: 18px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+:root body.mobile #view .t3-nums { display: flex; align-items: baseline; gap: 18px; margin: 4px 0 6px; }
+:root body.mobile #view .t3-big { display: inline-flex; align-items: baseline; gap: 5px; }
+:root body.mobile #view .t3-big small { font-size: 13px; font-weight: 600; color: var(--ink-2); }
+:root body.mobile #view .t3-big b { font: 800 30px/34px var(--round); font-variant-numeric: tabular-nums; letter-spacing: -.4px; }
+:root body.mobile #view .t3-big b em { font: 500 15px var(--font); font-style: normal; color: var(--ink-3); }
+:root body.mobile #view .t3-big.L b { color: var(--left); }
+:root body.mobile #view .t3-big.R b { color: var(--right); }
+:root body.mobile #view .t3-u { font: 600 15px var(--round); color: var(--ink-2); margin-left: -12px; }
+
+/* ======================================================================= HISTORY */
+:root body.mobile #view .hist3 { gap: 14px; }
+:root body.mobile #view .h3-cal { background: var(--panel); border-radius: var(--radius); padding: 12px 12px 14px; }
+:root body.mobile #view .h3-calhead { display: flex; align-items: center; gap: 8px; padding: 0 4px 8px; }
+:root body.mobile #view .h3-calhead h2 { margin: 0; font-size: 20px; line-height: 25px; font-weight: 700; }
+:root body.mobile #view .h3-calcount { flex: 1; font-size: 13px; color: var(--ink-2); white-space: nowrap; }
+:root body.mobile #view .h3-calcount b { font: 700 13px var(--round); color: var(--good); }
+:root body.mobile #view .h3-calhead .pg-glassbtn { background: var(--fill-2); box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+:root body.mobile #view .h3-dow, :root body.mobile #view .h3-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+:root body.mobile #view .h3-dow span { text-align: center; font-size: 12px; font-weight: 600; color: var(--ink-3); padding-bottom: 4px; }
+:root body.mobile #view .h3-cell {
+  position: relative; aspect-ratio: 1; min-height: 40px; border: 0; padding: 0; border-radius: 12px; overflow: hidden;
+  background: var(--fill-2); color: var(--ink); display: grid; place-items: center; transition: transform .35s var(--spring);
+}
+:root body.mobile #view .h3-cell:active { transform: scale(.9); }
+:root body.mobile #view .h3-cell.pad { background: transparent; }
+:root body.mobile #view .h3-cell b { position: relative; z-index: 1; font: 600 15px var(--round); font-variant-numeric: tabular-nums; }
+:root body.mobile #view .h3-cell.future { background: transparent; }
+:root body.mobile #view .h3-cell.future b { color: var(--ink-3); font-weight: 500; }
+:root body.mobile #view .h3-cell.none { background: transparent; }
+:root body.mobile #view .h3-cell.none b { color: var(--ink-3); font-weight: 500; }
+:root body.mobile #view .h3-cell.done { background: var(--good-fill); color: #fff; }
+:root body.mobile #view .h3-cell.done b { font-weight: 800; transform: translateY(-5px); }
+:root body.mobile #view .h3-cell.done svg { position: absolute; bottom: 4px; left: 50%; width: 13px; height: 13px; margin-left: -6.5px; fill: none; stroke: #fff; stroke-width: 3.2; stroke-linecap: round; stroke-linejoin: round; }
+/* Fix d-progress:d4: planned days carry a small meter at the foot, filled by how much of the plan
+   was done (at least a visible nub when anything was), empty when none was. Rest is an outline
+   with a dash, nothing recorded has no fill at all, so no two states look alike. */
+:root body.mobile #view .h3-cell.part::before, :root body.mobile #view .h3-cell.open::before {
+  content: ""; position: absolute; left: 22%; right: 22%; bottom: 6px; height: 4px; border-radius: 2px;
+  background: color-mix(in srgb, var(--ink) 16%, transparent);
+}
+:root body.mobile #view .h3-cell.part::before {
+  background: linear-gradient(to right, var(--ink-2) max(4px, calc(var(--f) * 100%)), color-mix(in srgb, var(--ink) 16%, transparent) 0);
+}
+:root body.mobile #view .h3-cell.part b, :root body.mobile #view .h3-cell.open b { transform: translateY(-3px); }
+:root body.mobile #view .h3-cell.open { background: var(--fill-2); }
+:root body.mobile #view .h3-cell.rest { background: transparent; box-shadow: inset 0 0 0 1.5px var(--line); }
+:root body.mobile #view .h3-cell.rest::after { content: ""; position: absolute; bottom: 7px; left: 50%; width: 12px; height: 2px; margin-left: -6px; border-radius: 1px; background: var(--ink-3); }
+:root body.mobile #view .h3-cell.work::after { content: ""; position: absolute; bottom: 6px; left: 50%; width: 5px; height: 5px; margin-left: -2.5px; border-radius: 50%; background: var(--ink-2); }
+:root body.mobile #view .h3-cell.today { box-shadow: 0 0 0 2.5px var(--action-fill); }
+:root body.mobile #view .h3-cell.today:not(.done) b { color: var(--accent); font-weight: 800; }
+@media (prefers-reduced-motion: no-preference) {
+  :root:not(.lite-motion) body.mobile #view .h3-cell:not(.pad) { animation: h3-pop .5s var(--spring) both; animation-delay: calc(var(--i, 0) * 12ms); }
+}
+@keyframes h3-pop { from { transform: scale(.6); opacity: 0; } }
+:root body.mobile #view .h3-facts { display: flex; align-items: baseline; gap: 14px; padding: 0 6px; font-size: 15px; color: var(--ink-2); }
+:root body.mobile #view .h3-facts b { font: 800 20px var(--round); color: var(--ink); margin-right: 3px; }
+:root body.mobile #view .h3-facts .h3-when { margin-left: auto; font-size: 13px; }
+:root body.mobile #view .h3-sec { display: flex; flex-direction: column; gap: 8px; }
+:root body.mobile #view .h3-h { margin: 0 0 0 6px; font-size: 20px; line-height: 25px; font-weight: 700; }
+:root body.mobile #view .h3-card { background: var(--panel); border-radius: var(--radius); padding: 12px 10px; }
+:root body.mobile #view .h3-list { background: var(--panel); border-radius: var(--radius); overflow: hidden; }
+:root body.mobile #view .h3-target { display: flex; align-items: center; gap: 8px; padding: 0 14px 0 0; }
+:root body.mobile #view .h3-tmain {
+  flex: 1; min-width: 0; display: grid; grid-template-columns: 40px 1fr; align-items: center; gap: 12px; min-height: 60px; padding: 8px 0 8px 14px;
+  border: 0; background: transparent; color: var(--ink); text-align: left;
+}
+:root body.mobile #view .h3-tmain:active { opacity: .6; }
+:root body.mobile #view .h3-target + .h3-target { box-shadow: inset 0 .5px 0 var(--line-2); }
+:root body.mobile #view .h3-target .catring b { font-size: 11px; }
+:root body.mobile #view .h3-tt { display: flex; flex-direction: column; }
+:root body.mobile #view .h3-tt b { font-size: 17px; font-weight: 600; }
+:root body.mobile #view .h3-tt small { font-size: 13px; color: var(--ink-2); }
+:root body.mobile #view .h3-tn { display: inline-flex; align-items: center; gap: 4px; min-height: 36px; padding: 0 10px 0 12px; border: 0; border-radius: 999px; background: var(--fill-2); font: 600 15px var(--round); color: var(--accent); white-space: nowrap; }
+:root body.mobile #view .h3-row {
+  display: flex; align-items: center; justify-content: space-between; min-height: 52px; padding: 0 16px; border: 0; border-radius: 16px;
+  background: var(--panel); color: var(--ink); font: 400 17px var(--font); text-align: left;
+}
+:root body.mobile #view .pg-menubtn {
+  display: inline-flex; align-items: center; gap: 4px; min-height: 36px; padding: 0 12px 0 14px; border: 0; border-radius: 999px;
+  background: var(--panel); color: var(--accent); font: 600 15px var(--font); white-space: nowrap; max-width: 100%;
+}
+:root body.mobile #view .hist3 .sess-tools { display: flex; flex-wrap: wrap; gap: 8px; }
+/* The day sheet */
+:root body.mobile #modal-root .h3-day { display: flex; flex-direction: column; gap: 12px; padding-bottom: 8px; }
+:root body.mobile #modal-root .h3-dayhead { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 17px; font-weight: 600; color: var(--ink-2); }
+:root body.mobile #modal-root .h3-dayhead.done { color: var(--good); }
+:root body.mobile #modal-root .h3-dayhead svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.8; stroke-linecap: round; stroke-linejoin: round; }
+:root body.mobile #modal-root .h3-exs { display: flex; flex-direction: column; background: var(--panel-2); border-radius: 14px; overflow: hidden; }
+:root body.mobile #modal-root .h3-ex { display: grid; grid-template-columns: 48px 1fr; gap: 12px; align-items: center; padding: 8px 12px; }
+:root body.mobile #modal-root .h3-ex + .h3-ex { box-shadow: inset 0 .5px 0 var(--line); }
+:root body.mobile #modal-root .h3-nopic { width: 48px; height: 48px; border-radius: 11px; background: var(--fill); }
+:root body.mobile #modal-root .h3-exname { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+:root body.mobile #modal-root .h3-exname b { font-size: 15px; line-height: 19px; font-weight: 600; }
+:root body.mobile #modal-root .h3-exname small { font-size: 13px; line-height: 17px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+:root body.mobile #modal-root .h3-exname small b { font-size: 13px; }
+:root body.mobile #modal-root .h3-exname small b.L { color: var(--left); }
+:root body.mobile #modal-root .h3-exname small b.R { color: var(--right); }
+:root body.mobile #modal-root .h3-exname small i { font-style: normal; }
+:root body.mobile #modal-root .h3-none { text-align: center; color: var(--ink-2); padding: 12px; }
+:root body.mobile #modal-root .h3-check { display: flex; flex-wrap: wrap; justify-content: center; gap: 22px; }
+:root body.mobile #modal-root .h3-check span { display: flex; flex-direction: column; align-items: center; }
+:root body.mobile #modal-root .h3-check small { font-size: 13px; color: var(--ink-2); }
+:root body.mobile #modal-root .h3-check b { font: 800 24px var(--round); }
+:root body.mobile #modal-root .h3-check b.L { color: var(--left); }
+:root body.mobile #modal-root .h3-check b.R { color: var(--right); }
+:root body.mobile #modal-root .h3-notes { margin: 0; font-size: 15px; line-height: 20px; }
+:root body.mobile #modal-root .h3-open { min-height: 50px; border-radius: 25px; }
+
+/* ======================================================================= PLAN */
+:root body.mobile #view .pl3 { gap: 14px; }
+:root body.mobile #view .pl3 > .pagehead h1 { font-size: 34px; line-height: 40px; }
+:root body.mobile #view .pl-roadcard { background: var(--panel); border-radius: var(--radius); padding: 12px 16px 10px; }
+:root body.mobile #view .pl-roadhead { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; }
+:root body.mobile #view .pl-roadhead h2 { margin: 0; font-size: 20px; line-height: 25px; font-weight: 700; flex: 1; }
+:root body.mobile #view .pl-i { width: 32px; height: 32px; border: 0; background: transparent; color: var(--accent); display: grid; place-items: center; padding: 0; }
+:root body.mobile #view .pl-mode { background: var(--fill-2); min-height: 32px; font-size: 15px; }
+/* The road: names and dates above, one line, a needle for today. */
+:root body.mobile :is(#view, #modal-root) .road { position: relative; }
+:root body.mobile :is(#view, #modal-root) .road .jr-road { position: relative; height: 64px; --jr-name-gap: 8px; margin: 0; }
+:root body.mobile :is(#view, #modal-root) .road .rd-seg {
+  position: absolute; top: 0; bottom: 0; padding: 0; border: 0; background: transparent; color: var(--ink); cursor: pointer;
+}
+:root body.mobile :is(#view, #modal-root) .road .rd-bar {
+  position: absolute; left: 1.5px; right: 1.5px; bottom: 2px; height: 10px; border-radius: 5px; background: var(--c);
+  transition: height .4s var(--spring), bottom .4s var(--spring), box-shadow .3s ease;
+}
+:root body.mobile :is(#view, #modal-root) .road .rd-seg.now .rd-bar { height: 14px; bottom: 0; }
+:root body.mobile :is(#view, #modal-root) .road .rd-seg.sel:not(.now) .rd-bar { box-shadow: 0 0 0 2px var(--panel), 0 0 0 3.5px var(--ink-2); }
+:root body.mobile :is(#view, #modal-root) .road .rd-seg:active .rd-bar { transform: scaleY(.8); }
+:root body.mobile :is(#view, #modal-root) .road .jr-month {
+  position: absolute; bottom: 30px; left: 50%; transform: translateX(calc(-50% + var(--dx, 0px)));
+  display: flex; flex-direction: column; align-items: center; white-space: nowrap; line-height: 1;
+}
+:root body.mobile :is(#view, #modal-root) .road .jr-month b { display: inline-flex; align-items: center; gap: 2px; font-size: 13px; line-height: 16px; font-weight: 700; }
+:root body.mobile :is(#view, #modal-root) .road .jr-month b svg { width: 12px; height: 12px; fill: none; stroke: var(--good); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+:root body.mobile :is(#view, #modal-root) .road .jr-month small { font: 600 11px/14px var(--round); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+:root body.mobile :is(#view, #modal-root) .road .rd-seg.past .jr-month b { color: var(--ink-2); }
+:root body.mobile :is(#view, #modal-root) .road .rd-seg.sel .jr-month b { color: var(--ink); text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; }
+:root body.mobile :is(#view, #modal-root) .road.jr-tight .jr-month b { font-size: 12px; }
+:root body.mobile :is(#view, #modal-root) .road.jr-tight .jr-month small { font-size: 11px; }
+:root body.mobile :is(#view, #modal-root) .road .rd-here {
+  position: absolute; left: var(--x); bottom: -4px; width: 6px; height: 22px; margin-left: -3px; border-radius: 3px;
+  background: var(--action-fill); box-shadow: 0 0 0 2px var(--panel), 0 2px 6px rgba(0,0,0,.25); pointer-events: none; z-index: 2;
+}
+:root body.mobile :is(#view, #modal-root) .road .rd-here span {
+  position: absolute; top: calc(100% + 5px); left: 50%; transform: translateX(-50%); white-space: nowrap;
+  font-size: 11px; line-height: 16px; font-weight: 700; color: #fff; background: var(--action-fill); border-radius: 8px; padding: 0 6px;
+}
+@media (prefers-reduced-motion: no-preference) {
+  :root:not(.lite-motion) body.mobile :is(#view, #modal-root) .road .rd-here { animation: rd-glide 1.3s var(--spring-soft) .25s both; }
+  :root:not(.lite-motion) body.mobile #view .rd-minihere { animation: rd-glide 1.1s var(--spring-soft) .2s both; }
+}
+@keyframes rd-glide { from { left: 0; } }
+:root body.mobile :is(#view, #modal-root) .road .rd-phases { position: relative; height: 16px; margin-top: 26px; }
+:root body.mobile :is(#view, #modal-root) .road .rd-phases span {
+  position: absolute; top: 0; text-align: center; font-size: 11px; line-height: 16px; font-weight: 600; color: var(--ink-3);
+  border-top: 1.5px solid var(--line-2); padding-top: 2px; margin: 0 2px;
+}
+/* The stage head */
+:root body.mobile :is(#view, #modal-root) .pl-stage { display: flex; flex-direction: column; gap: 8px; padding: 2px 4px 0; }
+:root body.mobile :is(#view, #modal-root) .pl-stagehead { display: flex; align-items: center; gap: 10px; }
+:root body.mobile :is(#view, #modal-root) .pl-swatch { width: 14px; height: 28px; border-radius: 7px; background: var(--mc); flex: none; }
+:root body.mobile :is(#view, #modal-root) .pl-stagehead h2 { margin: 0; font-size: 28px; line-height: 34px; font-weight: 800; }
+:root body.mobile :is(#view, #modal-root) .pl-range { margin-left: auto; font: 600 15px var(--round); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+:root body.mobile :is(#view, #modal-root) .pl-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+:root body.mobile :is(#view, #modal-root) .pl-chip { display: inline-flex; align-items: center; gap: 4px; min-height: 28px; padding: 0 11px; border-radius: 14px; background: var(--panel); font-size: 13px; font-weight: 600; color: var(--ink-2); }
+:root body.mobile :is(#view, #modal-root) .pl-chip.now { background: var(--accent-soft); color: var(--accent); }
+:root body.mobile :is(#view, #modal-root) .pl-chip b { font: 800 13px var(--round); color: var(--ink); }
+:root body.mobile #view .pl3 .pl-h, :root body.mobile #view .pl3 .ov-h {
+  margin: 0 0 8px 4px; font-size: 20px; line-height: 25px; font-weight: 700; color: var(--ink); text-transform: none; letter-spacing: .38px;
+}
+:root body.mobile #view .pl3 .pm-head { margin: 0; }
+:root body.mobile #view .pl3 .pm-days { font-size: 13px; color: var(--ink-2); text-transform: none; letter-spacing: 0; }
+/* Marker rows: bullet bars */
+:root body.mobile :is(#view, #modal-root) .mrs { background: var(--panel); border-radius: var(--radius); overflow: hidden; }
+:root body.mobile :is(#view, #modal-root) .mr { padding: 12px 14px 12px; display: flex; flex-direction: column; gap: 7px; }
+:root body.mobile :is(#view, #modal-root) .mr + .mr { border-top: .5px solid var(--line-2); }
+:root body.mobile :is(#view, #modal-root) .mr-top { display: flex; align-items: flex-start; gap: 10px; }
+:root body.mobile :is(#view, #modal-root) .mr-title { flex: 1; font-size: 15px; line-height: 20px; font-weight: 600; }
+:root body.mobile :is(#view, #modal-root) .mr-title svg { width: 16px; height: 16px; margin-right: 4px; vertical-align: -3px; fill: none; stroke: var(--good); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+:root body.mobile :is(#view, #modal-root) .mr-add {
+  flex: none; width: 34px; height: 34px; margin: -5px -4px -5px 0; border: 0; border-radius: 50%; display: grid; place-items: center;
+  background: var(--accent-soft); color: var(--accent); transition: transform .35s var(--spring);
+}
+:root body.mobile :is(#view, #modal-root) .mr-add:active { transform: scale(.88); }
+:root body.mobile :is(#view, #modal-root) .mr-add svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+:root body.mobile :is(#view, #modal-root) .mr.met .mr-add.toggle { background: var(--good-soft); color: var(--good); }
+:root body.mobile :is(#view, #modal-root) .mr-add .mk-ring { width: 16px; height: 16px; border-radius: 50%; box-shadow: inset 0 0 0 2px currentColor; display: block; }
+:root body.mobile :is(#view, #modal-root) .mr-bars { display: flex; flex-direction: column; gap: 6px; }
+:root body.mobile :is(#view, #modal-root) .mr-bar { display: grid; grid-template-columns: auto 1fr 42px; align-items: center; gap: 8px; }
+:root body.mobile :is(#view, #modal-root) .mr-bar:not(:has(.mr-leg)) { grid-template-columns: 1fr; }
+:root body.mobile :is(#view, #modal-root) .mr-leg { font: 800 12px var(--round); width: 12px; }
+:root body.mobile :is(#view, #modal-root) .mr-bar.L .mr-leg, :root body.mobile :is(#view, #modal-root) .mr-bar.L .mr-v { color: var(--left); }
+:root body.mobile :is(#view, #modal-root) .mr-bar.R .mr-leg, :root body.mobile :is(#view, #modal-root) .mr-bar.R .mr-v { color: var(--right); }
+:root body.mobile :is(#view, #modal-root) .mr-track { position: relative; height: 10px; border-radius: 5px; background: var(--track); }
+:root body.mobile :is(#view, #modal-root) .mr-track > i { position: absolute; left: 0; top: 0; bottom: 0; width: calc(var(--p) * 100%); border-radius: 5px; background: color-mix(in srgb, var(--ink) 55%, var(--panel)); transform-origin: left center; }
+:root body.mobile :is(#view, #modal-root) .mr-bar.L .mr-track > i { background: var(--left-fill); }
+:root body.mobile :is(#view, #modal-root) .mr-bar.R .mr-track > i { background: var(--right-fill); }
+:root body.mobile :is(#view, #modal-root) .mr-bar.met .mr-track > i { background: var(--good-fill); }
+:root body.mobile :is(#view, #modal-root) .mr-track > i.mr-hatch { width: 100%; background: repeating-linear-gradient(135deg, transparent 0 4px, color-mix(in srgb, var(--ink) 16%, transparent) 4px 5px); }
+:root body.mobile :is(#view, #modal-root) .mr-tick { position: absolute; top: -4px; bottom: -4px; width: 2.5px; margin-left: -1.25px; border-radius: 2px; background: var(--ink); }
+:root body.mobile :is(#view, #modal-root) .mr-v { font: 800 15px var(--round); font-variant-numeric: tabular-nums; text-align: right; }
+:root body.mobile :is(#view, #modal-root) .mr-bar.none .mr-v { font: 500 12px var(--font); color: var(--ink-3); }
+:root body.mobile :is(#view, #modal-root) .mr-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 13px; line-height: 17px; color: var(--ink-2); }
+:root body.mobile :is(#view, #modal-root) .mr-target { display: inline-flex; align-items: center; gap: 5px; margin-left: auto; white-space: nowrap; font-variant-numeric: tabular-nums; }
+:root body.mobile :is(#view, #modal-root) .mr-target i { width: 2.5px; height: 12px; border-radius: 2px; background: var(--ink); }
+@media (prefers-reduced-motion: no-preference) {
+  :root:not(.lite-motion) body.mobile #view .mr-track > i:not(.mr-hatch) { animation: bf-grow .9s var(--spring-soft) both; animation-delay: calc(var(--i, 0) * 40ms + 150ms); }
+}
+:root body.mobile #view .pl-notes { background: var(--panel); border-radius: var(--radius); overflow: hidden; }
+:root body.mobile #view .pl-note { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 50px; padding: 0 16px; border: 0; background: transparent; color: var(--ink); font: 400 17px var(--font); text-align: left; }
+:root body.mobile #view .pl-note + .pl-note { border-top: .5px solid var(--line-2); }
+:root body.mobile #modal-root .pl-srcsheet p { margin: 0 0 10px; font-size: 17px; line-height: 23px; }
+:root body.mobile #modal-root .pl-srcsheet .pl-srcnote { color: var(--ink-2); font-size: 15px; }
+
+:root body.mobile #view .pl3 > div > * + * { margin-top: 20px; }
+:root body.mobile #view .pl3 .pl-stage + * { margin-top: 18px; }
+:root body.mobile #view .pl-focusrow { border-radius: var(--radius); background: var(--panel); color: var(--ink-2); }
+:root body.mobile #view .pl3 .focuslist li { padding-top: 9px; padding-bottom: 9px; }
+
+/* ======================================================================= PROGRAM */
+:root body.mobile #view .pr3 { gap: 14px; }
+:root body.mobile #view .pr-days { background: var(--panel); border-radius: var(--radius); padding: 8px 8px 10px; }
+:root body.mobile #view .pr3 .dayfilter { display: grid; grid-template-columns: 1.4fr repeat(7, 1fr); gap: 4px; }
+:root body.mobile #view .pr3 .dayfilter button {
+  display: flex; flex-direction: column; align-items: center; gap: 1px; min-height: 50px; padding: 6px 0; border: 0; border-radius: 14px;
+  background: transparent; color: var(--ink); transition: transform .35s var(--spring), background .2s ease;
+}
+:root body.mobile #view .pr3 .dayfilter button .fd { font-size: 13px; font-weight: 600; color: var(--ink-2); }
+:root body.mobile #view .pr3 .dayfilter button .fn { font: 800 17px var(--round); font-variant-numeric: tabular-nums; }
+:root body.mobile #view .pr3 .dayfilter button.today .fd { color: var(--accent); }
+:root body.mobile #view .pr3 .dayfilter button.on { background: var(--action-fill); color: var(--on-accent); }
+:root body.mobile #view .pr3 .dayfilter button.on .fd { color: var(--on-accent); opacity: .85; }
+:root body.mobile #view .pr3 .dayfilter button:active { transform: scale(.92); }
+:root body.mobile #view .pr-dayline { display: flex; align-items: center; gap: 8px; padding: 8px 8px 0; font-size: 15px; }
+:root body.mobile #view .pr-dayline b { font-weight: 700; }
+:root body.mobile #view .pr-dayline span { color: var(--ink-2); font-variant-numeric: tabular-nums; }
+:root body.mobile #view .pr-edit { margin-left: auto; min-height: 32px; padding: 0 12px; border: 0; border-radius: 16px; background: var(--fill-2); color: var(--accent); font: 600 15px var(--font); }
+:root body.mobile #view .pr3.editing .pr-edit { background: var(--action-fill); color: var(--on-accent); }
+:root body.mobile #view .pr-sec { display: flex; flex-direction: column; gap: 8px; }
+:root body.mobile #view .pr-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 0 6px; }
+:root body.mobile #view .pr-head h2 { margin: 0; font-size: 20px; line-height: 25px; font-weight: 700; }
+:root body.mobile #view .pr-head span { font-size: 13px; color: var(--ink-2); text-align: right; }
+:root body.mobile #view .pr-list { background: var(--panel); border-radius: var(--radius); overflow: hidden; }
+:root body.mobile #view .pr-row { border: 0; margin: 0; padding: 0; background: transparent; border-radius: 0; box-shadow: none; }
+:root body.mobile #view .pr-row + .pr-row { border-top: .5px solid var(--line-2); }
+:root body.mobile #view .pr-row .prog-head { display: grid; grid-template-columns: 64px 1fr; align-items: center; gap: 12px; padding: 10px 12px; }
+:root body.mobile #view .pr3.editing .pr-row .prog-head { grid-template-columns: 64px 1fr; }
+:root body.mobile #view .pr3.editing .pr-row .prog-days { grid-column: 1 / -1; }
+:root body.mobile #view .pr-shot { padding: 0; border: 0; background: transparent; border-radius: 14px; display: block; width: 64px; height: 64px; transition: transform .35s var(--spring); }
+:root body.mobile #view .pr-shot:active { transform: scale(.94); }
+:root body.mobile #view .pr-shot.plain { display: grid; place-items: center; background: var(--fill-2); overflow: hidden; }
+:root body.mobile #view .pr-row .prog-main { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; min-width: 0; padding: 0; border: 0; background: transparent; color: var(--ink); text-align: left; }
+:root body.mobile #view .pr-row .prog-title { font-size: 16px; line-height: 20px; font-weight: 600; }
+:root body.mobile #view .pr-row .prog-sub { font-size: 13px; line-height: 17px; color: var(--ink-2); display: block; }
+:root body.mobile #view .pr-row .prog-chev { display: none; }
+:root body.mobile #view .pr-pips { display: inline-flex; gap: 3px; margin-top: 2px; }
+:root body.mobile #view .pr-pips i { width: 15px; height: 15px; border-radius: 4px; display: grid; place-items: center; font: 700 9px var(--round); font-style: normal; color: var(--ink-3); background: var(--fill-2); }
+:root body.mobile #view .pr-pips i.on { background: color-mix(in srgb, var(--action-fill) 22%, var(--panel)); color: var(--accent); }
+:root body.mobile #view .pr-row .crow-body { padding: 0 12px 12px; }
+:root body.mobile #view .pr3 .dayfilter button::after, :root body.mobile #view .pr3 .dayfilter button::before { display: none; }
+:root body.mobile #view .pr-row .prog-sub .pr-sep { font-style: normal; }
+:root body.mobile #view .pr-row .prog-sub .pr-aka { color: var(--ink-3); }
+:root body.mobile #view .pr-row .prog-head { grid-template-areas: "shot main" "days days"; }
+:root body.mobile #view .pr-row .prog-head > .pr-shot { grid-area: shot; }
+:root body.mobile #view .pr-row .prog-head > .prog-main { grid-area: main; }
+:root body.mobile #view .pr-row .prog-head > .prog-days { grid-area: days; }
+:root body.mobile #view .pr-edit { white-space: nowrap; flex: none; }
+:root body.mobile #view .pr-dayline span { flex: 1; min-width: 0; }
+
+/* ======================================================================= OURA */
+:root body.mobile #view .rc3 .rc-about-src { display: none; }
+:root body.mobile #view .rc3 button.rc-tile { font: inherit; color: inherit; text-align: left; cursor: pointer; transition: transform .35s var(--spring); }
+:root body.mobile #view .rc3 button.rc-tile:active { transform: scale(.97); }
+:root body.mobile #view .rc3 .rc-nbig { display: inline-flex; align-items: center; gap: 10px; }
+:root body.mobile #view .rc3 .rc-nbig .rc-chip { font-size: 13px; }
+:root body.mobile #view .rc-aboutrow {
+  display: flex; align-items: center; justify-content: space-between; min-height: 50px; padding: 0 16px; border: 0; border-radius: 16px;
+  background: var(--panel); color: var(--ink); font: 400 17px var(--font); text-align: left;
+}
+:root body.mobile #modal-root .rc-about { display: flex; flex-direction: column; gap: 14px; }
+:root body.mobile #modal-root .rc-aboutbit b { display: block; font-size: 15px; font-weight: 600; margin-bottom: 2px; }
+:root body.mobile #modal-root .rc-aboutbit p { margin: 0; font-size: 15px; line-height: 20px; color: var(--ink-2); }
+:root body.mobile #modal-root .rc-msheet .kc-line.B { stroke: var(--sleep); stroke-width: 1.6; }
+:root body.mobile #modal-root .rc-msheet .kc-mk.B { fill: var(--sleep); r: 2.2px; stroke-width: 0; }
+:root body.mobile .kc-plate { fill: var(--panel); opacity: .92; }
+:root body.mobile #view .rc3 .rc-head2 .ov-count { letter-spacing: 0; font-size: 13px; font-weight: 500; text-transform: none; color: var(--ink-2); }
+:root body.mobile #view .pg-selbtn, :root body.mobile #modal-root .pg-selbtn {
+  display: inline-flex; align-items: center; gap: 4px; min-height: 34px; max-width: 100%; padding: 0 10px 0 12px; border: 0; border-radius: 17px;
+  background: var(--fill-2); color: var(--accent); font: 600 15px var(--font); text-align: left;
+}
+:root body.mobile .pg-selbtn span { overflow-wrap: anywhere; }
+
+/* ======================================================================= CLINICAL */
+:root body.mobile #view .cl3 { gap: 16px; }
+:root body.mobile #view .cl-list { background: var(--panel); border-radius: var(--radius); overflow: hidden; }
+:root body.mobile #view .cl-row { width: 100%; display: grid; grid-template-columns: 44px 1fr auto; align-items: center; gap: 12px; min-height: 60px; padding: 8px 14px; border: 0; background: transparent; color: var(--ink); text-align: left; }
+:root body.mobile #view .cl-row + .cl-row { border-top: .5px solid var(--line-2); }
+:root body.mobile #view .cl-row:active { background: var(--fill-2); }
+:root body.mobile #view .cl-date { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 12px; background: var(--fill-2); }
+:root body.mobile #view .cl-date b { font: 800 17px/19px var(--round); }
+:root body.mobile #view .cl-date small { font-size: 11px; color: var(--ink-2); font-weight: 600; }
+:root body.mobile #view .cl-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+:root body.mobile #view .cl-text b { font-size: 16px; line-height: 20px; font-weight: 600; }
+:root body.mobile #view .cl-text small { font-size: 13px; color: var(--ink-2); }
+:root body.mobile #view .cl-ul { list-style: none; margin: 0; padding: 4px 14px; background: var(--panel); border-radius: var(--radius); }
+:root body.mobile #view .cl-ul li { display: flex; justify-content: space-between; gap: 10px; padding: 10px 0; font-size: 15px; line-height: 20px; }
+:root body.mobile #view .cl-ul li + li { border-top: .5px solid var(--line-2); }
+:root body.mobile #view .cl-pill { flex: none; align-self: flex-start; padding: 2px 9px; border-radius: 10px; background: var(--fill-2); font-size: 13px; font-weight: 600; color: var(--ink-2); }
+:root body.mobile #modal-root .cl-note { display: flex; flex-direction: column; gap: 10px; }
+:root body.mobile #modal-root .cl-notewho { font-size: 13px; color: var(--ink-2); text-align: center; }
+:root body.mobile #modal-root .cl-note ul { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 10px; font-size: 16px; line-height: 22px; }
+/* Melbourne phase detail: sentence case Title 3 headings, and "not yet" in neutral ink (red is
+   only an error he can act on; a gate not yet met is not an error). Met stays green. */
+:root body.mobile #view .progress .section-title { font-size: 20px; line-height: 25px; font-weight: 700; color: var(--ink); text-transform: none; letter-spacing: .38px; margin-top: 18px; }
+:root body.mobile #view .progress .pill.bad { background: var(--fill); color: var(--ink-2); }
+/* No monospaced digits anywhere in this area (DESIGN-LANGUAGE Never 7): rounded, tabular. */
+:root body.mobile #view .progress .mono, :root body.mobile #view .plan3 .mono, :root body.mobile #view .program-page .mono,
+:root body.mobile #view .rc .mono, :root body.mobile #modal-root .mono {
+  font-family: var(--round); font-variant-numeric: tabular-nums; letter-spacing: 0;
+}
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-spark polyline.R { stroke-width: 3.6; }
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-spark polyline.L { stroke-width: 1.8; }
+/* The week's tables in their sheet: one column; the weekly targets are already on the page. */
+:root body.mobile #modal-root .h3-weekpanel .grid2 { display: block; }
+:root body.mobile #modal-root .h3-weekpanel .grid2 > section:first-child { display: none; }
+:root body.mobile #modal-root .h3-weekpanel .ov-sec { margin-top: 14px; }
+:root body.mobile #modal-root .h3-weekpanel .ov-sub { display: none; }
+:root body.mobile #modal-root .h3-weekpanel .tbl { width: 100%; }
+:root body.mobile #modal-root .h3-week { display: flex; flex-direction: column; gap: 10px; padding-bottom: 10px; }
+:root body.mobile #modal-root .h3-wnav { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+:root body.mobile #modal-root .h3-wnav b { font: 600 17px var(--font); }
+:root body.mobile #modal-root .h3-wnav .pg-glassbtn, :root body.mobile #modal-root .h3-wsp { width: 36px; height: 36px; border: 0; border-radius: 50%; background: var(--fill-2); color: var(--accent); display: grid; place-items: center; padding: 0; }
+:root body.mobile #modal-root .h3-wsp { background: transparent; }
+:root body.mobile #modal-root .h3-wnav svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+:root body.mobile #modal-root .h3-wh { margin: 6px 0 0; font-size: 20px; font-weight: 700; }
+:root body.mobile #modal-root .h3-wlist { background: var(--panel-2); border-radius: 14px; overflow: hidden; }
+:root body.mobile #modal-root .h3-wrow { display: grid; grid-template-columns: 48px 1fr auto; gap: 10px; align-items: center; padding: 8px 10px; }
+:root body.mobile #modal-root .h3-wrow + .h3-wrow { border-top: .5px solid var(--line); }
+:root body.mobile #modal-root .h3-wmain { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+:root body.mobile #modal-root .h3-wmain > b { font-size: 15px; line-height: 19px; font-weight: 600; }
+:root body.mobile #modal-root .h3-wdays { display: flex; gap: 3px; }
+:root body.mobile #modal-root .h3-wdays button { width: 22px; height: 22px; padding: 0; border: 0; border-radius: 6px; background: var(--fill); color: var(--ink-2); font: 700 11px var(--round); }
+:root body.mobile #modal-root .h3-wdays button.on { background: var(--good-fill); color: #fff; }
+:root body.mobile #modal-root .h3-wdays button.today { box-shadow: inset 0 0 0 1.5px var(--action-fill); }
+:root body.mobile #modal-root .h3-wdays button:disabled { opacity: .45; }
+:root body.mobile #modal-root .h3-wn { display: inline-flex; align-items: center; gap: 2px; min-height: 34px; padding: 0 8px 0 10px; border: 0; border-radius: 17px; background: var(--fill); color: var(--ink); font: 800 16px var(--round); white-space: nowrap; }
+:root body.mobile #modal-root .h3-wn small { font: 600 13px var(--round); color: var(--ink-2); }
+:root body.mobile #modal-root .h3-wn.met { color: var(--good); }
+:root body.mobile #modal-root .h3-wn .pg-down { color: var(--accent); }
+
+/* ======================================================================= STAGE SHEET (fix d-progress:d1)
+   The Progress road opens the stages in a sheet, picked in place (never a jump to Plan). The road,
+   the chosen stage's head and its markers, read only: recording stays on the Plan tab. */
+:root body.mobile #modal-root .pl-stagesheet .pl-sheetbody { display: flex; flex-direction: column; gap: 16px; padding-bottom: 12px; }
+:root body.mobile #modal-root .pl-stagesheet .road { background: var(--panel); border-radius: var(--radius); padding: 10px 14px 8px; }
+:root body.mobile #modal-root .pl-stagesheet .pl-chip { background: var(--fill-2); }
+:root body.mobile #modal-root .pl-stagesheet .pl-chip.now { background: var(--accent-soft); }
+:root body.mobile #modal-root .pl-stagesheet .pl-h { margin: 0 0 8px 4px; font-size: 20px; line-height: 25px; font-weight: 700; }
+:root body.mobile #modal-root .pl-stagesheet .mr-add { display: none; }
+
+/* ======================================================================= REGION SHEET FIXES (d15, d20, d33) */
+/* A row with no trend has no empty sparkline slot: the name takes the room (d15). */
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-test:not(:has(> .rs-spark)) { grid-template-columns: 1fr auto; }
+/* The board's gap words carry a unit on each number (d20). */
+:root body.mobile #view .bf-gap b small { font: 600 11px var(--round); letter-spacing: 0; }
+/* Knee pain on the Function sheet: a dated line, each colour with its leg word (d33). */
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-pain { text-align: center; font-size: 15px; line-height: 20px; color: var(--ink-2); }
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-pain b { font-weight: 700; }
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-pain b.L { color: var(--left); }
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-pain b.R { color: var(--right); }
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-words { text-wrap: balance; }
+/* The Function row's typical mark at 80 of 80 sits inside the track's rounded end (d19). */
+:root body.mobile .pg-bullet .pkb-tick[style="left:100.00%"] { margin-left: -6px; }
+
+/* History: the calendar key (d4) and the Sessions row that opens in place (d7). */
+:root body.mobile #view .h3-key { display: flex; flex-wrap: wrap; gap: 6px 12px; padding: 12px 4px 0; font-size: 12px; line-height: 16px; color: var(--ink-2); }
+:root body.mobile #view .h3-key span { display: inline-flex; align-items: center; gap: 5px; }
+:root body.mobile #view .h3-kd { position: relative; display: block; width: 16px; height: 16px; border-radius: 5px; background: var(--fill-2); }
+:root body.mobile #view .h3-kd.done { background: var(--good-fill); }
+:root body.mobile #view .h3-kd.part::after, :root body.mobile #view .h3-kd.open::after { content: ""; position: absolute; left: 3px; right: 3px; bottom: 3px; height: 3px; border-radius: 2px; background: color-mix(in srgb, var(--ink) 16%, transparent); }
+:root body.mobile #view .h3-kd.part::after { background: linear-gradient(to right, var(--ink-2) 50%, color-mix(in srgb, var(--ink) 16%, transparent) 0); }
+:root body.mobile #view .h3-kd.rest { background: transparent; box-shadow: inset 0 0 0 1.5px var(--line); }
+:root body.mobile #view .h3-kd.work::after { content: ""; position: absolute; left: 50%; bottom: 3px; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: var(--ink-2); }
+:root body.mobile #view .h3-disc b { font-weight: 600; }
+:root body.mobile #view .h3-rowv { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-2); font: 600 17px var(--round); font-variant-numeric: tabular-nums; }
+:root body.mobile #view .h3-disc .pg-chev { transition: transform .35s var(--spring); }
+:root body.mobile #view .h3-disc.on .pg-chev { transform: rotate(90deg); }
+/* Trends: a seam between test sessions is a thin dashed divider with at most one short line
+   (b-runtime-03: the desktop flex basis made it 176 pt of blank space in the phone's column). */
+:root body.mobile #view .tr3 .pp-seam { flex: none; max-width: none; align-self: stretch; padding: 6px 0; margin: 2px 0; border-top: 1px dashed var(--line); border-bottom: 0; font-size: 13px; line-height: 17px; }
+:root body.mobile #view .tr3 .pp-seam:empty { padding: 0; }
+
+/* ======================================================================= MELBOURNE PAGE (d13, d14) */
+:root body.mobile #view .mel3 .ml-pick { padding-top: 12px; }
+:root body.mobile #view .ml-pickhead { flex-direction: row; justify-content: flex-end; margin: -2px 0 8px; }
+:root body.mobile #view .ml-preop { min-height: 30px; padding: 0 12px; border: 0; border-radius: 15px; background: var(--fill-2); color: var(--accent); font: 600 13px var(--font); }
+:root body.mobile #view .ml-preop.sel { background: var(--action-fill); color: var(--on-accent); }
+/* The picked phase: its name in the action colour on a filled pill (selected must be obvious). */
+:root body.mobile #view .ml-pick .ml-seg.sel .ml-lab { background: var(--action-fill); color: var(--on-accent); border-radius: 9px; padding: 1px 7px; margin: -1px -7px; }
+:root body.mobile #view .ml-fact { display: flex; align-items: center; gap: 4px; padding: 0 6px; font-size: 15px; color: var(--ink-2); }
+:root body.mobile #view .ml-i { width: 32px; height: 32px; border: 0; background: transparent; color: var(--accent); display: grid; place-items: center; padding: 0; }
+/* Phase complete: a switch row. */
+:root body.mobile #view .ml-done { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; margin: -4px 0 8px; font-size: 17px; }
+:root body.mobile #view .ml-switch {
+  -webkit-appearance: none; appearance: none; flex: none; position: relative; width: 51px; height: 31px; margin: 0; border-radius: 16px;
+  background: var(--fill); box-shadow: inset 0 0 0 .5px var(--line); transition: background .25s ease; cursor: pointer;
+}
+:root body.mobile #view .ml-switch::after {
+  content: ""; position: absolute; top: 2px; left: 2px; width: 27px; height: 27px; border-radius: 50%; background: #fff;
+  box-shadow: 0 3px 8px rgba(0,0,0,.15), 0 1px 1px rgba(0,0,0,.16); transition: transform .35s var(--spring);
+}
+:root body.mobile #view .ml-switch:checked { background: var(--good-fill); }
+:root body.mobile #view .ml-switch:checked::after { transform: translateX(20px); }
+/* Outcome rows: his result and the target on their own lines. */
+:root body.mobile #view .crit .crit-you { display: block; margin-top: 2px; font: 600 13px/17px var(--round); color: var(--ink); font-variant-numeric: tabular-nums; }
+:root body.mobile #view .crit .crit-target { display: block; margin-top: 1px; font-size: 12px; line-height: 16px; color: var(--ink-3); }
+:root body.mobile #view .mel3 .section-title .pill { margin-left: 6px; vertical-align: 2px; }
+/* Units in the Trends passports at the phone's smallest legible size (B19: they were 10.9 px). */
+:root body.mobile #view .tr3 .passport small { font-size: 12px; }
+
+/* ======================================================================= PLAN FIXES (d8, d9, d26, d27, d28) */
+/* The page title on one line, so the Plan and Program switch sits where it does on Program (d9, d26). */
+:root body.mobile #view > .stack.pl3 > .pagehead:first-child > h1:first-child { padding-right: 50px; }
+/* The view menu is the road's heading (Stages or By month), like Trends' region menu. */
+:root body.mobile #view .pl-modehead {
+  display: inline-flex; align-items: center; gap: 4px; min-height: 36px; padding: 0; border: 0; background: transparent;
+  color: var(--ink); font: 700 20px/25px var(--font); letter-spacing: .38px; flex: none;
+}
+:root body.mobile #view .pl-modehead .pg-down { width: 18px; height: 18px; color: var(--accent); }
+:root body.mobile #view .pl-modehead:active { transform: scale(.96); }
+:root body.mobile #view .pl-roadhead .pl-i { margin-left: auto; }
+/* A heading with its count or date on one line. */
+:root body.mobile #view .pl-mhead { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin: 0 0 8px; }
+:root body.mobile #view .pl-mhead .pl-h { margin: 0 0 0 4px; }
+:root body.mobile #view .pl-mhead .pm-days, :root body.mobile #view .pl-mhead .pl-chip { flex: none; margin-right: 4px; }
+/* What the evaluation found: one grouped list. */
+:root body.mobile #view .pl-found { background: var(--panel); border-radius: var(--radius); overflow: hidden; }
+:root body.mobile #view .pl-frow { display: grid; grid-template-columns: minmax(0, 42%) 1fr; gap: 12px; align-items: baseline; padding: 11px 14px; }
+:root body.mobile #view .pl-frow + .pl-frow { border-top: .5px solid var(--line-2); }
+:root body.mobile #view .pl-fk { font-size: 13px; line-height: 17px; color: var(--ink-2); font-weight: 600; }
+:root body.mobile #view .pl-fk.L { color: var(--left); }
+:root body.mobile #view .pl-fk.R { color: var(--right); }
+:root body.mobile #view .pl-fv { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+:root body.mobile #view .pl-fv b { font-size: 17px; line-height: 22px; font-weight: 700; }
+:root body.mobile #view .pl-fv small { font-size: 13px; line-height: 17px; color: var(--ink-2); }
+/* Months tiles say what the percent is. */
+:root body.mobile #view .mtile .mt-what { white-space: nowrap; font-size: 12px; line-height: 14px; color: var(--ink-2); font-weight: 600; margin-top: -2px; flex-basis: 100%; order: 2; }
+:root body.mobile #view .mtile .mt-bar { order: 3; }
+:root body.mobile #view .mtile.on .mt-what { color: var(--accent); }
+/* Marker target under the title when two legs fill the bar rows. */
+:root body.mobile :is(#view, #modal-root) .mr-target.top { display: flex; margin: 3px 0 0; font: 400 13px/17px var(--font); color: var(--ink-2); }
+/* The done toggle says what it does. */
+:root body.mobile :is(#view, #modal-root) .mr-add.word { width: auto; min-width: 0; padding: 0 12px; border-radius: 16px; font: 600 13px var(--font); white-space: nowrap; }
+/* Section switchers look and sit the same on every page (d9): the Plan and Program switch and the
+   Oura page's own copy of Progress's sections take the Overview's spacing and weights. */
+:root body.mobile #view .nt-seg, :root body.mobile #view .nt-ring { margin: 0 0 4px; }
+/* The web app's Plan / Program switch (planseg.js, 2026-09-30): two equal halves, laid out like Progress's sections. */
+:root body.mobile #view .nt-seg { display: grid; grid-template-columns: 1fr 1fr; justify-content: stretch; }
+:root body.mobile #view .nt-seg button { justify-self: stretch; text-align: center; }
+:root body.mobile #view .nt-seg button:not(.on), :root body.mobile #view .nt-ring button:not(.on) { font-weight: 550; color: var(--ink-2); }
+/* Program: an exercise with no photo shows its glyph tile once, filling the picture slot, not a
+   coloured box inside a grey box (d31). */
+:root body.mobile #view .pr-shot.plain { background: transparent; }
+:root body.mobile #view .pr-shot.plain > .thumb { width: 64px !important; height: 64px !important; border-radius: 14px; }
+/* Milestones in their sheet (d32). */
+:root body.mobile #modal-root .ms-sheetbody { display: flex; flex-direction: column; gap: 18px; padding-bottom: 12px; }
+:root body.mobile #modal-root .ms-sheetbody .ov-head { display: flex; align-items: baseline; margin: 0 0 6px; }
+:root body.mobile #modal-root .ms-sheetbody .ov-head h2 { margin: 0; font-size: 20px; line-height: 25px; font-weight: 700; text-transform: none; letter-spacing: .38px; }
+:root body.mobile #modal-root .ms-sheetbody .ms-text b { font-size: 17px; font-weight: 600; }
+:root body.mobile #modal-root .ms-sheetbody .ms-text span { font-size: 13px; }
+/* Oura long views: a range control like Health's (d11). */
+:root body.mobile #modal-root .rc-range { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; padding: 2px; margin: 0 0 10px; border-radius: 9px; background: var(--fill-2); }
+:root body.mobile #modal-root .rc-range button { min-height: 30px; border: 0; border-radius: 7px; background: transparent; color: var(--ink); font: 600 13px var(--font); transition: background .2s ease; }
+:root body.mobile #modal-root .rc-range button.on { color: var(--accent); background: var(--panel); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+/* The shape of your nights: every column's bar starts on one line, whatever its label's length (b-runtime-06). */
+:root body.mobile #view .rc3 .rc-cols { align-items: start; }
+
+/* =====================================================================================
+   Round 3 (2026-09-30): Progress leads with a glass switch (Legs, Sleep, History) and Legs
+   leads with the Standing Figure (js/views/figure.js). Plan 1C, A11. Owner: the Progress
+   builder. Colour: blue and orange ONLY on the legs' own marks (fills, numbers, the L and R
+   capsules); turquoise = selected; green only the small check at a goal; no red. The figure
+   stands on a stage: a neutral follow spot and a floor shadow (the show he is getting ready
+   for), never a colour that could read as a leg.
+   ===================================================================================== */
+:root body.mobile #view .progress > .pg-modes { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; }
+:root body.mobile #view .progress > .pg-modes > button { justify-content: center; text-align: center; }
+:root body.mobile #view .pg-back {
+  display: inline-flex; align-items: center; gap: 2px; align-self: flex-start; margin: -2px 0 -6px -6px;
+  min-height: 36px; padding: 0 10px 0 4px; border: 0; background: none; color: var(--accent);
+  font: 400 17px/22px var(--font);
+}
+:root body.mobile #view .pg-back svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+:root body.mobile #view .pg-more { display: flex; flex-direction: column; background: var(--panel); border-radius: 18px; overflow: hidden; }
+:root body.mobile #view .pg-more > button {
+  display: flex; align-items: center; justify-content: space-between; min-height: 50px; padding: 0 14px 0 16px;
+  border: 0; background: none; color: var(--ink); font: 400 17px/22px var(--font); text-align: left;
+}
+:root body.mobile #view .pg-more > button + button { box-shadow: inset 16px .5px 0 -16px var(--line), inset 0 .5px 0 var(--line); }
+:root body.mobile #view .pg-more > button:active { background: var(--fill); }
+
+/* ------------------------------------------------------------------ the Standing Figure */
+:root body.mobile #view .fg { --fg-w: 148px; position: relative; display: flex; flex-direction: column; gap: 6px; }
+@media (min-width: 700px) { :root body.mobile #view .fg { --fg-w: 230px; } }
+:root body.mobile #view .fg-fn {
+  display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px; width: 100%;
+  min-height: 44px; padding: 0 14px; border: 0; border-radius: 14px; background: var(--panel); color: var(--ink); text-align: left;
+  transition: transform .3s var(--spring), box-shadow .2s;
+}
+:root body.mobile #view .fg-fn:active { transform: scale(.98); }
+:root body.mobile #view .fg-fn.on { box-shadow: inset 0 0 0 2px var(--accent); }
+:root body.mobile #view .fg-fnname { font: 600 15px/20px var(--font); }
+:root body.mobile #view .fg-fnbar { position: relative; height: 8px; border-radius: 4px; background: var(--track); }
+:root body.mobile #view .fg-fnbar > i {
+  position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px; width: calc(var(--p) * 100%);
+  background: color-mix(in srgb, var(--ink) 62%, var(--panel)); transition: width .45s var(--spring-soft);
+}
+:root body.mobile #view .fg-fntick { position: absolute; top: -4px; bottom: -4px; width: 2.5px; margin-left: -1.25px; border-radius: 2px; left: min(calc(var(--at) * 100%), calc(100% - 4px)); background: var(--ink); }
+:root body.mobile #view .fg-fnnum { font: 800 20px/24px var(--round); font-variant-numeric: tabular-nums; display: inline-block; }
+:root body.mobile #view .fg-fnnum small { font: 600 13px var(--font); color: var(--ink-2); }
+
+:root body.mobile #view .fg-read {
+  display: flex; justify-content: center; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; min-height: 22px;
+  font: 400 15px/22px var(--font); color: var(--ink-2); text-align: center; font-variant-numeric: tabular-nums;
+}
+:root body.mobile #view .fg-read b { color: var(--ink); font-weight: 600; }
+:root body.mobile #view .fg-read span.L { color: var(--left); font: 700 15px/22px var(--round); }
+:root body.mobile #view .fg-read span.R { color: var(--right); font: 700 15px/22px var(--round); }
+:root body.mobile #view .fg-read i { font-style: normal; font-size: 12px; margin-left: 1px; }
+
+:root body.mobile #view .fg-body {
+  position: relative; display: grid; grid-template-columns: 1fr var(--fg-w) 1fr; padding-top: 4px; isolation: isolate;
+}
+/* The stage: a soft follow spot behind the figure and a floor shadow under the feet. */
+:root body.mobile #view .fg-body::before {
+  content: ""; position: absolute; z-index: -1; left: 50%; top: 10px; width: calc(var(--fg-w) * 1.9); bottom: -6px;
+  transform: translateX(-50%); border-radius: 50% 50% 46% 46% / 30% 30% 12% 12%;
+  background: radial-gradient(60% 55% at 50% 42%, color-mix(in srgb, var(--panel) 92%, transparent), transparent 72%);
+}
+:root body.mobile #view .fg-body::after {
+  content: ""; position: absolute; z-index: -1; left: 50%; bottom: 0; width: calc(var(--fg-w) * .95); height: 16px;
+  transform: translate(-50%, 45%); border-radius: 50%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--ink) 16%, transparent), transparent);
+}
+:root body.mobile #view .fg-fig { position: relative; width: var(--fg-w); aspect-ratio: 112 / 250; }
+:root body.mobile :is(#view, #modal-root) .fg-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+:root body.mobile :is(#view, #modal-root) .fg-art {
+  position: absolute; inset: 0; pointer-events: none; background: color-mix(in srgb, var(--ink) 80%, transparent);
+  -webkit-mask-image: url("img/silhouette-front.svg"); mask-image: url("img/silhouette-front.svg");
+  -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+  -webkit-mask-size: var(--ms, 100% 100%); mask-size: var(--ms, 100% 100%);
+  -webkit-mask-position: var(--mp, 0 0); mask-position: var(--mp, 0 0);
+}
+:root body.mobile :is(#view, #modal-root) .fg-glass { fill: color-mix(in srgb, var(--ink) 6%, transparent); transition: fill .2s; }
+:root body.mobile :is(#view, #modal-root) .fg-fill {
+  transform-box: fill-box; transform-origin: 50% 100%; transform: scaleY(var(--p));
+  transition: transform .5s var(--spring-soft), opacity .2s;
+}
+:root body.mobile :is(#view, #modal-root) .fg-fill.B { fill: color-mix(in srgb, var(--ink) 55%, transparent); }
+:root body.mobile #view .fg-svg.rise .fg-fill { animation: fg-rise .6s var(--spring-soft) both; animation-delay: calc(var(--d) * 70ms + 80ms); }
+@keyframes fg-rise { from { transform: scaleY(0); } }
+:root body.mobile :is(#view, #modal-root) .fg-tick { stroke: var(--ink); stroke-width: 2px; vector-effect: non-scaling-stroke; stroke-linecap: round; }
+:root body.mobile :is(#view, #modal-root) .fg-tick.ref { stroke-width: 1.5px; stroke-dasharray: 3 2.5; stroke: color-mix(in srgb, var(--ink) 70%, transparent); }
+:root body.mobile :is(#view, #modal-root) .fg-edge { fill: none; stroke: transparent; stroke-width: 2.5px; vector-effect: non-scaling-stroke; stroke-linejoin: round; transition: stroke .15s; }
+:root body.mobile #view .fg-reg.on .fg-edge,
+:root body.mobile #view .fg-reg.peek .fg-edge { stroke: var(--accent); }
+:root body.mobile #view .fg-reg.on .fg-glass,
+:root body.mobile #view .fg-reg.peek .fg-glass { fill: color-mix(in srgb, var(--accent) 16%, transparent); }
+:root body.mobile #view .fg-hit { fill: transparent; stroke: transparent; stroke-width: 6px; vector-effect: non-scaling-stroke; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+:root body.mobile #view .fg.peeking .fg-reg:not(.peek) .fg-fill { opacity: .32; }
+:root body.mobile #view .fg-reg.empty .fg-glass { fill: transparent; }
+:root body.mobile #view .fg-lead { fill: none; stroke: color-mix(in srgb, var(--ink) 30%, transparent); stroke-width: 1px; vector-effect: non-scaling-stroke; }
+:root body.mobile #view .fg-leaddot { fill: color-mix(in srgb, var(--ink) 55%, transparent); }
+:root body.mobile #view .fg { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+
+:root body.mobile #view .fg-gut { position: relative; }
+:root body.mobile #view .fg-head { position: relative; min-height: 30px; padding: 0 40px; display: flex; align-items: center; justify-content: center; }
+:root body.mobile #view .fg-cap {
+  position: absolute; top: 50%; transform: translateY(-50%); display: grid; place-items: center; width: 32px; height: 26px; border-radius: 13px;
+  font: 800 15px/1 var(--round); color: #fff;
+}
+:root body.mobile #view .fg-cap.L { left: 6px; background: var(--left-fill); }
+:root body.mobile #view .fg-cap.R { right: 6px; background: var(--right-fill); color: #1A0D00; }
+:root body.mobile #view .fg-tag {
+  position: absolute; top: calc(var(--y) * 1%); transform: translateY(-50%); width: calc(100% - 4px); max-width: 128px; height: 42px;
+  display: flex; flex-direction: column; justify-content: center; gap: 0; padding: 0 9px; border: 0; border-radius: 12px;
+  background: var(--panel); color: var(--ink); box-shadow: 0 1px 2px rgba(0, 0, 0, .05);
+  transition: transform .3s var(--spring), box-shadow .2s;
+}
+:root body.mobile #view .fg-gut.L .fg-tag { right: 4px; align-items: flex-end; text-align: right; }
+:root body.mobile #view .fg-gut.R .fg-tag { left: 4px; align-items: flex-start; text-align: left; }
+:root body.mobile #view .fg-tag:active { transform: translateY(-50%) scale(.95); }
+/* PSP-14: a 44 pt touch target. The chip draws 42 pt (its neighbours sit about 45 pt apart, so a
+   44 pt drawing would touch them); the hit area adds 1 pt above and below, still clear of the next. */
+:root body.mobile #view .fg-tag::after { content: ""; position: absolute; left: 0; right: 0; top: -1px; bottom: -1px; }
+:root body.mobile #view .fg-tag.on, :root body.mobile #view .fg-tag.peek { box-shadow: inset 0 0 0 2px var(--accent); }
+:root body.mobile #view .fg-tag small { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 12px/14px var(--font); color: var(--ink-2); }
+:root body.mobile #view .fg-tag b { display: inline-flex; align-items: center; gap: 3px; font: 800 20px/24px var(--round); font-variant-numeric: tabular-nums; letter-spacing: -.3px; white-space: nowrap; }
+:root body.mobile #view .fg-tag b > span { display: inline-block; }
+:root body.mobile #view .fg-tag.L b { color: var(--left); }
+:root body.mobile #view .fg-tag.R b { color: var(--right); }
+:root body.mobile #view .fg-tag.then b { color: var(--ink-3); }
+:root body.mobile #view .fg-tag b i { font: 700 12px var(--round); font-style: normal; margin-left: 1px; opacity: .85; }
+:root body.mobile #view .fg-tag b em { font: 500 13px var(--font); font-style: normal; color: var(--ink-3); }
+:root body.mobile #view .fg-ok { width: 15px; height: 15px; fill: none; stroke: var(--good); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+:root body.mobile #view .roll > span, :root body.mobile #view .fg-fnnum.roll { animation: fg-roll .38s var(--spring) both; }
+@keyframes fg-roll { from { transform: translateY(45%); opacity: .2; } }
+
+/* A11: the figure through time. */
+:root body.mobile #view .fg-trackwrap { width: min(100%, 300px); margin: 10px auto 0; }
+:root body.mobile #view .fg-track { position: relative; height: 34px; touch-action: none; cursor: pointer; outline: none; }
+:root body.mobile #view .fg-rail { position: absolute; left: 12px; right: 12px; top: 50%; height: 4px; margin-top: -2px; border-radius: 2px; background: var(--track); }
+:root body.mobile #view .fg-dot { position: absolute; top: 50%; left: calc(12px + (100% - 24px) * var(--x)); width: 8px; height: 8px; border-radius: 50%; background: var(--ink-3); transform: translate(-50%, -50%); }
+:root body.mobile #view .fg-knob {
+  position: absolute; top: 50%; left: calc(12px + (100% - 24px) * var(--x)); width: 24px; height: 24px; border-radius: 50%;
+  background: var(--panel); box-shadow: inset 0 0 0 2.5px var(--accent), 0 2px 6px rgba(0, 0, 0, .18);
+  transform: translate(-50%, -50%); transition: left .32s var(--spring), transform .2s var(--spring);
+}
+:root body.mobile #view .fg-track.drag .fg-knob { transform: translate(-50%, -50%) scale(1.15); }
+:root body.mobile #view .fg-track:focus-visible .fg-knob { box-shadow: inset 0 0 0 2.5px var(--accent), 0 0 0 4px color-mix(in srgb, var(--accent) 30%, transparent); }
+:root body.mobile #view .fg-trackl { display: flex; justify-content: space-between; padding: 0 2px; font: 500 12px/16px var(--font); color: var(--ink-2); }
+:root body.mobile #view .fg.past .fg-read b { color: var(--accent); }
+:root body.mobile #view .fg-hops {
+  align-self: center; display: inline-flex; align-items: baseline; gap: 10px; min-height: 40px; padding: 0 16px; margin-top: 4px;
+  border: 0; border-radius: 20px; background: var(--panel); color: var(--ink); font: 600 15px/20px var(--font);
+}
+:root body.mobile #view .fg-hops b { font: 800 17px var(--round); }
+:root body.mobile #view .fg-hops b.L { color: var(--left); }
+:root body.mobile #view .fg-hops b.R { color: var(--right); }
+@media (prefers-reduced-motion: reduce) {
+  :root body.mobile :is(#view, #modal-root) .fg-fill, :root body.mobile #view .fg-knob, :root body.mobile #view .fg-fnbar > i { transition: none; }
+  :root body.mobile #view .fg-svg.rise .fg-fill, :root body.mobile #view .roll > span, :root body.mobile #view .fg-fnnum.roll { animation: none; }
+}
+
+/* ------------------------------------------------------------------ the region sheet, round 3 */
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-hero.has-fig { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; }
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-hero.has-fig .rs-big { min-width: 0; }
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-hero.has-fig .rs-big b { font-size: 42px; line-height: 48px; }
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-fig { display: block; }
+:root body.mobile #modal-root .fg-crop { position: relative; display: block; height: 86px; aspect-ratio: var(--ar); max-width: 150px; overflow: hidden; }
+/* The crop's SVG draws with overflow visible (the figure's rule), so without the clip each leg's faint glass ran on
+   past the window behind the sheet's text: a second pair of legs (his report, 2026-10-02). */
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-pager { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; margin: -4px 0 8px; }
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-pg {
+  display: inline-flex; align-items: center; gap: 2px; min-height: 36px; padding: 0 6px; border: 0; background: none;
+  color: var(--accent); font: 400 15px/20px var(--font); white-space: nowrap;
+}
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-pg.next { justify-self: end; }
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-pg.prev { justify-self: start; }
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-pg svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-pgdots { display: flex; gap: 5px; }
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-pgdots i { width: 6px; height: 6px; border-radius: 50%; background: var(--line); }
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs-pgdots i.on { background: var(--accent); }
+/* PSP-06: fill "backwards", not "both", so the slide ends instead of staying in effect (WebKit kept
+   counting its 48 pt start in the body's scroll width, a 30 pt sideways drift), and the sheet
+   body never scrolls sideways at all: the only sideways gesture on it is the swipe to a region. */
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs.in-next { animation: rs-in-next .38s var(--spring-soft) backwards; }
+:root body.mobile :is(#modal-root, #view .pgx-panel) .rs.in-prev { animation: rs-in-prev .38s var(--spring-soft) backwards; }
+:root body.mobile #modal-root .modal.rs-sheet .mbody { overflow-x: hidden; }
+@keyframes rs-in-next { from { transform: translateX(48px); } }
+@keyframes rs-in-prev { from { transform: translateX(-48px); } }
+@media (prefers-reduced-motion: reduce) { :root body.mobile :is(#modal-root, #view .pgx-panel) .rs.in-next, :root body.mobile :is(#modal-root, #view .pgx-panel) .rs.in-prev { animation: none; } }
+
+/* History: his life on the calendar (plan 2.7), one small ink glyph per fact, top right. */
+:root body.mobile #view .h3-life { position: absolute; z-index: 1; top: 3px; right: 3px; display: flex; gap: 1px; }
+:root body.mobile #view .h3-lg, :root body.mobile #view .h3-kl { display: inline-grid; width: 11px; height: 11px; color: var(--ink-2); }
+:root body.mobile #view .h3-cell.done .h3-lg { color: var(--on-good, #fff); }
+:root body.mobile #view .h3-lg svg, :root body.mobile #view .h3-kl svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+:root body.mobile #view .h3-lg.show svg, :root body.mobile #view .h3-kl.show svg { fill: currentColor; stroke-width: 1.4; }
+:root body.mobile #view .h3-kl { width: 14px; height: 14px; margin-right: 5px; vertical-align: -2px; }
+
+/* The Progress header: the Plan's multicolour ribbon in miniature inside the stage strip. */
+:root body.mobile #view .rd-strip:has(.rd-rb) { grid-template-rows: auto 20px; row-gap: 6px; }
+:root body.mobile #view .rd-strip .rd-rb { grid-column: 1 / -1; display: block; width: 100%; min-width: 0; }
+/* The hero road's own sizes (rt-plan.css, scoped to #view) outrank the mini's; restate the mini here. */
+:root body.mobile #view .rd-rb .rb-mini .rb-road { top: 5px; height: 10px; bottom: auto; border-radius: 5px; }
+:root body.mobile #view .rd-rb .rb-mini .rb-seam { top: 0; bottom: 0; height: auto; }
+
+/* =====================================================================================
+   THE IPAD (2026-09-30, his words: "the iPad layout should probably be a bit more robust and
+   capable than the iPhone one, or at least show things at a lot easier flow because it's such a
+   big screen"; his device rule: the iPad gets the full app, the iPhone is for logging).
+
+   Every rule here is inside (min-width: 700px) and (min-height: 560px): an iPhone never has
+   both (held sideways it is 852 by 393), so nothing below can change the phone. Widths that
+   matter come from the CONTAINER, not the viewport (the web rail takes 232 px from 900 up, and
+   a Slide Over window is narrower than the screen): `.progress` is the container "pgx".
+   Portrait 11 inch is 834 (802 of content), landscape 1194 (1162, capped at 1080 below).
+   Landscape cannot be rotated on the command line, so those rules were read against 1194 x 834.
+   ===================================================================================== */
+@media (min-width: 700px) and (min-height: 560px) {
+  :root body.mobile #view .progress { container: pgx / inline-size; max-width: 1180px; }
+  /* styles.css gives .ov a start aligned grid from 700 px, which shrinks every child to its own
+     width (the phone layout stretched into a corner); Legs is stretched again here. */
+  :root body.mobile #view .ov-legs { align-items: stretch; }
+  :root body.mobile #view .pgx-panel { display: none; }
+}
+@container pgx (min-width: 620px) {
+  /* Legs: the ribbon across the top; the Standing Figure on the leading half (the panel scrolls
+     inside its own card), the selected region's statistics on the trailing half; below,
+     the board and the Melbourne guide side by side. */
+  :root body.mobile #view .ov-legs.pgx {
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px 22px; align-items: start;
+  }
+  :root body.mobile #view .pgx > .ov-top { grid-column: 1 / -1; grid-row: 1; }
+  :root body.mobile #view .pgx > .fg {
+    grid-column: 1; grid-row: 2; align-self: stretch; justify-content: center; container: fgc / inline-size;
+    padding: 12px 8px 14px; border-radius: 24px; background: var(--panel);
+  }
+  :root body.mobile #view .pgx .fg-body { --fg-w: clamp(140px, 40cqi, 236px); }
+  :root body.mobile #view .pgx .fg-tag { max-width: 150px; padding: 0 7px; }
+  :root body.mobile #view .pgx > .pgx-panel {
+    display: block; grid-column: 2; grid-row: 2; min-width: 0; padding: 14px 18px 18px; border-radius: 24px; background: var(--panel);
+    /* As tall as the figure's card and no taller (size containment takes its content out of the
+       row's height), its own scroll inside: figure and detail read as one master and detail
+       pair, on one screen, whatever the region holds. */
+    align-self: stretch; contain: size; min-height: 540px; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+  }
+  :root body.mobile #view .pgx > .bf { grid-column: 1; grid-row: 3; }
+  :root body.mobile #view .pgx > .ml { grid-column: 2; grid-row: 3; align-self: start; }
+  :root body.mobile #view .pgx .bf-row.on { background: var(--accent-soft); box-shadow: inset 0 0 0 2px var(--accent); }
+  /* iPad check 2026-09-30: the selected ring hugged the text (Function, whose row has no number column, was
+     clipped at both ends). Rows grow 10 pt each side into the card padding; content stays where it was. */
+  :root body.mobile #view .pgx .bf-row { width: calc(100% + 20px); margin-inline: -10px; padding-inline: 10px; }
+  :root body.mobile #view .pgx .bf-row + .bf-row::before { left: 10px; right: 10px; }
+  /* The panel is the region sheet's body in place: bigger numbers, the chart across the column. */
+  :root body.mobile #view .pgx-panel .rs { padding-bottom: 26px; gap: 12px; }
+  :root body.mobile #view .pgx > .pgx-panel { -webkit-mask-image: linear-gradient(#000 calc(100% - 26px), transparent); mask-image: linear-gradient(#000 calc(100% - 26px), transparent); }
+  :root body.mobile #view .pgx-panel .rs-top { text-align: left; }
+  :root body.mobile #view .pgx-panel .rs-title { font-size: 22px; line-height: 27px; font-weight: 700; }
+  :root body.mobile #view .pgx-panel .rs-hero { justify-content: space-around; gap: 16px; }
+  :root body.mobile #view .pgx-panel .rs-big b { font-size: 60px; line-height: 66px; }
+  :root body.mobile #view .pgx-panel .rs-words { text-align: left; font-size: 17px; line-height: 22px; }
+  :root body.mobile #view .pgx-panel .rs-since { text-align: left; }
+  :root body.mobile #view .pgx-panel .rs-pager { margin: -6px 0 2px; }
+  :root body.mobile #view .pgx-panel .rs-chart { margin: 2px -4px 0; }
+  :root body.mobile #view .pgx-panel .rs-tests, :root body.mobile #view .pgx-panel .rs-facts { background: var(--fill-2); }
+  :root body.mobile #view .pgx-panel .rs-more { background: var(--fill-2); }
+  :root body.mobile #view .pgx-panel .rs.in-next { animation-duration: .3s; }
+  /* The ribbon header across the whole width: bigger words, a taller road. */
+  :root body.mobile #view .pgx .rd-strip { padding: 14px 20px 15px; }
+  :root body.mobile #view .pgx .rd-strip-t { font-size: 17px; line-height: 22px; }
+  :root body.mobile #view .pgx .rd-strip-due { font-size: 15px; line-height: 22px; }
+  :root body.mobile #view .pgx .ov-ms { width: 76px; }
+}
+@container pgx (min-width: 1000px) {
+  :root body.mobile #view .ov-legs.pgx { grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr); }
+  :root body.mobile #view .pgx .fg-body { --fg-w: clamp(150px, 44cqi, 250px); }
+}
+
+/* History on the iPad: the month and the dated timeline on the leading half, the rest beside it. */
+@container pgx (min-width: 620px) {
+  :root body.mobile #view .hist3.h3-tab { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px 22px; align-items: start; }
+  :root body.mobile #view .h3-tab > .h3-lcol, :root body.mobile #view .h3-tab > .h3-rcol { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+}
+
+/* Every test on the iPad: a grid, two across (trends.js draws each chart at its column's width). */
+@container pgx (min-width: 620px) {
+  :root body.mobile #view .tr3.tr-tab { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px 20px; align-items: start; }
+  :root body.mobile #view .tr-tab > .t3-bar, :root body.mobile #view .tr-tab > .panelsec { grid-column: 1 / -1; }
+  :root body.mobile #view .tr-tab > .t3-card { min-width: 0; padding: 16px 18px 12px; }
+}
+/* Landscape is 834 tall: the figure is held to a size that leaves the function bar, the figure and
+   its date track mostly on the first screen under the ribbon (the rest is one short scroll). */
+@media (min-width: 700px) and (min-height: 560px) and (max-height: 900px) {
+  @container pgx (min-width: 1000px) {
+    :root body.mobile #view .pgx .fg-body { --fg-w: clamp(140px, 44cqi, 172px); }
+  }
+}
+
+/* 2026-09-30: whole region looks for the leg figure (figure.js STYLE), no hard band edges. */
+:root body.mobile :is(#view, #modal-root) .fg-tint.L { fill: var(--left-fill); }
+:root body.mobile :is(#view, #modal-root) .fg-tint.R { fill: var(--right-fill); }
+:root body.mobile :is(#view, #modal-root) .fg-tint.B { fill: color-mix(in srgb, var(--ink) 55%, transparent); }
+:root body.mobile :is(#view, #modal-root) .fg-tint { fill-opacity: calc(.12 + .8 * var(--q)); transition: fill-opacity .6s var(--spring-soft); }
+:root body.mobile :is(#view, #modal-root) .fg-glow { opacity: calc(.2 + .8 * var(--q)); transition: opacity .6s var(--spring-soft); }
+:root body.mobile :is(#view, #modal-root) .fg-glow.B { fill: color-mix(in srgb, var(--ink) 40%, transparent); }
+:root body.mobile :is(#view, #modal-root) .fg-sheen { pointer-events: none; }
+:root body.mobile :is(#view, #modal-root) .fg-style-rings .fg-sheen { display: none; }
+:root body.mobile :is(#view, #modal-root) .fg-ring-track { fill: color-mix(in srgb, var(--panel) 85%, transparent); stroke: color-mix(in srgb, var(--ink) 12%, transparent); }
+:root body.mobile :is(#view, #modal-root) .fg-ring { fill: none; stroke-linecap: round; transition: stroke-dasharray .7s var(--spring-soft); }
+:root body.mobile :is(#view, #modal-root) .fg-ring.L { stroke: var(--left-fill); }
+:root body.mobile :is(#view, #modal-root) .fg-ring.R { stroke: var(--right-fill); }
+:root body.mobile :is(#view, #modal-root) .fg-ring.B { stroke: color-mix(in srgb, var(--ink) 55%, transparent); }
+:root body.mobile :is(#view, #modal-root) .fg-style-rings .fg-glass { fill: color-mix(in srgb, var(--ink) 5%, transparent); }
+:root body.mobile #view .fg-svg.rise :is(.fg-tint, .fg-glow, .fg-ringset) { animation: fg-bloom .7s var(--spring-soft) both; animation-delay: calc(var(--d) * 70ms + 80ms); }
+@keyframes fg-bloom { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { :root body.mobile #view .fg-svg.rise :is(.fg-tint, .fg-glow, .fg-ringset) { animation: none; } }
+
+/* Tint: one seamless colour per leg (fillsSvg legLayer); the region glass stays clear unless selected. */
+:root body.mobile :is(#view, #modal-root) .fg-style-tint .fg-reg:not(.on):not(.peek) .fg-glass { fill: transparent; }
+:root body.mobile #view .fg-svg.rise .fg-legtint { animation: fg-bloom .7s var(--spring-soft) both; animation-delay: 80ms; }
+@media (prefers-reduced-motion: reduce) { :root body.mobile #view .fg-svg.rise .fg-legtint { animation: none; } }
+
+/* Faint dashes between regions (his ask 2026-09-30), light so they never read as the figure's own ink lines. */
+:root body.mobile :is(#view, #modal-root) .fg-div { stroke: #fff; stroke-opacity: .8; stroke-width: .75; stroke-dasharray: 2.2 1.7; stroke-linecap: round; fill: none; }
+/* In dark mode the figure's outline is light, so the dashes go dark: never the same colour as the outline. */
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) body.mobile :is(#view, #modal-root) .fg-div { stroke: #000; stroke-opacity: .5; } }
+:root[data-theme="dark"] body.mobile :is(#view, #modal-root) .fg-div { stroke: #000; stroke-opacity: .5; }
+
+/* Level: fills rise per region (figure.js legLayer, STYLE 'level'). */
+:root body.mobile :is(#view, #modal-root) .fg-level { transform-box: fill-box; transform-origin: 50% 100%; transition: transform .5s var(--spring-soft); }
+:root body.mobile #view .fg-svg.rise .fg-level { animation: fg-rise .7s var(--spring-soft) both; animation-delay: 120ms; }
+@media (prefers-reduced-motion: reduce) { :root body.mobile #view .fg-svg.rise .fg-level { animation: none; } }
+
+/* Level: the part still to go is hatched (figure.js), a met goal gets a gold rim inside the region. */
+:root body.mobile :is(#view, #modal-root) .fg-metrim { fill: none; stroke: var(--gold-glow); stroke-width: 2.2; }
+:root body.mobile :is(#view, #modal-root) .fg-style-level .fg-legtint > rect:first-child { opacity: .55; }

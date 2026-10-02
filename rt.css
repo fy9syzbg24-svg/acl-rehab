@@ -1,0 +1,1508 @@
+/* ==========================================================================
+   Rehab Test design system (2026-09-29). The test app's own look, loaded last.
+   Built from /apple-design (Apple's HIG, Health and Fitness as they run on iOS 27)
+   and his rubric. His brief: "rework everything ... the layout, the fonts, colors,
+   how much vertical space things are taking versus horizontal space, how things are
+   organized, the workout page ... the animations being more dynamic and exciting".
+
+   What does not change, whatever the look (his rules): one colour one meaning
+   (turquoise = action and selected, green = done, blue = left, orange = right,
+   gold = finished, category colours on rings and labels, red = an error to act
+   on); words on solid ground; no dashes in screen text; full titles; nothing
+   alone on a line; controls keep their identity; more motion, never a crossfade
+   between screens; Reduce Motion and Low Power respected.
+
+   Apple's language, in five lines:
+     SF Pro for words, SF Pro Rounded for every number that matters.
+     Grouped backgrounds: a quiet page, solid cards with big concentric corners.
+     Large titles on top level screens; a small centred title once scrolled.
+     One primary action per screen, a wide capsule; glass only on floating controls.
+     Numbers are the biggest thing on a data screen; labels small and grey.
+   ========================================================================== */
+
+/* ---------------------------------------------------------------- tokens --- */
+:root {
+  --font: -apple-system, system-ui, "SF Pro Text", "Helvetica Neue", sans-serif;
+  --round: ui-rounded, "SF Pro Rounded", -apple-system, system-ui, sans-serif;
+
+  --bg: #F2F2F7;                 /* systemGroupedBackground */
+  --panel: #FFFFFF;              /* secondarySystemGroupedBackground */
+  --panel-2: #EDEDF2;            /* a fill inside a card */
+  --fill: rgba(120, 120, 128, .12);          /* tertiarySystemFill */
+  --fill-2: rgba(120, 120, 128, .08);
+  --ink: #0B0B0F;
+  --ink-2: #5C5C63;              /* secondary label, 6.3:1 on white */
+  --ink-3: #6C6C72;
+  --line: rgba(60, 60, 67, .22);
+  --line-2: rgba(60, 60, 67, .12);
+  --track: #E3E3E8;
+
+  /* His colour contract in Apple's key: vivid fills, deeper tones for words. */
+  --accent: #007A87;             /* turquoise words and icons, 5.2:1 */
+  --accent-soft: #D9F3F5;
+  --action-fill: #00A3B2;        /* turquoise fills */
+  --action-end: #008A9C;
+  --on-accent: #FFFFFF;
+  --good: #1E8A3C;               /* green words: done */
+  --good-fill: #34C759;          /* systemGreen */
+  --good-soft: #E3F6E8;
+  --left: #0A62D0;               /* blue: the left leg */
+  --left-fill: #0A84FF;
+  --right: #B55300;              /* orange: the right leg */
+  --right-fill: #FF9500;
+  --bad: #D70015;
+  --bad-soft: #FDE8EA;
+  --gold: #B87800; --gold-glow: #FFB800; --gold-soft: #FFE08A; --gold-ink: #946000;
+  --med: #5B3FD6;                /* the medication's own colour (GLP-1 level) */
+  --sleep: #5E5CE6;              /* systemIndigo: the ring's sleep */
+
+  --radius: 24px;                /* cards: concentric with the phone's corner at a 16 pt inset */
+  --radius-img: 14px;
+  --radius-btn: 14px;
+  --radius-sm: 12px;
+  --gutter: 16px;
+  --glass: rgba(255, 255, 255, .62);
+  --glass-rim: rgba(0, 0, 0, .08);
+  --glass-hi: rgba(255, 255, 255, .9);
+  --glass-shadow: 0 8px 28px rgba(0, 0, 0, .10), 0 1px 3px rgba(0, 0, 0, .06);
+
+  /* Apple's springs, written as curves: a quick settle with a little life. */
+  --spring: cubic-bezier(.2, 1.18, .32, 1);
+  --spring-soft: cubic-bezier(.22, 1.05, .36, 1);
+  --ease-out: cubic-bezier(.16, 1, .3, 1);
+  --home: env(safe-area-inset-bottom, 0px);
+
+  /* v3: no monospace anywhere. Every legacy rule that asks for var(--mono) gets SF Pro
+     Rounded, and .mono adds tabular figures (DESIGN-LANGUAGE, Never 7). */
+  --mono: var(--round);
+
+  /* v3 categories (DESIGN-LANGUAGE, Colour; research 07 4.6): carried FIRST by the glyph
+     and its word (js/glyphs.js catGlyph, catWord), colour second, four families far from
+     the contract colours and from each other. Every category key maps to a family, so a
+     row can keep writing var(--cat-<key>).
+       strength                      deep violet (grape, darker than the GLP-1 --med)
+       balance, agility              magenta
+       impact, running, dance, show  olive
+       aerobic, mobility, recovery,
+       kneeling                      slate */
+  --cat-violet: #4B2A9E; --cat-violet-end: #6440BE;
+  --cat-magenta: #A8237A;
+  --cat-olive: #5D6A12;
+  --cat-slate: #4A5D72;
+  --cat-violet-soft: #ECE6FA; --cat-magenta-soft: #F8E4F0; --cat-olive-soft: #EDF0DA; --cat-slate-soft: #E6EBF0;
+  --cat-strength: var(--cat-violet); --cat-strength-end: var(--cat-violet-end);
+  --cat-balance: var(--cat-magenta); --cat-agility: var(--cat-magenta);
+  --cat-impact: var(--cat-olive); --cat-running: var(--cat-olive); --cat-dance: var(--cat-olive); --cat-show: var(--cat-olive);
+  --cat-aerobic: var(--cat-slate); --cat-mobility: var(--cat-slate); --cat-recovery: var(--cat-slate); --cat-kneeling: var(--cat-slate);
+
+  /* Done on a filled surface (a supplement tile): deep enough for white words. */
+  --done-fill: #1E8A3C; --on-done: #FFFFFF;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #000000; --panel: #1C1C1E; --panel-2: #2C2C2E;
+    --fill: rgba(118, 118, 128, .24); --fill-2: rgba(118, 118, 128, .16);
+    --ink: #FFFFFF; --ink-2: #AEAEB2; --ink-3: #98989F;
+    --line: rgba(84, 84, 88, .65); --line-2: rgba(84, 84, 88, .38); --track: #2C2C2E;
+    --accent: #5CE1EE; --accent-soft: #0E3338; --action-fill: #2AC7D6; --action-end: #16AFC0; --on-accent: #00161A;
+    --good: #30D158; --good-fill: #30D158; --good-soft: #0E2A16;
+    --left: #64AAFF; --left-fill: #0A84FF; --right: #FFA940; --right-fill: #FF9F0A;
+    --bad: #FF6961; --bad-soft: #3A1614;
+    --gold: #FFC940; --gold-glow: #FFD978; --gold-soft: #FFF1B2; --gold-ink: #FFC940;
+    --med: #9D8CFF; --sleep: #7D7AFF;
+    --glass: rgba(44, 44, 46, .62); --glass-rim: rgba(255, 255, 255, .10); --glass-hi: rgba(255, 255, 255, .16);
+    --glass-shadow: 0 8px 28px rgba(0, 0, 0, .5), 0 1px 3px rgba(0, 0, 0, .4);
+    --cat-violet: #B9A4FF; --cat-violet-end: #CBBBFF; --cat-magenta: #F280C6; --cat-olive: #C3D163; --cat-slate: #A3B7CC;
+    --cat-violet-soft: #231B3D; --cat-magenta-soft: #3A1630; --cat-olive-soft: #262B10; --cat-slate-soft: #1C242D;
+    --done-fill: #30D158; --on-done: #00210A;
+    --cat-strength: var(--cat-violet); --cat-strength-end: var(--cat-violet-end); --cat-balance: var(--cat-magenta); --cat-agility: var(--cat-magenta); --cat-impact: var(--cat-olive); --cat-running: var(--cat-olive); --cat-dance: var(--cat-olive); --cat-show: var(--cat-olive); --cat-aerobic: var(--cat-slate); --cat-mobility: var(--cat-slate); --cat-recovery: var(--cat-slate); --cat-kneeling: var(--cat-slate);
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #000000; --panel: #1C1C1E; --panel-2: #2C2C2E;
+  --fill: rgba(118, 118, 128, .24); --fill-2: rgba(118, 118, 128, .16);
+  --ink: #FFFFFF; --ink-2: #AEAEB2; --ink-3: #98989F;
+  --line: rgba(84, 84, 88, .65); --line-2: rgba(84, 84, 88, .38); --track: #2C2C2E;
+  --accent: #5CE1EE; --accent-soft: #0E3338; --action-fill: #2AC7D6; --action-end: #16AFC0; --on-accent: #00161A;
+  --good: #30D158; --good-fill: #30D158; --good-soft: #0E2A16;
+  --left: #64AAFF; --left-fill: #0A84FF; --right: #FFA940; --right-fill: #FF9F0A;
+  --bad: #FF6961; --bad-soft: #3A1614;
+  --gold: #FFC940; --gold-glow: #FFD978; --gold-soft: #FFF1B2; --gold-ink: #FFC940;
+  --med: #9D8CFF; --sleep: #7D7AFF;
+  --glass: rgba(44, 44, 46, .62); --glass-rim: rgba(255, 255, 255, .10); --glass-hi: rgba(255, 255, 255, .16);
+  --glass-shadow: 0 8px 28px rgba(0, 0, 0, .5), 0 1px 3px rgba(0, 0, 0, .4);
+  --cat-violet: #B9A4FF; --cat-violet-end: #CBBBFF; --cat-magenta: #F280C6; --cat-olive: #C3D163; --cat-slate: #A3B7CC;
+  --cat-violet-soft: #231B3D; --cat-magenta-soft: #3A1630; --cat-olive-soft: #262B10; --cat-slate-soft: #1C242D;
+  --done-fill: #30D158; --on-done: #00210A;
+  --cat-strength: var(--cat-violet); --cat-strength-end: var(--cat-violet-end); --cat-balance: var(--cat-magenta); --cat-agility: var(--cat-magenta); --cat-impact: var(--cat-olive); --cat-running: var(--cat-olive); --cat-dance: var(--cat-olive); --cat-show: var(--cat-olive); --cat-aerobic: var(--cat-slate); --cat-mobility: var(--cat-slate); --cat-recovery: var(--cat-slate); --cat-kneeling: var(--cat-slate);
+}
+
+/* ------------------------------------------------------------ type scale --- */
+/* Apple's iPhone sizes: Large Title 34, Title 1 28, Title 2 22, Title 3 20,
+   Headline 17 semibold, Body 17, Callout 16, Subheadline 15, Footnote 13,
+   Caption 12. */
+:root body.mobile {
+  font-family: var(--font); font-size: 17px; line-height: 1.29; letter-spacing: -.41px;
+  background: var(--bg); color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+}
+:root body.mobile #view h1, :root body.mobile #view .pagehead h1 {
+  font-size: 34px; line-height: 41px; font-weight: 800; letter-spacing: .37px; margin: 0;
+}
+/* Section headers are Title 3, 20 bold, on every screen (DESIGN-LANGUAGE Never 1; consistency
+   pass 2026-09-30: five screens had drifted to 22, three to 20). */
+:root body.mobile #view h2 { font-size: 20px; line-height: 25px; font-weight: 700; letter-spacing: .38px; }
+:root body.mobile #view h3 { font-size: 17px; line-height: 22px; font-weight: 600; letter-spacing: -.41px; }
+:root body.mobile #view .lede, :root body.mobile #view .muted { color: var(--ink-2); }
+:root body.mobile #view .lede { font-size: 15px; line-height: 20px; letter-spacing: -.24px; }
+:root body.mobile #view .tiny, :root body.mobile #view small { letter-spacing: -.08px; }
+/* Section words, v3: sentence case, never grey capitals (DESIGN-LANGUAGE, Never 1). */
+:root body.mobile #view .eyebrow,
+:root body.mobile #view .queue-label,
+:root body.mobile #view .ov-h,
+:root body.mobile #view .sg-label {
+  font-size: 15px; line-height: 20px; font-weight: 600; letter-spacing: -.24px;
+  text-transform: none; color: var(--ink-2);
+}
+
+/* ------------------------------------------------ v3: the AI tells, killed --- */
+/* One place, app wide (07 4.6). Specificity (1,3,1): it beats every legacy rule in
+   styles.css and mobile.css, and a screen builder's own rt-<area>.css (loaded later, same
+   weight) still wins where a capital is meant (a leg label). Opt back in with .caps. */
+:root body.mobile #view *:not(.caps),
+:root body.mobile #modal-root *:not(.caps),
+:root body.mobile .mtop *:not(.caps) { text-transform: none; }
+:root body.mobile .caps { text-transform: uppercase; }
+/* No monospace: rounded numerals with tabular figures (the --mono token is --round). */
+:root body.mobile .mono { font-family: var(--round); font-variant-numeric: tabular-nums; letter-spacing: 0; }
+:root body.mobile :is(#view, #modal-root) :is(b, strong, .num, [data-roll]) { font-variant-numeric: tabular-nums; }
+/* Chips are filled, never outlined; the chosen one is turquoise and filled (T6: loud). */
+:root body.mobile :is(#view, #modal-root) :is([class*="chip"]:not([class*="chips"]), .seg button, .pill) {
+  border: 0; box-shadow: none;
+}
+:root body.mobile :is(#view, #modal-root) button:is([class*="chip"]:not([class*="chips"]), .seg button) {
+  background: var(--fill); color: var(--ink); font-weight: 600; min-height: 36px; border-radius: 999px;
+  transition: transform .4s var(--spring), background-color .18s ease, color .18s ease;
+}
+:root body.mobile :is(#view, #modal-root) button:is([class*="chip"]:not([class*="chips"]), .seg button):active { transform: scale(.94); }
+:root body.mobile :is(#view, #modal-root) button:is([class*="chip"]:not([class*="chips"]), .seg button):is(.on, [aria-pressed="true"], [aria-selected="true"], [aria-checked="true"]) {
+  background: var(--action-fill); color: var(--on-accent);
+}
+:root body.mobile #view .seg { border: 0; gap: 4px; background: transparent; overflow: visible; }
+/* Helper sentences under a card's title are not shown on the phone (Never 2); facts
+   that matter live in the card itself. */
+:root body.mobile #view .card > header > .sub:not(.fact) { display: none; }
+/* Grey sentence callouts read quieter: no box, no rim. Warnings keep their colour. */
+:root body.mobile #view .callout:not(.warn):not(.bad):not(.good) { background: transparent; border: 0; padding-inline: 0; color: var(--ink-2); }
+/* Every number that matters is SF Pro Rounded. */
+:root body.mobile #view .dr-count b, :root body.mobile #view .crow-mins b, :root body.mobile #view .sum-count,
+:root body.mobile #view .pk-big b, :root body.mobile #view .pk-cell2 b, :root body.mobile #view .pk-cell b,
+:root body.mobile #view .supps-count, :root body.mobile #view .sg-count, :root body.mobile #view .p-ring,
+:root body.mobile #view .rc-big, :root body.mobile #view .wf-v, :root body.mobile #view .mt-row, :root body.mobile #view .mk-vals,
+:root body.mobile #view .rbar-val, :root body.mobile #view .rcol-val, :root body.mobile #view .rung-lab,
+:root body.mobile #view .p-cnum, :root body.mobile #view [data-roll], :root body.mobile #view .jr-month {
+  font-family: var(--round);
+}
+
+/* ----------------------------------------------------------------- page --- */
+:root body.mobile #view.mview { padding-left: var(--gutter); padding-right: var(--gutter); }
+:root body.mobile #view .stack { gap: 20px; }
+:root body.mobile #view .pagehead { gap: 2px; }
+
+/* Cards: solid, flat, one big concentric corner; no rims, no shadows (Apple's
+   grouped cards). Depth is for glass only. */
+:root body.mobile #view .card,
+:root body.mobile #view .rcard,
+:root body.mobile #view .ov-sec,
+:root body.mobile #view .setgroup {
+  background: var(--panel); border: 0; border-radius: var(--radius); box-shadow: none;
+}
+:root body.mobile #view .card-body { padding: 16px; }
+
+/* ------------------------------------------------------------- controls --- */
+:root body.mobile .btn {
+  min-height: 44px; border: 0; border-radius: var(--radius-btn);
+  background: var(--fill); color: var(--accent);
+  font-size: 15px; font-weight: 600; letter-spacing: -.24px; box-shadow: none;
+  transition: transform .45s var(--spring), background-color .2s ease, color .2s ease;
+}
+:root body.mobile .btn:active:not(:disabled) { transform: scale(.955); transition-duration: .08s; }
+:root body.mobile .btn.primary {
+  background: var(--action-fill); color: var(--on-accent); border-radius: 999px;
+}
+:root body.mobile .btn.big { min-height: 54px; font-size: 17px; border-radius: 999px; }
+:root body.mobile .btn.sm { min-height: 34px; font-size: 14px; border-radius: 999px; padding-inline: 14px; }
+:root body.mobile .btn.ghost, :root body.mobile .btn.plain { background: transparent; }
+:root body.mobile .btn.danger { color: var(--bad); }
+:root body.mobile .btn.good { color: var(--good); }
+:root body.mobile input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+:root body.mobile select, :root body.mobile textarea {
+  background: var(--fill-2); border: 0; border-radius: 12px; color: var(--ink);
+  font-family: var(--font); font-size: 17px;
+}
+:root body.mobile input:focus-visible, :root body.mobile select:focus-visible, :root body.mobile textarea:focus-visible {
+  outline: 2px solid var(--action-fill); outline-offset: 1px;
+}
+
+/* The tick: Apple's circle, turning into a filled green check with a spring. */
+:root body.mobile label.tick, :root body.mobile input[type=checkbox].tick {
+  width: 28px; height: 28px; min-width: 28px; border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--ink-3) 55%, transparent); background: transparent;
+  transition: transform .5s var(--spring), background-color .18s ease, border-color .18s ease;
+}
+:root body.mobile label.tick[aria-checked="true"], :root body.mobile input[type=checkbox].tick:checked {
+  background: var(--good-fill); border-color: var(--good-fill);
+}
+:root body.mobile label.tick:active, :root body.mobile input[type=checkbox].tick:active { transform: scale(.86); }
+
+/* -------------------------------------------------------------- the bar --- */
+/* The top bar is Apple's: empty over a large title, trailing buttons in glass,
+   and once the title scrolls away the bar frosts and shows it small, centred
+   (rt.js sets .scrolled and the title). His app name moved to Today's eyebrow. */
+:root body.mobile .mtop {
+  background: transparent; border: 0; box-shadow: none;
+  transition: background-color .25s ease;
+}
+:root body.mobile .mtop .mtitle-wrap { opacity: 0; pointer-events: none; }
+:root body.mobile .mtop-in { min-height: 50px; }
+:root body.mobile .mtop::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none; opacity: 0;
+  /* Words on solid ground: the band is solid down past the inline title (y 73 to 95 of
+     109) and only its last 8 pt soften, so no row text reads through beside the title
+     (audit T1, b-runtime-02, B5, d17, glp1-20). */
+  background: color-mix(in srgb, var(--bg) 97%, transparent);
+  -webkit-backdrop-filter: blur(20px) saturate(180%); backdrop-filter: blur(20px) saturate(180%);
+  -webkit-mask-image: linear-gradient(#000 calc(100% - 8px), transparent); mask-image: linear-gradient(#000 calc(100% - 8px), transparent);
+  transition: opacity .25s ease;
+}
+:root body.mobile .mtop.scrolled::before { opacity: 1; }
+:root body.mobile .rt-inline {
+  background: none; border: 0; padding: 0; color: var(--ink);
+  position: absolute; left: 50%; bottom: 14px; transform: translate(-50%, 6px);
+  font-size: 17px; font-weight: 600; letter-spacing: -.41px; white-space: nowrap;
+  max-width: 55%; overflow: hidden; text-overflow: ellipsis;
+  opacity: 0; transition: opacity .2s ease, transform .35s var(--spring-soft); pointer-events: none;
+}
+:root body.mobile .mtop.scrolled .rt-inline { opacity: 1; transform: translate(-50%, 0); }
+/* The bar floats: fixed over the page, so a top level screen's first row (its large
+   title, or Today's name line) sits beside the glass buttons, as in Health's Summary.
+   A pushed screen (Back showing: Settings, the player) starts under the bar instead. */
+:root body.mobile .mtop { position: fixed; top: 0; left: 0; right: 0; }
+:root body.mobile .mtop-in { padding-top: 3px; padding-bottom: 3px; }
+:root body.mobile #view.mview { padding-top: calc(var(--safe-t) + 3px); }
+:root body.mobile:has(#nav-back:not([hidden])) #view.mview { padding-top: calc(var(--safe-t) + 56px); }
+:root body.mobile #view > .stack > .pagehead:first-child > :first-child,
+:root body.mobile #view > .stack > .pagehead:first-child > h1:first-child {
+  min-height: 44px; padding-right: 60px; display: flex; align-items: center;
+}
+/* A save or sync that needs him (Not saved, Retry, 3 to sync) brings its words back
+   into the bar, so the title gives it room. */
+:root body.mobile:has(.msync-dot:is(.err, .pending)) #view > .stack > .pagehead:first-child > :first-child { padding-right: 176px; }
+/* v3 (M8: "a tiny quiet mark that turns loud only on a failure he can act on"): while
+   everything is saved or synced the save chip is not in the bar at all; Synced is a small
+   green dot on the Settings button (green = Synced, his contract). Anything that asks for
+   him (Not saved, Retry, 3 to sync) comes back as a glass capsule with its words. The
+   pull down still syncs and shows its own ring and check. */
+:root body.mobile .msync:has(.msync-dot:is(.saved, .synced, .busy)) { display: none; }
+:root body.mobile .msync { gap: 8px; font-size: 15px; font-weight: 600; padding: 0 14px; color: var(--ink); }
+:root body.mobile .msync:has(.msync-dot.err) { color: var(--bad); }
+:root body.mobile .micon { position: relative; width: 44px; height: 44px; }
+:root body.mobile .micon::after {
+  content: ""; position: absolute; top: 5px; right: 5px; width: 9px; height: 9px; border-radius: 50%;
+  background: var(--good-fill); box-shadow: 0 0 0 2px var(--panel); transform: scale(0);
+  transition: transform .45s var(--spring);
+}
+:root body.mobile .micon[data-sync="synced"]::after { transform: scale(1); }
+:root body.mobile .micon svg { width: 22px; height: 22px; }
+
+/* ------------------------------------------------------------ sections --- */
+:root body.mobile #view .queue-label { display: flex; justify-content: space-between; align-items: baseline; padding: 0 16px 6px; }
+
+/* ===================================================================== TODAY */
+/* His app name and post-op weeks lead the page, beside the bar's glass buttons. */
+:root body.mobile #view .today-head { gap: 0; }
+:root body.mobile #view .rt-appline {
+  display: flex; gap: 8px; align-items: center; flex-wrap: nowrap; white-space: nowrap; overflow: hidden;
+  font-size: 13px; font-weight: 600; color: var(--ink-2); text-transform: uppercase; letter-spacing: -.08px;
+}
+/* His app name is a title, not a control: ink, never the action turquoise (C8, audit B20). */
+:root body.mobile #view .rt-appline b { color: var(--ink); font-weight: 800; overflow: hidden; text-overflow: ellipsis; }
+:root body.mobile #view .rt-appline span { font-family: var(--round); font-weight: 700; }
+/* Large title with the day controls on its row, the date under it (tap: jump). */
+:root body.mobile #view .rt-titlerow {
+  display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin: 6px 0 12px;
+}
+:root body.mobile #view .rt-titles { display: flex; flex-direction: column; min-width: 0; }
+:root body.mobile #view .rt-titles h1 { font-size: 34px; line-height: 40px; font-weight: 800; padding: 0; min-height: 0; }
+:root body.mobile #view .rt-date {
+  position: relative; font-size: 15px; line-height: 20px; font-weight: 500; color: var(--ink-2); text-transform: none; letter-spacing: -.24px;
+}
+:root body.mobile #view .rt-titlerow .daynav-ctl { margin-bottom: 2px; flex: 0 0 auto; }
+
+/* The summary card: Apple's Activity card. What is left in big rounded numerals,
+   the day's name as a coloured capsule, the ring big on the right. */
+:root body.mobile #view .today-top {
+  display: flex; background: var(--panel); border-radius: var(--radius); padding: 18px 16px 18px 20px;
+  align-items: center; justify-content: space-between; gap: 12px;
+}
+:root body.mobile #view .sum-count {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 3px;
+  font-size: 30px; line-height: 34px; font-weight: 800; letter-spacing: -.2px; margin: 0;
+}
+:root body.mobile #view .sum-plan {
+  order: -1; font-family: var(--font); font-size: 13px; line-height: 18px; font-weight: 700;
+  padding: 3px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent);
+  margin: 0 0 6px; letter-spacing: -.08px;
+}
+:root body.mobile #view .sum-est { font-family: var(--font); font-size: 15px; line-height: 20px; font-weight: 500; color: var(--ink-2); letter-spacing: -.24px; }
+:root body.mobile #view .dr-legend { margin-top: 12px; gap: 4px 10px; font-size: 12px; font-weight: 600; color: var(--ink-2); }
+:root body.mobile #view .dr-count b { font-size: 32px; font-weight: 800; letter-spacing: -.5px; }
+:root body.mobile #view .dr-count small { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--ink-2); letter-spacing: .04em; }
+
+/* Start: the one primary action, a wide capsule with the play badge. */
+:root body.mobile #view .startbtn {
+  min-height: 64px; border-radius: 999px; padding: 8px 22px 8px 8px;
+  background: linear-gradient(180deg, var(--action-fill), var(--action-end));
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--action-fill) 32%, transparent);
+  transition: transform .5s var(--spring), box-shadow .3s ease;
+}
+:root body.mobile #view .startbtn:active { transform: scale(.97); }
+:root body.mobile #view .startbtn .go-play { width: 48px; height: 48px; }
+:root body.mobile #view .startbtn .go-label { font-size: 19px; font-weight: 700; letter-spacing: .1px; }
+:root body.mobile #view .status-line, :root body.mobile #view .today .statusline { font-size: 15px; color: var(--ink-2); padding: 0 4px; }
+
+/* The list: Apple's inset grouped rows. Compact: about 64 pt a row, the name
+   and the prescription on the left, the minutes big and rounded on the right. */
+:root body.mobile #view .listcard { padding: 0; overflow: hidden; }
+:root body.mobile #view .checklist { gap: 0; }
+:root body.mobile #view .crow { border: 0; border-radius: 0; background: transparent; position: relative; }
+/* Hairlines between rows, inset past the picture (drawn as a background, so the
+   row's own ::before stays free for his done wash). */
+:root body.mobile #view .checklist > * + .crow {
+  background: linear-gradient(var(--line), var(--line)) 98px 0 / calc(100% - 98px) .5px no-repeat;
+}
+:root body.mobile #view .crow-head { min-height: 64px; padding: 10px 12px 10px 14px; gap: 10px; align-items: center; }
+:root body.mobile #view .crow-shot { width: 46px; height: 46px; border-radius: 12px; overflow: hidden; background: #fff; flex: 0 0 auto; }
+:root body.mobile #view .crow-shot img { width: 100%; height: 100%; object-fit: contain; }
+:root body.mobile #view .crow-main { gap: 10px; padding: 0; min-height: 44px; }
+:root body.mobile #view .crow-name {
+  font-size: 16px; line-height: 20px; font-weight: 600; letter-spacing: -.32px;
+}   /* never clamped: full exercise titles (his rule, 2026-09-15) */
+:root body.mobile #view .crow-sub { font-size: 13px; line-height: 17px; color: var(--ink-2); margin-top: 2px; letter-spacing: -.08px; }
+:root body.mobile #view .crow-note { font-size: 12px; line-height: 16px; }
+:root body.mobile #view .crow-mins { min-width: 40px; text-align: right; display: flex; flex-direction: column; align-items: flex-end; }
+:root body.mobile #view .crow-mins b { font-size: 22px; line-height: 24px; font-weight: 700; color: var(--ink); }
+:root body.mobile #view .crow-mins small { font-size: 11px; line-height: 13px; font-weight: 600; text-transform: uppercase; color: var(--ink-2); letter-spacing: .02em; }
+:root body.mobile #view .crow-chev { display: none; }
+/* His done wash ("the entire bar kind of turns slightly tinted"), fitted inside the card. */
+:root body.mobile #view .today .crow.done::before { inset: 4px 6px; border-radius: 16px; }
+:root body.mobile #view .crow.done .crow-mins b { color: var(--good); }
+:root body.mobile #view .crow.open .crow-head { background: color-mix(in srgb, var(--action-fill) 7%, transparent); }
+/* The category speaks through a short bar at the row's leading edge, never alone. */
+:root body.mobile #view .crow[data-pid]::after {
+  content: ""; position: absolute; left: 0; top: 16px; bottom: 16px; width: 3px; border-radius: 0 3px 3px 0;
+  background: var(--cat, transparent); opacity: .85;
+}
+:root body.mobile #view .list-add { min-height: 52px; color: var(--accent); font-weight: 600; font-size: 16px; }
+
+/* The recovery break between the tendon loading and the rest: a capsule. */
+:root body.mobile #view .recovery-line {
+  align-self: flex-start; display: inline-flex; gap: 8px; align-items: center;
+  padding: 8px 14px; border-radius: 999px; background: var(--panel); font-size: 15px; font-weight: 600;
+}
+:root body.mobile #view .recovery-line.done { color: var(--good); }
+
+/* The week's footer tiles, Fitness summary cards. */
+:root body.mobile #view .wf-tile { background: var(--panel); border: 0; border-radius: 20px; }
+:root body.mobile #view .wf-v { font-size: 26px; font-weight: 800; }
+
+/* ================================================================= GLP-1 */
+:root body.mobile #view .pk-big b { font-size: 64px; line-height: 68px; font-weight: 800; letter-spacing: -1.5px; color: var(--med); }
+:root body.mobile #view .pk-big small { font-size: 13px; font-weight: 600; text-transform: uppercase; color: var(--ink-2); }
+:root body.mobile #view .pk-big span { font-size: 17px; color: var(--ink-2); }
+:root body.mobile #view .pk-cells { gap: 10px; }
+:root body.mobile #view .pk-cell2 { background: var(--panel-2); border: 0; border-radius: 18px; padding: 12px 14px; }
+:root body.mobile #view .pk-cell2 small { font-size: 13px; line-height: 17px; color: var(--ink-2); font-weight: 600; }
+:root body.mobile #view .pk-cell2 b { font-size: 22px; line-height: 26px; font-weight: 800; }
+:root body.mobile #view .pk-actions .btn { border-radius: 999px; }
+
+/* ============================================================== PROGRESS */
+:root body.mobile #view .rcard { padding: 16px; }
+:root body.mobile #view .rcard-title { font-size: 17px; font-weight: 700; }
+
+/* ========================================================= SHEETS (web) */
+:root body.mobile .modal { background: var(--panel); }
+:root body.mobile .modal h2 { font-size: 17px; line-height: 22px; font-weight: 700; }
+/* v3 sheet forms: a label is a Footnote over its field, the field a filled 44 pt well,
+   the body breathes; nothing outlined (Never 4). */
+:root body.mobile #modal-root .mbody { padding: 4px 18px 12px; }
+:root body.mobile #modal-root .fld {
+  display: flex; flex-direction: column; gap: 6px; font-size: 13px; line-height: 18px; font-weight: 600; color: var(--ink-2);
+}
+:root body.mobile #modal-root .fld > :is(input, select, textarea, .rt-menubtn) { min-height: 44px; color: var(--ink); font-weight: 500; }
+:root body.mobile #modal-root input:not([type="checkbox"]):not([type="radio"]):not([type="range"]) { padding: 0 12px; font-size: 17px; }
+:root body.mobile #modal-root .tiny.muted { font-size: 13px; line-height: 18px; color: var(--ink-2); }
+
+/* ================================================================= MENUS */
+/* A select as a menu button (js/menu.js): the value in turquoise with the up and down
+   chevrons, on a filled well. The select itself stays, hidden, holding the value. */
+:root body.mobile .rt-select-hidden { position: absolute !important; width: 1px !important; height: 1px !important; opacity: 0 !important; pointer-events: none !important; }
+:root body.mobile .rt-menubtn {
+  display: inline-flex; align-items: center; justify-content: space-between; gap: 8px;
+  min-height: 44px; padding: 0 12px 0 14px; border: 0; border-radius: 12px;
+  background: var(--fill-2); color: var(--accent); font: inherit; font-size: 17px; font-weight: 600; letter-spacing: -.41px;
+  text-align: left; cursor: pointer; transition: transform .4s var(--spring), background-color .15s ease;
+}
+:root body.mobile .rt-menubtn:active { transform: scale(.97); background: var(--fill); }
+:root body.mobile .rt-menubtn:disabled { color: var(--ink-3); }
+:root body.mobile .rt-menubtn-v { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:root body.mobile .rt-menubtn svg { flex: 0 0 auto; width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+
+/* The web menu (when the app has no native one): glass, springing from its button. */
+.rt-menu-back { position: fixed; inset: 0; z-index: 400; }
+.rt-menu {
+  position: fixed; max-height: 70vh; overflow: auto; border-radius: 22px; padding: 6px 0;
+  background: color-mix(in srgb, var(--panel) 82%, transparent);
+  -webkit-backdrop-filter: blur(30px) saturate(180%); backdrop-filter: blur(30px) saturate(180%);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, .22), 0 0 0 .5px var(--glass-rim);
+  transform: scale(.4); opacity: 0;
+  transition: transform .42s var(--spring), opacity .16s ease;
+}
+.rt-menu-back.in .rt-menu { transform: none; opacity: 1; }
+.rt-menu-back.out .rt-menu { transform: scale(.85); opacity: 0; transition-duration: .16s; }
+.rt-menu-title { padding: 8px 16px 6px; font-size: 13px; color: var(--ink-2); text-align: center; }
+.rt-menu-group + .rt-menu-group { border-top: 6px solid color-mix(in srgb, var(--ink) 6%, transparent); }
+.rt-menu-item {
+  display: flex; align-items: center; gap: 10px; width: 100%; min-height: 46px; padding: 0 16px;
+  border: 0; background: transparent; color: var(--ink); font: 17px/22px var(--font); letter-spacing: -.41px; text-align: left;
+}
+.rt-menu-item + .rt-menu-item { box-shadow: inset 0 .5px 0 var(--line-2); }
+.rt-menu-item:active { background: var(--fill); }
+.rt-menu-item.bad { color: var(--bad); }
+.rt-menu-check { width: 18px; flex: 0 0 auto; color: var(--ink); }
+.rt-menu-check svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; display: block; }
+@media (prefers-reduced-motion: reduce) { .rt-menu { transition: opacity .12s ease; transform: none; } }
+
+/* ================================================================ TOASTS */
+/* Apple: undo instead of confirm. A glass capsule floating over the tab bar, the words on
+   its own solid ground, Undo in turquoise (an action). Springs up, never stacks past two. */
+:root body.mobile #toast-root {
+  left: 12px; right: 12px; align-items: center; z-index: 350; gap: 8px;
+}
+html.native body.mobile #toast-root { bottom: calc(var(--native-tabs-h, 64px) + var(--safe-b) + 24px); }
+html.native body.mobile.in-player #toast-root { bottom: calc(150px + var(--safe-b)); }
+:root body.mobile .toast {
+  display: flex; align-items: center; gap: 12px; max-width: 100%; min-height: 52px; padding: 8px 8px 8px 18px;
+  border: 0; border-radius: 26px; color: var(--ink);
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+  -webkit-backdrop-filter: blur(24px) saturate(180%); backdrop-filter: blur(24px) saturate(180%);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, .18), 0 0 0 .5px var(--glass-rim);
+  font-size: 15px; line-height: 20px; letter-spacing: -.24px;
+  transform: translateY(24px) scale(.92); transition: transform .5s var(--spring), opacity .2s ease;
+}
+:root body.mobile .toast:not(:has(.toast-act)) { padding-right: 18px; }
+:root body.mobile .toast.in { transform: none; }
+:root body.mobile .toast b { color: var(--ink); font-weight: 600; }
+:root body.mobile .toast.warn b { color: var(--bad); }
+:root body.mobile .toast span { font-size: 15px; color: var(--ink-2); }
+:root body.mobile .toast br { display: none; }
+:root body.mobile .toast b + br + span::before { content: " "; }
+:root body.mobile .toast-act {
+  min-height: 40px; padding: 0 16px; border: 0; border-radius: 20px;
+  background: var(--accent-soft); color: var(--accent); font-size: 15px; font-weight: 700;
+}
+
+/* ================================================================ VIEW TRANSITIONS */
+/* js/vt.js. The page slides (never a crossfade); the root cuts; shared elements morph. */
+html[data-vt] #view { view-transition-name: rt-page; background: var(--bg); min-height: 100vh; }
+::view-transition-old(root), ::view-transition-new(root) { animation: none; }
+::view-transition-group(*) { animation-duration: .46s; animation-timing-function: cubic-bezier(.22, 1.05, .36, 1); }
+html[data-vt="fwd"]::view-transition-old(rt-page) { animation: rt-vt-out .42s cubic-bezier(.22, 1, .36, 1) both; }
+html[data-vt="fwd"]::view-transition-new(rt-page) { animation: rt-vt-in .46s cubic-bezier(.22, 1.04, .36, 1) both; }
+/* Back mirrors forward: the page you return to comes in from the left over the one
+   you leave, which moves a little right and dims. */
+html[data-vt="back"]::view-transition-old(rt-page) { animation: rt-vt-leave .42s cubic-bezier(.22, 1, .36, 1) both; }
+html[data-vt="back"]::view-transition-new(rt-page) { animation: rt-vt-under .46s cubic-bezier(.22, 1.04, .36, 1) both; }
+html[data-vt="morph"]::view-transition-old(rt-page) { animation: none; opacity: 0; }
+html[data-vt="morph"]::view-transition-new(rt-page) { animation: none; }
+@keyframes rt-vt-in { from { transform: translateX(100%); } }
+@keyframes rt-vt-out { to { transform: translateX(-28%); filter: brightness(.9); } }
+@keyframes rt-vt-leave { to { transform: translateX(28%); filter: brightness(.9); } }
+@keyframes rt-vt-under { from { transform: translateX(-100%); } }
+
+/* ================================================================ MOTION */
+/* Cards arrive the way Apple's summary does: a short rise and settle, one after
+   another. Only on a full paint (a patch keeps its nodes, so nothing replays). */
+@media (prefers-reduced-motion: no-preference) {
+:root:not(.lite-motion) body.mobile .mview > .stack > * {
+    animation: rt-rise .62s var(--spring-soft) both;
+  }
+:root:not(.lite-motion) body.mobile .mview > .stack > *:nth-child(2) { animation-delay: 40ms; }
+:root:not(.lite-motion) body.mobile .mview > .stack > *:nth-child(3) { animation-delay: 80ms; }
+:root:not(.lite-motion) body.mobile .mview > .stack > *:nth-child(4) { animation-delay: 120ms; }
+:root:not(.lite-motion) body.mobile .mview > .stack > *:nth-child(5) { animation-delay: 160ms; }
+:root:not(.lite-motion) body.mobile .mview > .stack > *:nth-child(n+6) { animation-delay: 200ms; }
+}
+@keyframes rt-rise { from { opacity: 0; transform: translateY(18px) scale(.985); } }
+
+/* ================================================================ PLAYER */
+/* Apple's live workout, with his ring: the chrome shrinks to one row, the numbers
+   are the biggest thing, and what shows depends on the moment.
+     Getting ready, resting, paused: the step pictures and what comes next.
+     Working: the pictures fold away, the ring grows into the room they leave.
+   The dock floats as glass: Pause and Set done big, the four smaller controls
+   icon over word on one row. Nothing is removed and nothing changes place. */
+:root body.mobile.in-player .mtop .msync,
+:root body.mobile.in-player .mtop .micon { display: none; }
+:root body.mobile.in-player #view.mview { padding-top: calc(var(--safe-t) + 50px); padding-bottom: 150px; }
+/* The eyebrow's z 41 is trapped inside .player { isolation: isolate }, so the fixed bar
+   (z 40) sat over the count, Sound and Lock and swallowed every tap (audit P2). In the
+   player the bar lets taps through; only its Back takes them. */
+:root body.mobile.in-player .mtop, :root body.mobile.in-player .mtop-in { pointer-events: none; }
+:root body.mobile.in-player .mtop #nav-back { pointer-events: auto; }
+/* The workout line joins the bar's row, beside Back. */
+:root body.mobile #view .player .p-eyebrow {
+  position: fixed; z-index: 41; top: calc(var(--safe-t) + 3px); left: 124px; right: 12px; height: 44px;
+  display: flex; align-items: center; gap: 8px; margin: 0;
+  font-size: 13px; font-weight: 700; text-transform: uppercase; color: var(--ink-2); letter-spacing: -.08px;
+}
+:root body.mobile #view .player .p-eyebrow .p-count { margin-right: auto; }
+:root body.mobile #view .player h1.p-title {
+  font-size: 24px; line-height: 29px; font-weight: 800; letter-spacing: .07px; padding: 0; min-height: 0; display: block;
+}
+:root body.mobile #view .player .p-pick { min-height: 30px; margin-top: 2px; }
+:root body.mobile #view .player .p-status { font-size: 14px; color: var(--ink-2); min-height: 18px; }
+:root body.mobile #view .player .p-img {
+  height: 150px; margin-top: 8px; border: 0; border-radius: 20px; background: #fff;
+  transition: height .55s var(--spring-soft), opacity .3s ease, margin .55s var(--spring-soft);
+}
+:root body.mobile #view .player:has(.p-dial.working) .p-img { height: 0; opacity: 0; margin-top: 0; pointer-events: none; }
+:root body.mobile #view .player:has(.p-dial.working) .p-photonote { display: none; }
+
+/* Word, leg, word: the leg as a solid capsule in its colour. */
+:root body.mobile #view .player .p-phaserow { margin-top: 12px; gap: 10px; }
+:root body.mobile #view .player .p-label { font-size: 13px; font-weight: 800; letter-spacing: .06em; color: var(--cat, var(--ink)); }
+:root body.mobile #view .player .p-label.neutral { color: var(--ink-2); }
+:root body.mobile #view .player .p-side {
+  font-size: 17px; font-weight: 800; letter-spacing: .02em; padding: 7px 18px; border-radius: 999px; text-transform: uppercase;
+}
+:root body.mobile #view .player .p-side.L { background: color-mix(in srgb, var(--left-fill) 16%, var(--panel)); color: var(--left); }
+:root body.mobile #view .player .p-side.R { background: color-mix(in srgb, var(--right-fill) 18%, var(--panel)); color: var(--right); }
+
+/* The dial: no box around it, just the ring on the page; it grows while working. */
+:root body.mobile #view .player .p-dial {
+  border: 0; box-shadow: none; background: transparent; margin-top: 4px;
+  transition: transform .6s var(--spring);
+}
+:root body.mobile #view .player .p-dial .p-dial__grid,
+:root body.mobile #view .player .p-dial .p-dial__lift { opacity: 0; }
+:root body.mobile #view .player .p-ring { transition: transform .6s var(--spring); }
+:root body.mobile #view .player .p-dial.working .p-ring { transform: scale(1.3); }
+:root body.mobile #view .player .p-dial.working { margin-top: 48px; margin-bottom: 44px; }
+
+/* What comes next: a card while resting or getting ready, gone while working. */
+:root body.mobile #view .player .p-nextrow { margin-top: 6px; }
+:root body.mobile #view .player .p-next { background: var(--panel); border-radius: 20px; padding: 12px 16px; }
+:root body.mobile #view .player:has(.p-dial.working) .p-nextrow { display: none; }
+:root body.mobile #view .player .p-sound, :root body.mobile #view .player .p-now { margin-top: 12px; }
+
+/* The dock. */
+:root body.mobile #view .player .p-actions {
+  position: fixed; left: 8px; right: 8px; bottom: 8px; z-index: 30;
+  padding: 10px 10px 6px; border-radius: 34px; margin: 0;
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(24px) saturate(180%); backdrop-filter: blur(24px) saturate(180%);
+  box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-hi), inset 0 0 0 .5px var(--glass-rim);
+}
+:root body.mobile #view .player .p-actions::before { border-radius: inherit; }
+:root body.mobile #view .player .p-row1 { gap: 10px; }
+:root body.mobile #view .player .p-row1 > .btn { min-height: 58px; border-radius: 999px; font-size: 18px; font-weight: 700; }
+:root body.mobile #view .player .p-row1 > .p-pause { background: var(--fill); color: var(--ink); border: 0; }
+:root body.mobile #view .player .p-row1 > .btn.primary { background: linear-gradient(180deg, var(--action-fill), var(--action-end)); color: var(--on-accent); }
+:root body.mobile #view .player .p-row1 > .btn:disabled { opacity: .38; }
+:root body.mobile #view .player .p-row2:not(.one) { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; margin-top: 4px; }
+:root body.mobile #view .player .p-row2 .p-link.btn {
+  background: transparent; color: var(--ink); flex-direction: column; gap: 2px; min-height: 48px; padding: 2px 0;
+  font-size: 12px; font-weight: 700; letter-spacing: 0;
+}
+:root body.mobile #view .player .p-row2 .p-link.btn svg { width: 22px; height: 22px; }
+:root body.mobile #view .player .p-row2 .p-link.btn:disabled { opacity: .3; }
+
+/* Back, in the bar: a glass capsule. */
+:root body.mobile .mback {
+  min-height: 44px; padding: 0 16px 0 10px; border-radius: 22px; border: 0; gap: 2px;
+  background: var(--glass); color: var(--ink); font-size: 17px; font-weight: 600;
+  -webkit-backdrop-filter: blur(20px) saturate(180%); backdrop-filter: blur(20px) saturate(180%);
+  box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-hi), inset 0 0 0 .5px var(--glass-rim);
+}
+
+/* Sound and cues: glass capsules, not full width tiles. */
+:root body.mobile #view .player .p-sound { justify-content: center; gap: 10px; }
+:root body.mobile #view .player .p-tool {
+  flex: 0 1 auto; min-height: 44px; padding: 0 18px; border-radius: 999px; border: 0;
+  background: var(--panel); color: var(--ink); font-size: 15px; font-weight: 600;
+}
+:root body.mobile #view .player .p-tool.on { background: var(--accent-soft); color: var(--accent); }
+
+/* ================================================================ GLP-1 2 */
+/* Health's metric page: the number first and biggest, the three facts he acts on
+   as tiles, the log buttons after them. The model's reference facts (half-life,
+   peak after, absorbed) are hidden on the phone (his GLP-1 rule, 2026-09-20:
+   reference material hidden on the phone, folded on iPad and Mac). */
+:root body.mobile #view .pk-sum { display: flex; flex-direction: column; gap: 14px; padding: 18px; }
+:root body.mobile #view .pk-sum > .pk-sumgrid { order: 1; }
+:root body.mobile #view .pk-sum > .pk-actions { order: 2; }
+:root body.mobile #view .pk-sum > .pk-foot { order: 3; font-size: 13px; color: var(--ink-2); }
+:root body.mobile #view .pk-big { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 10px; }
+:root body.mobile #view .pk-big small { flex-basis: 100%; }
+:root body.mobile #view .pk-cells { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+:root body.mobile #view .pk-cells > .pk-cell2:nth-child(n+4) { display: none; }
+:root body.mobile #view .pk-cell2 { display: flex; flex-direction: column; justify-content: space-between; min-height: 84px; }
+:root body.mobile #view .pk-cell2 b { color: var(--med); }
+:root body.mobile #view .pk-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+:root body.mobile #view .pk-actions .btn { min-height: 50px; font-size: 16px; }
+
+/* ============================================================== SETTINGS */
+/* v3: Apple's Settings. Inset groups of rows: an icon tile, a name, one short value in
+   grey, a chevron; each row pushes its own page. Tiles are graphite (no colour that could
+   be read as a meaning) except where the colour IS the meaning: Oura in its dusk, Sync
+   green when synced, the test app's own switches in turquoise (selected, his action). */
+:root body.mobile #view .rt-settings { gap: 22px; }
+:root body.mobile #view .rt-settings > .pagehead { margin: 0; }
+:root body.mobile #view .rset-sec { display: flex; flex-direction: column; gap: 8px; }
+:root body.mobile #view .rset-h { margin: 0 4px; font-size: 20px; line-height: 24px; font-weight: 700; letter-spacing: .38px; }
+:root body.mobile #view .rset-group { background: var(--panel); border-radius: var(--radius); overflow: hidden; }
+:root body.mobile #view .rset-row {
+  position: relative; display: flex; align-items: center; gap: 14px; width: 100%; min-height: 52px; margin: 0;
+  padding: 8px 14px; border: 0; background: transparent; color: var(--ink); text-align: left; font: inherit; cursor: pointer;
+  transition: background-color .15s ease;
+}
+:root body.mobile #view .rset-row + .rset-row::before {
+  content: ""; position: absolute; top: 0; left: 58px; right: 0; height: .5px; background: var(--line);
+}
+:root body.mobile #view button.rset-row:active { background: var(--fill); }
+:root body.mobile #view .rset-static { cursor: default; }
+:root body.mobile #view .rset-ico {
+  flex: 0 0 auto; width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; color: #fff;
+  background: linear-gradient(180deg, #6E6E73, #48484A);
+}
+:root body.mobile #view .rset-ico.dusk { background: linear-gradient(180deg, #7D7AFF, #5856D6); }
+:root body.mobile #view .rset-ico.good { background: linear-gradient(180deg, #4CD964, #28A745); }
+:root body.mobile #view .rset-ico.accent { background: linear-gradient(180deg, var(--action-fill), var(--action-end)); color: var(--on-accent); }
+:root body.mobile #view .rset-ico svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+:root body.mobile #view .rset-t { flex: 1 1 auto; min-width: 0; font-size: 17px; line-height: 22px; letter-spacing: -.41px; }
+:root body.mobile #view .rset-v { flex: 0 1 auto; min-width: 0; font-size: 17px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+:root body.mobile #view .rset-v.bad { color: var(--bad); font-weight: 600; }
+:root body.mobile #view .rset-chev { flex: 0 0 auto; width: 14px; height: 14px; margin-left: -6px; fill: none; stroke: var(--ink-3); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; opacity: .7; }
+:root body.mobile #view .rset-switch { cursor: default; }
+:root body.mobile #view .rset-tt { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+:root body.mobile #view .rset-tt .rset-t { flex: none; }
+:root body.mobile #view .rset-s { font-size: 13px; line-height: 17px; color: var(--ink-2); }
+:root body.mobile #view .rset-switch > input { flex: 0 0 auto; margin: 0; accent-color: var(--action-fill); }
+
+/* A pushed page: its large title, then its controls on one card, footnotes under. */
+:root body.mobile #view .rset-body { padding: 0; background: transparent; border-radius: 0; }
+:root body.mobile #view .rset-body > .card-body { display: flex; flex-direction: column; gap: 14px; padding: 0; }
+:root body.mobile #view .rset-list, :root body.mobile #view .rset-fields, :root body.mobile #view .rset-facts, :root body.mobile #view .rset-sliders {
+  background: var(--panel); border-radius: var(--radius); overflow: hidden;
+}
+:root body.mobile #view .rset-list > label.check-row {
+  display: flex; flex-direction: row-reverse; align-items: center; gap: 12px; min-height: 56px; margin: 0; padding: 10px 14px 10px 16px; position: relative;
+}
+:root body.mobile #view .rset-list > * + label.check-row::before,
+:root body.mobile #view .rset-list > * + .row::before { content: ""; position: absolute; top: 0; left: 16px; right: 0; height: .5px; background: var(--line); }
+:root body.mobile #view .rset-list label.check-row > span b { font-size: 17px; font-weight: 400; letter-spacing: -.41px; }
+:root body.mobile #view .rset-list label.check-row > span > .muted { font-size: 13px; line-height: 17px; margin-top: 1px; }
+:root body.mobile #view .rset-list label.check-row > span br { display: none; }
+:root body.mobile #view .rset-list label.check-row > input { accent-color: var(--action-fill); }
+:root body.mobile #view .rset-list > .row { position: relative; display: flex; gap: 10px; padding: 8px 16px 12px; margin: 0; }
+:root body.mobile #view .rset-list > .row .fld { flex: 1; }
+:root body.mobile #view .rset-fields { display: flex; flex-direction: column; padding: 0; }
+:root body.mobile #view .rset-fields > .fld {
+  position: relative; display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 12px;
+  min-height: 52px; padding: 4px 8px 4px 16px; font-size: 17px; font-weight: 400; color: var(--ink); letter-spacing: -.41px;
+}
+:root body.mobile #view .rset-fields > .fld + .fld::before { content: ""; position: absolute; top: 0; left: 16px; right: 0; height: .5px; background: var(--line); }
+:root body.mobile #view .rset-fields > .fld > :is(input, .rt-menubtn, .secret-field) { flex: 0 1 58%; min-width: 0; min-height: 40px; text-align: right; }
+:root body.mobile #view .rset-fields > .fld > input { background: transparent; color: var(--ink-2); font-family: var(--round); font-weight: 600; }
+:root body.mobile #view .rset-fields > .fld > input:is([type="date"], [type="time"]) { -webkit-appearance: none; appearance: none; display: flex; justify-content: flex-end; }
+:root body.mobile #view .rset-fields > .fld > .rt-menubtn { background: transparent; justify-content: flex-end; padding-right: 6px; }
+:root body.mobile #view .rset-fields .secret-field > input { background: var(--fill-2); text-align: left; }
+:root body.mobile #view .rset-facts { padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; font-size: 15px; line-height: 20px; color: var(--ink); }
+:root body.mobile #view .rset-facts p { margin: 0; }
+:root body.mobile #view .rset-left { color: var(--left); }
+:root body.mobile #view .rset-right { color: var(--right); }
+:root body.mobile #view .rset-foot, :root body.mobile #view .rset-lead { margin: -6px 16px 0; font-size: 13px; line-height: 18px; color: var(--ink-2); }
+:root body.mobile #view .rset-lead { margin: 0 4px; font-size: 15px; color: var(--ink); }
+:root body.mobile #view .rset-foot:empty { display: none; }
+:root body.mobile #view .rset-sliders { display: flex; flex-direction: column; gap: 4px; padding: 12px 16px; }
+:root body.mobile #view .rset-sliders .fld { font-size: 15px; color: var(--ink); gap: 4px; }
+:root body.mobile #view .rset-sliders input[type=range] { width: 100%; accent-color: var(--action-fill); }
+:root body.mobile #view .rset-sliders input[type=range]::-webkit-slider-runnable-track {
+  background: linear-gradient(90deg, var(--action-fill) var(--v, 0%), var(--track) var(--v, 0%));
+}
+:root body.mobile #view .rset-btns { display: flex; gap: 10px; flex-wrap: wrap; }
+:root body.mobile #view .rset-btns .btn { flex: 1 1 auto; min-height: 48px; border-radius: 999px; background: var(--panel); }
+:root body.mobile #view .rset-btns .btn.primary { background: var(--action-fill); }
+:root body.mobile #view .rset-actions { display: flex; flex-direction: column; }
+:root body.mobile #view .rset-actions > .btn {
+  justify-content: flex-start; min-height: 52px; border-radius: 0; padding: 0 16px; background: transparent; font-size: 17px; font-weight: 400; position: relative;
+}
+:root body.mobile #view .rset-actions > .btn + .btn::before { content: ""; position: absolute; top: 0; left: 16px; right: 0; height: .5px; background: var(--line); }
+:root body.mobile #view .rt-settings .themepick { gap: 10px; }
+:root body.mobile #view .rt-settings .themeopt { border: 0; border-radius: 20px; background: var(--panel); padding: 14px 8px; gap: 10px; }
+:root body.mobile #view .rt-settings .themeopt.on { background: var(--panel); box-shadow: inset 0 0 0 2.5px var(--action-fill); }
+:root body.mobile #view .rt-settings .themeopt.on .themelabel { color: var(--accent); font-weight: 700; }
+:root body.mobile #view .rt-settings .disc { background: var(--panel); border-radius: var(--radius); padding: 4px 16px; }
+:root body.mobile #view .rt-settings .disc > summary { min-height: 48px; display: flex; align-items: center; font-size: 17px; color: var(--accent); }
+:root body.mobile #view .rt-settings .disc .rset-facts { padding: 0 0 12px; }
+:root body.mobile #view .rt-settings .callout { font-size: 15px; line-height: 20px; }
+
+/* Rings fill with a spring when their screen arrives. */
+@property --p { syntax: "<number>"; inherits: true; initial-value: 0; }
+@keyframes rt-fill { from { --p: 0; } }
+
+/* ============================================================== PROGRESS 2 */
+/* Where you stand, on the phone: the bars, the numbers, the gap to his clinician's
+   goal and the one line about left against right. The per kg facts, the percentile
+   box and the population references are one tap away in View details (his device
+   rule: the iPhone the simplest, iPad and Mac to dig in). */
+:root body.mobile #view .rcard .rfacts,
+:root body.mobile #view .rcard .rsince,
+:root body.mobile #view .rcard .rref-line:not(.goal) { display: none; }
+:root body.mobile #view .rcard { display: flex; flex-direction: column; gap: 10px; }
+:root body.mobile #view .rcard-head { gap: 6px; }
+:root body.mobile #view .rcard-meta { font-size: 13px; color: var(--ink-2); }
+:root body.mobile #view .rwords { font-size: 17px; line-height: 22px; font-weight: 700; }
+:root body.mobile #view .rsym { font-size: 15px; color: var(--ink-2); }
+:root body.mobile #view .rcard-more { align-self: flex-start; }
+:root body.mobile #view .rcat { font-size: 12px; font-weight: 800; letter-spacing: .04em; border-radius: 8px; }
+
+/* ============================================================ SUPPLEMENTS (v3) */
+/* research 03 3.6, 09 V8, 07 4.6 (signature: tiles that fill green from the touch point,
+   the day's ring). Budget (07 4.8): every item on one screen on a normal day, so the
+   tiles are three across and the hero is one row: the day ring and the week. */
+:root body.mobile #view .rt-supps { gap: 12px; position: relative; isolation: isolate; }
+/* The page's own wash at the top: soft green, his done colour, behind the title only. */
+:root body.mobile #view .rt-supps::before {
+  content: ""; position: absolute; z-index: -1; pointer-events: none;
+  left: 50%; width: 100vw; transform: translateX(-50%); top: calc(var(--safe-t) * -1 - 8px); height: 300px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--good-fill) 16%, transparent), transparent);
+}
+:root body.mobile #view .rt-supps > .pagehead { gap: 8px; padding: 0; }
+:root body.mobile #view .rs-titlerow { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+:root body.mobile #view .rs-titlerow h1 { min-height: 0; padding: 0; }
+:root body.mobile #view .rs-titlebtns { display: flex; gap: 8px; flex: 0 0 auto; }
+:root body.mobile #view .rs-glassbtn {
+  min-height: 44px; padding: 0 16px; border: 0; border-radius: 22px; color: var(--ink); font-size: 17px; font-weight: 600; letter-spacing: -.41px;
+  background: var(--glass); -webkit-backdrop-filter: blur(20px) saturate(180%); backdrop-filter: blur(20px) saturate(180%);
+  box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-hi), inset 0 0 0 .5px var(--glass-rim);
+  transition: transform .4s var(--spring);
+}
+:root body.mobile #view .rs-glassbtn:active { transform: scale(1.08); }
+:root body.mobile #view .rs-glassbtn.on { background: var(--action-fill); color: var(--on-accent); }
+
+/* Round 3 (plan 1A): the checklist strip under the title. One segment per counted item,
+   bands 6 pt apart, green from the left with a spring (a spark lands first, so the fill
+   waits a beat); the count at the RIGHT end of the same strip, on solid ground, rolling to
+   its new number. Gold when everything is taken, then a slim gold line. It sticks under
+   the bar as the list scrolls and shrinks into it (plan 2.2), springing back at the top. */
+:root body.mobile #view .rs-strip {
+  position: sticky; z-index: 6; top: calc(var(--mtop-real, 109px) - 10px);
+  display: flex; align-items: center; gap: 12px; margin: -8px calc(var(--gutter) * -1) 0; padding: 6px var(--gutter) 0;
+  border-radius: 0; transition: background-color .25s ease;
+}
+/* 44 pt tall, and a tap in a gap goes to the nearest segment (supplements.js), so the whole
+   strip is one target (r3 audit TS-13); same drawn height and centre as before. */
+:root body.mobile #view .rs-segs { flex: 1 1 auto; min-width: 0; display: flex; gap: 10px; height: 44px; align-items: center; }
+:root body.mobile #view .rs-segband { display: flex; gap: 3px; min-width: 0; height: 100%; align-items: center; }
+:root body.mobile #view .rs-seg {
+  flex: 1 1 0; min-width: 0; height: 100%; padding: 9px 0; margin: 0; border: 0; background: transparent; display: flex; align-items: center;
+}
+:root body.mobile #view .rs-seg i {
+  display: block; width: 100%; height: 14px; border-radius: 4px; position: relative; overflow: hidden;
+  background: color-mix(in srgb, var(--ink) 11%, transparent);
+  transition: height .4s var(--spring-soft), border-radius .4s var(--spring-soft);
+}
+:root body.mobile #view .rs-segband > .rs-seg:first-child i { border-radius: 7px 4px 4px 7px; }
+:root body.mobile #view .rs-segband > .rs-seg:last-child i { border-radius: 4px 7px 7px 4px; }
+:root body.mobile #view .rs-segband > .rs-seg:only-child i { border-radius: 7px; }
+:root body.mobile #view .rs-seg i::after {
+  content: ""; position: absolute; inset: 0; background: var(--good-fill); border-radius: inherit;
+  transform: scaleX(0); transform-origin: left center;
+  transition: transform .5s var(--spring) .3s;
+}
+:root body.mobile #view .rs-seg.on i::after { transform: none; }
+:root body.mobile #view .rs-seg:not(.on) i::after { transition-delay: 0s; transition-duration: .25s; }
+:root body.mobile #view .rs-strip.full .rs-seg i::after { background: linear-gradient(90deg, var(--gold-glow), var(--gold)); }
+:root body.mobile #view .rs-strip.full.settled .rs-seg i { height: 5px; }
+:root body.mobile #view .rs-stripcount {
+  flex: 0 0 auto; display: flex; align-items: baseline; gap: 0; padding: 4px 10px; border-radius: 12px;
+  background: var(--panel); font-family: var(--round); font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+:root body.mobile #view .rs-stripcount b { font-size: 20px; line-height: 24px; font-weight: 800; color: var(--ink); letter-spacing: -.3px; }
+:root body.mobile #view .rs-stripcount span { margin-left: 4px; font-size: 15px; font-weight: 700; color: var(--ink-2); }
+:root body.mobile #view .rs-strip.full .rs-stripcount b { color: var(--gold-ink); }
+:root body.mobile #view .rs-strip.won { animation: rs-won 1.1s var(--spring) both; }
+@keyframes rs-won { 0% { transform: none; } 30% { transform: scale(1.03); } 100% { transform: none; } }
+/* Scrolled: it rides under the bar on the bar's own solid ground, thinner. */
+@supports (animation-timeline: scroll()) {
+  :root body.mobile #view .rs-strip { animation: rs-strip-stick linear both; animation-timeline: scroll(root); animation-range: 40px 110px; }
+  :root body.mobile #view .rs-strip .rs-seg i { animation: rs-seg-thin linear both; animation-timeline: scroll(root); animation-range: 40px 110px; }
+  :root body.mobile #view .rs-strip .rs-stripcount { animation: rs-count-small linear both; animation-timeline: scroll(root); animation-range: 40px 110px; }
+}
+@keyframes rs-strip-stick { from { background-color: transparent; } to { background-color: var(--bg); box-shadow: 0 .5px 0 var(--line-2); } }
+@keyframes rs-seg-thin { to { height: 7px; } }
+@keyframes rs-count-small { to { transform: scale(.86); transform-origin: right center; background-color: transparent; } }
+/* A segment tapped: its tile outlined once in turquoise (selected), nothing ticked. */
+:root body.mobile #view .rs-tile.seek { animation: rs-seek 1.3s var(--ease-out) both; }
+@keyframes rs-seek { 0%, 60% { box-shadow: 0 0 0 3px var(--action-fill); } 100% { box-shadow: 0 0 0 3px transparent; } }
+
+/* The date, said once and only when it is not the current day, with Today to come back. */
+:root body.mobile #view .rs-dateline { display: flex; align-items: center; gap: 10px; min-height: 32px; }
+:root body.mobile #view .rs-date { font-size: 17px; font-weight: 600; color: var(--ink-2); }
+:root body.mobile #view .rs-todaycap {
+  min-height: 32px; padding: 0 14px; border: 0; border-radius: 16px; background: var(--action-fill); color: var(--on-accent);
+  font-size: 15px; font-weight: 700; transition: transform .4s var(--spring);
+}
+:root body.mobile #view .rs-todaycap:active { transform: scale(.94); }
+:root body.mobile #view [data-supp-title] { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+:root body.mobile #view .rs-jump {
+  position: absolute; left: 16px; top: 60px; width: 1px; height: 1px; min-height: 0; opacity: 0; padding: 0; border: 0; pointer-events: none;
+}
+
+/* The bands: glyph, name and the count in words on one line, the band's menu and (Morning,
+   the current day) the Morning set at the trailing end; a finished band folds to that line. */
+:root body.mobile #view .rt-supps .supp-groups { display: flex; flex-direction: column; gap: 10px; }
+:root body.mobile #view .rt-supps .suppgroup { gap: 6px; overflow: visible; }
+:root body.mobile #view .rs-bandrow { display: flex; align-items: center; gap: 6px; min-height: 40px; }
+:root body.mobile #view .rs-bandhead {
+  flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 4px 0 2px;
+  border: 0; background: transparent; color: var(--ink); text-align: left;
+}
+:root body.mobile #view .rs-bandhead:disabled { opacity: 1; }
+:root body.mobile #view .rs-bglyph { width: 24px; height: 24px; color: var(--ink-2); flex: 0 0 auto; }
+:root body.mobile #view .rs-bglyph svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+:root body.mobile #view .rt-supps .sg-label { flex: 0 1 auto; font-size: 20px; line-height: 24px; font-weight: 700; letter-spacing: .38px; color: var(--ink); }
+:root body.mobile #view .rt-supps .sg-count {
+  flex: 1 0 auto; display: inline-flex; align-items: center; gap: 3px; justify-content: flex-start; margin-left: 4px;
+  font-family: var(--round); font-size: 15px; font-weight: 700; color: var(--ink-2); white-space: nowrap;
+}
+:root body.mobile #view .rt-supps .sg-count.good { color: var(--good); }
+:root body.mobile #view .rt-supps .sg-check { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.8; stroke-linecap: round; stroke-linejoin: round; }
+:root body.mobile #view .rt-supps .suppgroup.shut > .rs-bandrow { min-height: 48px; padding: 0 6px 0 10px; border-radius: 16px; background: var(--panel); }
+:root body.mobile #view .rt-supps .suppgroup > .fold-body > .fold-clip { margin-inline: -4px; padding: 0 4px 4px; }
+:root body.mobile #view .rs-bandmore {
+  flex: 0 0 auto; width: 36px; height: 36px; padding: 0; border: 0; border-radius: 50%; display: grid; place-items: center;
+  background: var(--glass); color: var(--ink);
+  -webkit-backdrop-filter: blur(16px) saturate(180%); backdrop-filter: blur(16px) saturate(180%);
+  box-shadow: inset 0 1px 0 var(--glass-hi), inset 0 0 0 .5px var(--glass-rim);
+  transition: transform .4s var(--spring);
+}
+:root body.mobile #view .rs-bandmore:active { transform: scale(1.1); }
+:root body.mobile #view .rs-bandmore svg { width: 20px; height: 20px; fill: currentColor; }
+/* A2: the Morning set, a glass capsule: a pill mark per item it will tick, then its name. */
+:root body.mobile #view .rs-mset {
+  flex: 0 0 auto; display: inline-flex; align-items: center; gap: 7px; min-height: 36px; padding: 0 14px 0 10px; border: 0; border-radius: 18px;
+  background: var(--action-fill); color: var(--on-accent); font-size: 15px; font-weight: 700; letter-spacing: -.24px;
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--action-fill) 30%, transparent), inset 0 1px 0 rgba(255, 255, 255, .28);
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+  transition: transform .4s var(--spring);
+}
+:root body.mobile #view .rs-mset:active { transform: scale(.95); }
+:root body.mobile #view .rs-msetmarks { display: inline-flex; align-items: center; }
+:root body.mobile #view .rs-msetmarks i {
+  width: 9px; height: 15px; border-radius: 5px; background: var(--on-accent); opacity: .92;
+  box-shadow: 0 0 0 1.5px var(--action-fill); transform: rotate(28deg);
+}
+:root body.mobile #view .rs-msetmarks i + i { margin-left: -2px; }
+:root body.mobile #view .rs-msetmarks em { font-style: normal; font-family: var(--round); font-size: 12px; font-weight: 800; margin-left: 3px; }
+/* Holding the Morning set: its tiles outlined, so he sees what one tap ticks. */
+:root body.mobile #view .rt-supps.mset-peek .rs-tile.inset { box-shadow: 0 0 0 2.5px var(--action-fill); transform: scale(1.02); }
+:root body.mobile #view .rt-supps .rs-tile.inset { transition: transform .45s var(--spring), box-shadow .2s ease; }
+
+/* A4: Now and then, one closed row after the bands; a green dot when one was taken. */
+:root body.mobile #view .rs-quiethead .sg-count { flex: 1 0 auto; }
+:root body.mobile #view .rs-quiethead { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+:root body.mobile #view .rs-quiet .rs-chev { width: 16px; height: 16px; flex: 0 0 auto; fill: none; stroke: var(--ink-3); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; transition: transform .35s var(--spring); }
+:root body.mobile #view .rs-quiet.open .rs-chev { transform: rotate(90deg); }
+:root body.mobile #view .rs-qdot { width: 8px; height: 8px; border-radius: 50%; background: var(--good-fill); flex: 0 0 auto; }
+:root body.mobile #view .rs-ask { display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 20px; background: var(--panel); }
+:root body.mobile #view .rs-askitems { display: flex; flex-wrap: wrap; gap: 6px; }
+:root body.mobile #view .rs-askitem { padding: 6px 12px; border-radius: 12px; background: var(--fill-2); font-size: 15px; font-weight: 600; }
+:root body.mobile #view .rs-askfoot { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+:root body.mobile #view .rs-askq { font-size: 15px; font-weight: 600; color: var(--ink-2); }
+:root body.mobile #view .rs-askbtns { display: flex; gap: 8px; }
+:root body.mobile #view .rs-askbtn { min-height: 36px; padding: 0 16px; border: 0; border-radius: 18px; background: var(--fill); color: var(--ink); font-size: 15px; font-weight: 700; }
+:root body.mobile #view .rs-askbtn.fold { background: var(--action-fill); color: var(--on-accent); }
+
+/* A5: the usual time chips, a glass capsule under the tile for 6 seconds. */
+.rs-usual {
+  position: fixed; z-index: 380; display: flex; gap: 4px; padding: 4px; border-radius: 22px;
+  background: color-mix(in srgb, var(--panel) 86%, transparent);
+  -webkit-backdrop-filter: blur(24px) saturate(180%); backdrop-filter: blur(24px) saturate(180%);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, .18), 0 0 0 .5px var(--glass-rim);
+  transform: translateY(-6px) scale(.9); opacity: 0; transition: transform .42s var(--spring), opacity .18s ease;
+}
+.rs-usual.in { transform: none; opacity: 1; }
+.rs-usual button {
+  min-height: 36px; padding: 0 14px; border: 0; border-radius: 18px; background: transparent; color: var(--ink);
+  font: 600 15px/20px var(--font); letter-spacing: -.24px; white-space: nowrap;
+}
+.rs-usual button.on { background: var(--action-fill); color: var(--on-accent); }
+@media (prefers-reduced-motion: reduce) { .rs-usual { transition: opacity .12s ease; transform: none; } }
+
+/* Tiles: a neutral card until his tap; then green fills out from his finger, a white
+   tick springs in, and the time he took it sits on the tile (tap it for the wheel). */
+:root body.mobile #view .rs-tiles {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;
+  background: transparent; border-radius: 0; padding: 0;
+}
+:root body.mobile #view .rs-tile {
+  position: relative; isolation: isolate; overflow: hidden; display: block; min-height: 56px;
+  border: 0; border-radius: 18px; background: var(--panel);
+  transition: transform .45s var(--spring);
+}
+:root body.mobile #view .rs-tile::before { display: none; }
+:root body.mobile #view .rs-tile:active { transform: scale(.95); transition-duration: .1s; }
+:root body.mobile #view .rs-tile.pop { animation: rs-pop .55s var(--spring) both; }
+@keyframes rs-pop { 0% { transform: scale(.94); } 55% { transform: scale(1.04); } 100% { transform: none; } }
+:root body.mobile #view .rs-tile .supp-check {
+  position: relative; display: flex; flex-direction: column; justify-content: space-between; align-items: stretch; gap: 2px;
+  min-height: 56px; height: 100%; padding: 8px 8px 7px 10px; cursor: pointer;
+}
+:root body.mobile #view .rs-tfill {
+  position: absolute; inset: 0; z-index: -1; background: var(--done-fill);
+  clip-path: circle(0% at var(--tx, 50%) var(--ty, 50%));
+  transition: clip-path .55s cubic-bezier(.3, .9, .3, 1) var(--d, 0ms);
+}
+:root body.mobile #view .rs-tile.on .rs-tfill { clip-path: circle(150% at var(--tx, 50%) var(--ty, 50%)); }
+:root body.mobile #view .rs-tile .suppname {
+  flex: 0 0 auto; font-size: 15px; line-height: 18px; font-weight: 600; letter-spacing: -.24px; color: var(--ink);
+  overflow-wrap: normal; word-break: keep-all; hyphens: manual; text-wrap: balance; transition: color .25s ease;
+}
+:root body.mobile #view .rs-tile.on .suppname { color: var(--on-done); }
+:root body.mobile #view .rs-tsub { padding-right: 20px; min-height: 16px; font-family: var(--round); font-size: 13px; line-height: 16px; font-weight: 600; color: var(--ink-2); }
+:root body.mobile #view .rs-tsub.due { color: var(--accent); font-weight: 800; }
+:root body.mobile #view .rs-tile .supptick {
+  position: absolute; bottom: 8px; right: 8px; width: 18px; height: 18px; border-radius: 50%;
+  border: 1.5px solid color-mix(in srgb, var(--ink-3) 55%, transparent); background: transparent; color: transparent;
+  transition: border-color .2s ease, transform .45s var(--spring);
+}
+:root body.mobile #view .rs-tile .supptick svg { width: 14px; height: 14px; stroke-width: 3; }
+:root body.mobile #view .rs-tile.on .supptick { border-color: transparent; color: var(--on-done); transform: scale(1.25); }
+:root body.mobile #view .rs-tile .supp-input:checked + .rs-tfill + .suppname + .rs-tsub + .supptick { background: transparent; }
+/* The time he took it: its own control on the tile's lower line. */
+:root body.mobile #view .rs-ttime {
+  position: absolute; left: 3px; bottom: 2px; z-index: 2; display: inline-grid; place-items: center start;
+  min-width: 0; min-height: 30px; padding: 0 8px; border-radius: 10px;
+  background: transparent; color: color-mix(in srgb, var(--on-done) 88%, transparent);
+  font-family: var(--round); font-size: 13px; font-weight: 700;
+}
+:root body.mobile #view .rs-ttime:not(.set) { text-decoration: underline; text-underline-offset: 2px; }
+:root body.mobile #view .rs-ttime:active { background: color-mix(in srgb, var(--on-done) 18%, transparent); }
+:root body.mobile #view .rs-ttime input[type=time] { position: absolute; inset: -6px 0; opacity: 0; width: 100%; min-height: 0; }
+@media (prefers-reduced-motion: reduce) {
+  :root body.mobile #view .rs-tfill { transition: none; }
+  :root body.mobile #view .rs-tile.pop { animation: none; }
+}
+
+/* Edit: rows with Remove and a drag handle, then Add, the way iOS lists edit. */
+:root body.mobile #view .rs-rows { display: flex; flex-direction: column; background: var(--panel); border-radius: 18px; padding: 0; min-height: 52px; }
+:root body.mobile #view .rs-erow { display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 6px 0 10px; border: 0; }
+:root body.mobile #view .rs-erow + .rs-erow { box-shadow: inset 0 .5px 0 var(--line); }
+:root body.mobile #view .rs-erow::before { display: none; }
+:root body.mobile #view .rs-erow .suppname { flex: 1; font-size: 17px; font-weight: 500; }
+:root body.mobile #view .rs-every { font-size: 13px; color: var(--ink-2); font-weight: 500; }
+:root body.mobile #view .rs-del {
+  width: 28px; height: 28px; min-width: 28px; padding: 0; border-radius: 50%; background: var(--bad); color: #fff; display: grid; place-items: center;
+}
+:root body.mobile #view .rs-del svg, :root body.mobile #view .rs-add svg, :root body.mobile #view .supphandle svg {
+  width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round;
+}
+:root body.mobile #view .rt-supps .supphandle { width: 44px; height: 44px; display: grid; place-items: center; color: var(--ink-3); touch-action: none; }
+:root body.mobile #view .rt-supps .supphandle svg { stroke-width: 2; }
+:root body.mobile #view .rs-add {
+  display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 50px; border: 0; border-radius: 16px;
+  background: var(--panel); color: var(--accent); font-size: 17px; font-weight: 600;
+}
+:root body.mobile #view .rs-empty { color: var(--ink-2); font-size: 15px; margin: 8px 4px; }
+
+/* As needed: one row of capsules; the neutral underlay slides as the wait passes (his
+   "subtle sliding progress bar underlay"), the next allowed time on it, or Clear. */
+:root body.mobile #view .rs-prn { display: flex; flex-direction: column; gap: 6px; }
+:root body.mobile #view .rs-h { font-size: 20px; line-height: 24px; font-weight: 700; letter-spacing: .38px; margin: 0 2px; }
+:root body.mobile #view .rs-prnrow {
+  display: grid; grid-auto-flow: column; grid-auto-columns: minmax(104px, 1fr); gap: 8px;
+  overflow-x: auto; scrollbar-width: none; margin: 0 calc(var(--gutter) * -1); padding: 0 var(--gutter) 2px;
+}
+:root body.mobile #view .rs-prnwrap { position: relative; display: flex; }
+:root body.mobile #view .rs-prncap {
+  position: relative; isolation: isolate; overflow: hidden; flex: 1; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px;
+  min-height: 56px; margin: 0; padding: 8px 16px; border: 0; border-radius: 999px; background: var(--panel); color: var(--ink); text-align: left;
+  transition: transform .45s var(--spring);
+}
+:root body.mobile #view .rs-prncap:active { transform: scale(.95); }
+:root body.mobile #view .rs-prncap .prnfill { z-index: -1; background: color-mix(in srgb, var(--ink-3) 16%, transparent); transition: transform 1.2s linear; }
+:root body.mobile #view .rs-prncap .prnname { font-size: 15px; line-height: 18px; font-weight: 600; }
+:root body.mobile #view .rs-prncap .prnstatus { display: block; font-family: var(--round); font-size: 13px; line-height: 16px; font-weight: 700; color: var(--ink-2); }
+:root body.mobile #view .rs-prncount {
+  position: absolute; top: 50%; margin-top: -10px; right: 12px; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px;
+  background: var(--fill); font-family: var(--round); font-size: 12px; font-weight: 800; line-height: 20px; text-align: center; color: var(--ink-2);
+}
+:root body.mobile #view .rs-prnedit .rs-erow { padding-right: 16px; }
+:root body.mobile #view .rs-prncap:disabled { opacity: 1; }
+
+/* The dose sheet: early in one line, today's doses with Remove. */
+:root body.mobile #modal-root .rs-early { margin: 0 0 12px; font-size: 15px; font-weight: 600; color: var(--ink); }
+:root body.mobile #modal-root .rs-doses { margin-top: 16px; border-radius: 14px; background: var(--fill-2); padding: 4px 0; }
+:root body.mobile #modal-root .rs-doses-h { padding: 8px 14px 4px; font-size: 13px; font-weight: 600; color: var(--ink-2); }
+:root body.mobile #modal-root .rs-doses-h span { font-family: var(--round); margin-left: 6px; }
+:root body.mobile #modal-root .rs-dose { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 6px 0 14px; }
+:root body.mobile #modal-root .rs-dose b { font-family: var(--round); font-size: 17px; }
+:root body.mobile #modal-root .rs-dose span { flex: 1; color: var(--ink-2); font-size: 15px; }
+:root body.mobile #modal-root .rs-doserm { min-height: 40px; padding: 0 12px; border: 0; border-radius: 12px; background: transparent; color: var(--bad); font-size: 15px; font-weight: 600; }
+
+/* The status bar band shows the page (its wash) while the page is at the top; once
+   scrolled it is the bar's frost again (rt.js sets rt-top). */
+:root.rt-top body.mobile .sb-fill { opacity: 0; }
+:root body.mobile .sb-fill { transition: opacity .25s ease; }
+:root body.mobile #view .rs-tsub { display: flex; align-items: center; gap: 3px; white-space: nowrap; }
+:root body.mobile #view .rs-next { width: 13px; height: 13px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; }
+/* Fields in a sheet never run past its edge; time and date read left like the rest. */
+:root body.mobile #modal-root .fld > input { width: 100%; min-width: 0; box-sizing: border-box; }
+:root body.mobile #modal-root input:is([type="time"], [type="date"]) {
+  -webkit-appearance: none; appearance: none; display: flex; align-items: center; text-align: left;
+  font-family: var(--round); font-weight: 600;
+}
+:root body.mobile #modal-root input:is([type="time"], [type="date"])::-webkit-date-and-time-value { text-align: left; }
+:root body.mobile #modal-root .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+:root body.mobile #view .rt-settings :is(.rset-t, .rset-s, .rset-list b, .rset-list .muted) { text-wrap: balance; }
+/* The switch at Apple's size (51 x 31), whichever way it is drawn. */
+:root body.mobile #view .rt-settings input[type=checkbox][switch] { width: 51px; height: 31px; min-width: 51px; flex: 0 0 auto; }
+/* A pushed page (Back showing) carries no Settings button: one way out, as iOS does. */
+:root body.mobile:has(#nav-back:not([hidden])) .mtop .micon { display: none; }
+:root body.mobile #view .rset-fields > .fld > input:is([type="date"], [type="time"])::-webkit-date-and-time-value { text-align: right; }
+.rt-menu-item:focus { outline: none; }
+.rt-menu-item:focus-visible { outline: none; background: var(--fill); }
+.rt-menu:focus { outline: none; }
+/* Categories in the exercise picker: glyph and word first, the family colour second. */
+:root body.mobile #modal-root .picker-group { display: flex; align-items: center; gap: 6px; font-size: 15px; font-weight: 700; text-transform: none; letter-spacing: -.24px; }
+/* Which side, in his colours: L blue, R orange, Both turquoise; filled, never outlined. */
+:root body.mobile #modal-root .picker-sides { border: 0; box-shadow: none; background: transparent; gap: 6px; }
+:root body.mobile #modal-root .picker-sides > .btn { border: 0; min-width: 44px; min-height: 40px; border-radius: 999px; font-weight: 700; }
+:root body.mobile #modal-root .picker-sides > [data-side="L"] { background: color-mix(in srgb, var(--left-fill) 14%, var(--panel)); color: var(--left); }
+:root body.mobile #modal-root .picker-sides > [data-side="R"] { background: color-mix(in srgb, var(--right-fill) 16%, var(--panel)); color: var(--right); }
+:root body.mobile #modal-root .picker-sides > [data-side="B"] { background: var(--accent-soft); color: var(--accent); }
+
+/* ======================================================= CUSTOM WORKOUT */
+/* v3 player language for the custom workout timer (audit P7). It is an overlay on
+   body, outside #view, so the app wide sentence case did not reach it: no grey caps
+   eyebrow, no caps labels, no explaining line, the sound choice as a glass button in
+   the top line (one tap to silent, his 2026-09-16 ask), his picture beside the title,
+   content from the top and the dock at the foot. */
+:root body.mobile .cw-back { padding-top: calc(env(safe-area-inset-top, 0px) + 2px); }
+:root body.mobile .cw-back, :root body.mobile .cw-back * { text-transform: none; letter-spacing: normal; }
+:root body.mobile .cw.player { margin: 0 auto; flex: 1 0 auto; display: flex; flex-direction: column; }
+:root body.mobile .cw.player [data-cw-dock] { margin-top: auto; padding-top: 12px; }
+:root body.mobile .cw .p-eyebrow { display: flex; align-items: center; gap: 8px; min-height: 44px; margin: 0; }
+:root body.mobile .cw .p-eyebrow .p-count {
+  margin-right: auto; font-size: 17px; font-weight: 600; color: var(--ink); font-family: var(--round); font-variant-numeric: tabular-nums;
+}
+:root body.mobile .cw .cw-cues {
+  flex: none; display: inline-grid; place-items: center; width: 34px; height: 34px; min-height: 0; padding: 0; margin: 0;
+  border: 0; border-radius: 50%; color: var(--ink); background: var(--glass-fill, var(--panel));
+  box-shadow: var(--glass-shadow, 0 1px 4px rgba(0,0,0,.12)), inset 0 1px 0 var(--glass-edge, transparent), inset 0 0 0 1px var(--glass-rim, transparent);
+}
+:root body.mobile .cw .cw-cues span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+:root body.mobile .cw .cw-cues svg { width: 18px; height: 18px; }
+:root body.mobile .cw .cw-cues:not(.on) { color: var(--ink-2); }
+:root body.mobile .cw .cw-head { display: flex; align-items: center; gap: 14px; margin-top: 6px; }
+:root body.mobile .cw .cw-pic {
+  flex: none; width: 112px; height: 63px; border-radius: 16px; background: #D3DBE2; overflow: hidden; display: grid; place-items: center;
+}
+:root body.mobile .cw .cw-pic img { width: 100%; height: 100%; object-fit: contain; display: block; }
+:root body.mobile .cw .cw-head .p-title { font-size: 24px; line-height: 29px; font-weight: 800; margin: 0; min-width: 0; }
+:root body.mobile .cw .p-phaserow .p-label { font-size: 20px; font-weight: 700; }
+:root body.mobile .cw .p-cap { font-size: 15px; }
+/* The ring takes the room the old sentence and Cues bar left (Apple: numbers biggest). */
+:root body.mobile .cw .cw-dial { flex: 1 1 auto; min-height: 0; }
+:root body.mobile .cw { --cwr: min(300px, calc(100vw - 90px), 36svh); }
+:root body.mobile .cw .p-ring { width: var(--cwr); height: var(--cwr); }
+/* The bezel, the sweep, the pulse and the breath hug the bigger ring, centred by margins
+   as the v3 player does (a percentage translate goes wrong in WebKit once animated). */
+:root body.mobile .cw :is(.p-dial__bezel, .p-dial__sweep, .p-dial__pulse, .p-dial__breath) {
+  width: var(--cwr); height: var(--cwr); inset: 0; margin: auto; transform: none;
+}
+:root body.mobile .cw .p-dial__glow { width: calc(var(--cwr) * .845); height: calc(var(--cwr) * .845); inset: 0; margin: auto; transform: none; }
+:root body.mobile .cw .p-center { inset: calc(var(--cwr) * .14); padding: 0; }
+:root body.mobile .cw .p-num { font-family: var(--round); font-weight: 800; font-size: calc(var(--cwr) * .235); letter-spacing: -.02em; }
+:root body.mobile .cw .cw-dial:focus-visible { outline: none; }   /* focus is set on open, not by a keyboard */
+
+/* History's day sheet: an exercise with no photo shows its drawn glyph on a square tile
+   (audit d10), the same 48 pt as the frames beside it. */
+:root body.mobile #modal-root .h3-glyph { display: grid; place-items: center; overflow: hidden; background: none; }
+:root body.mobile #modal-root .h3-glyph .icon-tile { width: 48px !important; height: 48px !important; border-radius: 11px; display: grid; place-items: center; }
+:root body.mobile #modal-root .h3-glyph .icon-tile svg { width: 30px; height: 30px; }
+
+/* =====================================================================================
+   ROUND 3 GLOBAL LOOK (2026-09-30). His words tonight: "I do like blue color schemes. I also
+   am a big fan of colorful stuff, but used in a classy way. I do like the new liquid glass
+   look ... So feel free to integrate some of that." In this app blue MEANS the left leg, so
+   blue and indigo live only in the chrome: the sky at the top of every page, glass, and
+   sleep. Never on a data mark, never on anything that could read as "left" (the leg blue is
+   always a capsule with an L). Words stay on solid ground: the sky is behind titles and
+   bands that sit on their own panels, and it fades out long before the list.
+   ===================================================================================== */
+:root {
+  /* The sky: ink blue into indigo at the very top, a breath of the page's own hue under it. */
+  --sky-a: color-mix(in srgb, #2F5BEA 24%, var(--bg));
+  --sky-b: color-mix(in srgb, #5E4BDB 20%, var(--bg));
+  --sky-glass: color-mix(in srgb, #3552D9 7%, var(--glass));
+  --sky-rim: color-mix(in srgb, #4A63E8 22%, var(--glass-rim));
+  --page-hue: transparent;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --sky-a: color-mix(in srgb, #3D6BFF 26%, var(--bg));
+    --sky-b: color-mix(in srgb, #6B55F0 22%, var(--bg));
+    --sky-glass: color-mix(in srgb, #5470FF 12%, var(--glass));
+    --sky-rim: color-mix(in srgb, #7C8FFF 30%, var(--glass-rim));
+  }
+}
+:root[data-theme="dark"] {
+  --sky-a: color-mix(in srgb, #3D6BFF 26%, var(--bg));
+  --sky-b: color-mix(in srgb, #6B55F0 22%, var(--bg));
+  --sky-glass: color-mix(in srgb, #5470FF 12%, var(--glass));
+  --sky-rim: color-mix(in srgb, #7C8FFF 30%, var(--glass-rim));
+}
+/* A7 Tonight (00:00 to 04:59, rt.js sets rt-night): the dusk of the Oura night card
+   (styles.css .rc-night, "dusk, not midnight", his call) takes the sky. Washes only. */
+:root.rt-night {
+  --sky-a: color-mix(in srgb, #3B4270 30%, var(--bg));
+  --sky-b: color-mix(in srgb, #6B4F86 22%, var(--bg));
+  --sky-glass: color-mix(in srgb, #3B4270 12%, var(--glass));
+}
+@media (prefers-color-scheme: dark) {
+  :root.rt-night:not([data-theme="light"]) { --sky-a: color-mix(in srgb, #4A5391 42%, var(--bg)); --sky-b: color-mix(in srgb, #7A5A9A 30%, var(--bg)); }
+}
+:root.rt-night[data-theme="dark"] { --sky-a: color-mix(in srgb, #4A5391 42%, var(--bg)); --sky-b: color-mix(in srgb, #7A5A9A 30%, var(--bg)); }
+
+/* The sky scrolls with the page (the canvas), so it is behind the title and gone by the list. */
+:root body.mobile {
+  background:
+    radial-gradient(120% 70% at 0% 0%, var(--sky-a), transparent 70%) 0 0 / 100% 440px no-repeat,
+    radial-gradient(110% 80% at 100% 0%, var(--sky-b), transparent 72%) 0 0 / 100% 440px no-repeat,
+    var(--bg);
+  transition: background-color .6s ease;
+}
+/* The night change is a wash change over 0.6 s (a cover that fades), never a crossfade of content. */
+:root body.mobile::after {
+  content: ""; position: absolute; left: 0; right: 0; top: 0; height: 440px; z-index: -1; pointer-events: none;
+  background: radial-gradient(120% 80% at 50% 0%, color-mix(in srgb, #3B4270 16%, transparent), transparent 70%);
+  opacity: 0; transition: opacity .6s ease;
+}
+:root.rt-night body.mobile::after { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { :root body.mobile::after { transition: none; } }
+
+/* Glass, a touch of the sky in it: the floating chrome (Back, Edit, the band menu, toasts
+   and menus). The native tab bar is real Liquid Glass (GlassTabBar.swift). */
+:root body.mobile .mback,
+:root body.mobile #view .rs-glassbtn:not(.on),
+:root body.mobile #view .rs-bandmore {
+  background: var(--sky-glass);
+  box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-hi), inset 0 0 0 .5px var(--sky-rim);
+}
+:root body.mobile .toast, .rt-menu, .rs-usual { box-shadow: 0 14px 36px rgba(12, 20, 60, .18), 0 0 0 .5px var(--sky-rim); }
+
+/* Numbers roll into place (rtfx.js rollDigits): each digit a slot that rolls to its value. */
+.rt-odo { position: relative; display: inline-block; overflow: hidden; clip-path: inset(0); vertical-align: baseline; }
+.rt-odo-sz { visibility: hidden; }
+.rt-odo-col { position: absolute; left: 0; right: 0; top: 0; text-align: center; will-change: transform; }
+
+/* A tick's spark (rtfx.js spark): a bright head and three fading motes, done green. */
+.rt-spark-layer { position: fixed; left: 0; top: 0; width: 0; height: 0; z-index: 390; pointer-events: none; }
+.rt-spark {
+  position: absolute; left: -5px; top: -5px; width: 10px; height: 10px; border-radius: 50%;
+  background: var(--c, var(--good-fill)); box-shadow: 0 0 0 2px color-mix(in srgb, var(--c, var(--good-fill)) 25%, transparent);
+}
+.rt-spark.mote { box-shadow: none; opacity: .8; }
+
+/* A shared utility for any hero that should shrink into the title as the list scrolls
+   (plan 2.2), CSS only: add .rt-hero-shrink to it. At the top it springs back. */
+@supports (animation-timeline: scroll()) {
+  :root:not(.lite-motion) body.mobile #view .rt-hero-shrink {
+    animation: rt-hero-shrink linear both; animation-timeline: scroll(root); animation-range: 0 140px; transform-origin: left top;
+  }
+}
+@keyframes rt-hero-shrink { to { transform: scale(.72); opacity: .0; } }
+@media (prefers-reduced-motion: reduce) { :root body.mobile #view .rt-hero-shrink { animation: none !important; } }
+
+/* Settings, round 3: the Coach voice and Sounds pick lists. A row is the choice (tick, name,
+   one line) and a round play button for a sample; the chosen row carries the tick. */
+:root body.mobile #view .rset-pick { display: flex; flex-direction: column; }
+:root body.mobile #view .rset-prow { position: relative; display: flex; align-items: center; gap: 4px; min-height: 60px; padding: 0 10px 0 4px; }
+:root body.mobile #view .rset-prow + .rset-prow::before { content: ""; position: absolute; top: 0; left: 46px; right: 0; height: .5px; background: var(--line); }
+:root body.mobile #view .rset-pbtn {
+  flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 10px; min-height: 56px; padding: 6px 8px; border: 0;
+  background: transparent; color: var(--ink); text-align: left; font: inherit; border-radius: 12px;
+}
+:root body.mobile #view .rset-pbtn:active { background: var(--fill); }
+:root body.mobile #view .rset-ptick { width: 24px; height: 24px; flex: 0 0 auto; color: var(--accent); }
+:root body.mobile #view .rset-ptick svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+:root body.mobile #view .rset-ptt { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+:root body.mobile #view .rset-ptt b { font-size: 17px; font-weight: 400; letter-spacing: -.41px; }
+:root body.mobile #view .rset-prow.on .rset-ptt b { font-weight: 600; }
+:root body.mobile #view .rset-ptt span { font-size: 13px; line-height: 17px; color: var(--ink-2); }
+:root body.mobile #view .rset-play {
+  flex: 0 0 auto; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%; display: grid; place-items: center;   /* 44 pt (round 3 leftovers, 2026-09-30) */
+  background: var(--accent-soft); color: var(--accent); transition: transform .4s var(--spring);
+}
+:root body.mobile #view .rset-play:active { transform: scale(.9); }
+:root body.mobile #view .rset-play svg { width: 18px; height: 18px; fill: currentColor; margin-left: 2px; }
+:root body.mobile #view .rset-row[hidden] { display: none; }
+
+/* ==========================================================================
+   THE IPAD (round 3, ipad-global, 2026-09-30). His words: "the iPad layout should probably
+   be a bit more robust and capable than the iPhone one, or at least show things at a lot
+   easier flow because it's such a big screen." His device rule: iPad and Mac get the FULL
+   app, the iPhone is for logging.
+
+   SCOPE (behaviour rule): every rule below sits in the one query
+   `(min-width: 700px) and (min-height: 560px)` AND under html.native. An iPhone is never
+   700 wide in portrait, and 560 tall excludes an iPhone on its side (393 to 430 tall), so
+   nothing here can reach a phone. An iPad in Split View or Slide Over that is narrower than
+   700 takes the phone layout, as Apple's size classes do. Screens beside this one (Today,
+   Plan, Progress...) write their own iPad layouts in their own files under the same query;
+   the window IS the content area (no rail, no dock), so a viewport query is the content
+   query and no container query is needed.
+
+   NAVIGATION: ONE. The native glass tab bar stays. The web rail (styles.css, from 900 px,
+   which is every iPad in landscape because the shim answers the 900 px question "yes" on
+   every device so GLP-1 and the ring get pages of their own) is hidden by native.css
+   (visibility) and here its space is given back: mobile.css pushed the header and the page
+   232 px right for it, which left a blank strip down the left of the landscape screen, and
+   hid the Settings gear (the rail carried Settings). The gear is back and the margin gone.
+
+   PAGE: 28 pt side margins (the phone's 16 is a phone), the page column 1180 pt at most
+   (1194 landscape less its margins is 1138, so it fills), the header aligned to the same
+   column. Type: Large Title 38 and Title 3 22 on the bigger screen; body stays 17 (Apple's
+   iPad body is the phone's).
+   ========================================================================== */
+@media (min-width: 700px) and (min-height: 560px) {
+  html.native {
+    --gutter: 28px;
+    --page-max: 1180px;
+  }
+  /* The rail's space, given back (mobile.css @900 pushed both 232 px right). */
+  html.native body.mobile .mtop,
+  html.native body.mobile .mview { margin-left: 0; }
+  html.native body.mobile #toast-root { left: 1rem; right: 1rem; }
+  /* The native bar is the bottom bar on every iPad width: the toast clears it. */
+  html.native body.mobile { --mtab-h: var(--native-tabs-h, 64px); }
+  /* Settings is reached from the gear on every iPad width (the rail carried it in landscape). */
+  html.native body.mobile #nav-settings { display: inline-grid; }
+  /* The page column, and the header on the same column. */
+  html.native body.mobile #view.mview { padding-left: var(--gutter); padding-right: var(--gutter); }
+  html.native body.mobile .mview > * { max-width: var(--page-max); }
+  html.native body.mobile .mtop-in {
+    max-width: calc(var(--page-max) + 2 * var(--gutter)); margin-inline: auto;
+    padding-left: var(--gutter); padding-right: var(--gutter);
+  }
+  /* The glass capsules are a touch bigger under a bigger thumb-free screen. */
+  html.native body.mobile .msync, html.native body.mobile .micon { min-height: 48px; }
+  html.native body.mobile .micon { width: 48px; height: 48px; }
+
+  /* Type scale. */
+  html.native body.mobile #view h1,
+  html.native body.mobile #view .pagehead h1 { font-size: 38px; line-height: 46px; letter-spacing: .35px; }
+  html.native body.mobile #view h2 { font-size: 22px; line-height: 28px; letter-spacing: .35px; }
+  html.native body.mobile #view > .stack > .pagehead:first-child > :first-child,
+  html.native body.mobile #view > .stack > .pagehead:first-child > h1:first-child { min-height: 52px; }
+  html.native body.mobile #view .stack { gap: 24px; }
+}
+
+/* ----------------------------------------------------- iPad: Supplements --- */
+/* The bands stand in two columns (Morning on the left, Anytime and Evening on the right at
+   834; the same at 1194 with a third tile across), so a normal day shows every supplement
+   with no scrolling and the two big groups are side by side, not stacked. CSS columns balance
+   the heights by themselves and a band never splits (break-inside). Tiles fill each column
+   as far as it goes (2 across at 834, 3 across at 1194), taller and with 17 pt names. Edit
+   mode keeps the same columns, so a row can still be dragged from one band into another. */
+@media (min-width: 700px) and (min-height: 560px) {
+  html.native body.mobile #view .rt-supps .supp-groups { display: block; column-count: 2; column-gap: 28px; }
+  html.native body.mobile #view .rt-supps .supp-groups > .suppgroup { break-inside: avoid; margin: 0; padding-bottom: 20px; }
+  html.native body.mobile #view .rt-supps .supp-groups > .suppgroup:last-child { padding-bottom: 0; }
+  html.native body.mobile #view .rs-tiles { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  html.native body.mobile #view .rs-tile { min-height: 84px; border-radius: 22px; }
+  html.native body.mobile #view .rs-tile .supp-check { min-height: 84px; padding: 14px 14px 12px 16px; }
+  html.native body.mobile #view .rs-tile .suppname { font-size: 17px; line-height: 21px; letter-spacing: -.41px; }
+  html.native body.mobile #view .rs-tsub { font-size: 14px; }
+  html.native body.mobile #view .rs-tile .supptick { width: 22px; height: 22px; bottom: 11px; right: 11px; }
+  html.native body.mobile #view .rs-tile .supptick svg { width: 17px; height: 17px; }
+  html.native body.mobile #view .rs-ttime { left: 6px; bottom: 6px; min-height: 34px; font-size: 14px; }
+  html.native body.mobile #view .rs-seg i { height: 18px; }
+  html.native body.mobile #view .rs-segband > .rs-seg:first-child i { border-radius: 9px 5px 5px 9px; }
+  html.native body.mobile #view .rs-segband > .rs-seg:last-child i { border-radius: 5px 9px 9px 5px; }
+  html.native body.mobile #view .rs-segband > .rs-seg:only-child i { border-radius: 9px; }
+  html.native body.mobile #view .rs-stripcount b { font-size: 26px; line-height: 30px; }
+  html.native body.mobile #view .rs-stripcount span { font-size: 17px; }
+  html.native body.mobile #view .rs-bandhead .sg-count { font-size: 17px; }
+  html.native body.mobile #view .rt-supps .sg-label { font-size: 22px; line-height: 28px; }
+  html.native body.mobile #view .rs-prnrow { grid-auto-flow: row; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); overflow: visible; margin: 0; padding: 0; gap: 10px; }
+  html.native body.mobile #view .rs-prncap { min-height: 64px; }
+  html.native body.mobile #view .rs-prncap .prnname { font-size: 17px; line-height: 21px; }
+  html.native body.mobile #view .rs-ask { padding: 16px 18px; }
+  html.native body.mobile #view .rs-askitem, html.native body.mobile #view .rs-askq { font-size: 17px; }
+}
+
+/* ------------------------------------------------------ iPad: Settings --- */
+/* A split view, as Apple's Settings is on an iPad: the list on the left (it scrolls on its
+   own, so a long page on the right never loses it), the chosen page on the right, no push
+   and no Back. The chosen row is filled turquoise (selected). js/views/settings.js renders
+   both when the window is wide (settingsSplit); a narrow window gets the phone's list that
+   pushes pages. */
+@media (min-width: 700px) and (min-height: 560px) {
+  html.native body.mobile #view .rset-split {
+    display: grid; grid-template-columns: minmax(270px, 340px) minmax(0, 1fr); column-gap: 28px; align-items: start;
+  }
+  html.native body.mobile #view .rset-side {
+    display: flex; flex-direction: column; gap: 22px; align-self: start;
+    position: sticky; top: calc(var(--mtop-real, 74px) + 4px);
+    max-height: calc(100dvh - var(--mtop-real, 74px) - var(--native-tabs-h, 64px) - var(--safe-b, 0px) - 28px);
+    overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none;
+    padding: 0 0 12px; margin: 0 -6px; padding-inline: 6px;
+  }
+  html.native body.mobile #view .rset-side::-webkit-scrollbar { display: none; }
+  html.native body.mobile #view .rset-side > .pagehead { margin: 0; }
+  html.native body.mobile #view .rset-side .rset-chev { display: none; }
+  html.native body.mobile #view .rset-side .rset-row { min-height: 50px; padding: 6px 12px; gap: 12px; }
+  html.native body.mobile #view .rset-side .rset-v { max-width: 42%; font-size: 15px; }
+  /* The chosen row: turquoise fill, white words (selected = turquoise, one meaning). */
+  html.native body.mobile #view .rset-side button.rset-row.sel { background: var(--action-fill); color: var(--on-accent); }
+  html.native body.mobile #view .rset-side button.rset-row.sel .rset-v { color: color-mix(in srgb, var(--on-accent) 82%, transparent); }
+  html.native body.mobile #view .rset-side button.rset-row.sel::before,
+  html.native body.mobile #view .rset-side button.rset-row.sel + .rset-row::before { opacity: 0; }
+  /* The page on the right: its title is Title 1 (the list already says Settings), and it
+     settles in with a spring when the row changes (translate only, never a fade). */
+  html.native body.mobile #view .rset-detail { display: flex; flex-direction: column; gap: 16px; min-width: 0; max-width: 760px; padding-top: 6px; }
+  html.native body.mobile #view .rset-detail > .pagehead h1 { font-size: 30px; line-height: 38px; min-height: 0; padding: 0; }
+  html.native body.mobile #view .rset-detail > .pagehead { margin: 0 0 4px; }
+  :root:not(.lite-motion) html.native body.mobile #view .rset-detail { animation: rset-settle .5s var(--spring-soft) both; }
+}
+@keyframes rset-settle { from { transform: translateX(18px); } }
+@media (prefers-reduced-motion: reduce) { :root body.mobile #view .rset-detail { animation: none !important; } }
+
+/* The Supplements day row (2026-09-30): arrows either side of the date, the date a button that
+   opens the calendar. Hidden means gone (a flex button beats the hidden attribute). */
+:root body.mobile #view .rs-dateline .rs-date { background: none; border: 0; padding: 4px 2px; font: inherit; font-size: 17px; font-weight: 600; color: var(--ink-2); cursor: pointer; }
+:root body.mobile #view .rs-dnav {
+  width: 36px; height: 36px; border-radius: 18px; border: 0; display: inline-flex; align-items: center; justify-content: center;
+  background: var(--panel); color: var(--accent); box-shadow: 0 1px 3px rgba(0, 0, 0, .08); cursor: pointer; padding: 0;
+}
+:root body.mobile #view .rs-dnav svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+:root body.mobile #view .rs-dnav:active { transform: scale(.92); }
+:root body.mobile #view .rs-dnav[hidden] { display: none; }
+
+/* 2026-09-30, the web port (his report: "motion and page transition glitches"). In the test app
+   the bars were native, above the page. Here they are part of the page, so the sliding page
+   snapshot was drawn OVER the header and the tab bar and both vanished for the whole slide.
+   Each gets its own snapshot, drawn on top and held still; the tab bar's pill still glides
+   (the new snapshot is live). And a page that slides in does not also rise card by card. */
+html[data-vt="fwd"]:not(.native) body.mobile .mtop, html[data-vt="back"]:not(.native) body.mobile .mtop { view-transition-name: rt-top; }
+html[data-vt="fwd"]:not(.native) body.mobile #mtabs, html[data-vt="back"]:not(.native) body.mobile #mtabs { view-transition-name: rt-tabs; }
+/* Only for page slides: a sheet growing from a row (data-vt="morph") must rise over the bars. */
+::view-transition-group(rt-top), ::view-transition-group(rt-tabs) { z-index: 5; animation: none; }
+::view-transition-old(rt-top), ::view-transition-old(rt-tabs) { animation: none; opacity: 0; }
+::view-transition-new(rt-top), ::view-transition-new(rt-tabs) { animation: none; }
+:root body.mobile .mview.vt-painted > .stack > * { animation: none; }
+
+/* The fallback switch (browsers without the native one, the Mac's Chrome) for every switch,
+   not only those in a check row: the exercise sheet's Guided drew an empty square (2026-09-30). */
+:root body.mobile input[type=checkbox][switch].sw-knob {
+  appearance: none; -webkit-appearance: none; position: relative; overflow: hidden; flex: none;
+  width: 44px; height: 26px; min-height: 26px; margin: 0; padding: 0; border: 0; border-radius: 13px;
+  background: var(--track); cursor: pointer;
+}
+
+
+/* 2026-09-30 sweep: the test app's iPad layouts (above) sit under html.native, which the web
+   app never sets, so his iPad (the web app) had the phone layout stretched. The same rules for
+   the web, generated from those blocks, minus what assumes the native tab bar (the toast
+   offset, the gear, the rail's margin): here the rail stays in landscape. */
+@media (min-width: 700px) and (min-height: 560px) {
+  :root:not(.native) {
+    --gutter: 28px;
+    --page-max: 1180px;
+  }
+  :root:not(.native) body.mobile #view.mview { padding-left: var(--gutter); padding-right: var(--gutter); }
+  :root:not(.native) body.mobile .mview > * { max-width: var(--page-max); }
+  :root:not(.native) body.mobile .mtop-in {
+    max-width: calc(var(--page-max) + 2 * var(--gutter)); margin-inline: auto;
+    padding-left: var(--gutter); padding-right: var(--gutter);
+  }
+  :root:not(.native) body.mobile .msync, :root:not(.native) body.mobile .micon { min-height: 48px; }
+  :root:not(.native) body.mobile .micon { width: 48px; height: 48px; }
+  :root:not(.native) body.mobile #view h1,
+  :root:not(.native) body.mobile #view .pagehead h1 { font-size: 38px; line-height: 46px; letter-spacing: .35px; }
+  :root:not(.native) body.mobile #view h2 { font-size: 22px; line-height: 28px; letter-spacing: .35px; }
+  :root:not(.native) body.mobile #view > .stack > .pagehead:first-child > :first-child,
+  :root:not(.native) body.mobile #view > .stack > .pagehead:first-child > h1:first-child { min-height: 52px; }
+  :root:not(.native) body.mobile #view .stack { gap: 24px; }
+}
+@media (min-width: 700px) and (min-height: 560px) {
+  :root:not(.native) body.mobile #view .rt-supps .supp-groups { display: block; column-count: 2; column-gap: 28px; }
+  :root:not(.native) body.mobile #view .rt-supps .supp-groups > .suppgroup { break-inside: avoid; margin: 0; padding-bottom: 20px; }
+  :root:not(.native) body.mobile #view .rt-supps .supp-groups > .suppgroup:last-child { padding-bottom: 0; }
+  :root:not(.native) body.mobile #view .rs-tiles { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  :root:not(.native) body.mobile #view .rs-tile { min-height: 84px; border-radius: 22px; }
+  :root:not(.native) body.mobile #view .rs-tile .supp-check { min-height: 84px; padding: 14px 14px 12px 16px; }
+  :root:not(.native) body.mobile #view .rs-tile .suppname { font-size: 17px; line-height: 21px; letter-spacing: -.41px; }
+  :root:not(.native) body.mobile #view .rs-tsub { font-size: 14px; }
+  :root:not(.native) body.mobile #view .rs-tile .supptick { width: 22px; height: 22px; bottom: 11px; right: 11px; }
+  :root:not(.native) body.mobile #view .rs-tile .supptick svg { width: 17px; height: 17px; }
+  :root:not(.native) body.mobile #view .rs-ttime { left: 6px; bottom: 6px; min-height: 34px; font-size: 14px; }
+  :root:not(.native) body.mobile #view .rs-seg i { height: 18px; }
+  :root:not(.native) body.mobile #view .rs-segband > .rs-seg:first-child i { border-radius: 9px 5px 5px 9px; }
+  :root:not(.native) body.mobile #view .rs-segband > .rs-seg:last-child i { border-radius: 5px 9px 9px 5px; }
+  :root:not(.native) body.mobile #view .rs-segband > .rs-seg:only-child i { border-radius: 9px; }
+  :root:not(.native) body.mobile #view .rs-stripcount b { font-size: 26px; line-height: 30px; }
+  :root:not(.native) body.mobile #view .rs-stripcount span { font-size: 17px; }
+  :root:not(.native) body.mobile #view .rs-bandhead .sg-count { font-size: 17px; }
+  :root:not(.native) body.mobile #view .rt-supps .sg-label { font-size: 22px; line-height: 28px; }
+  :root:not(.native) body.mobile #view .rs-prnrow { grid-auto-flow: row; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); overflow: visible; margin: 0; padding: 0; gap: 10px; }
+  :root:not(.native) body.mobile #view .rs-prncap { min-height: 64px; }
+  :root:not(.native) body.mobile #view .rs-prncap .prnname { font-size: 17px; line-height: 21px; }
+  :root:not(.native) body.mobile #view .rs-ask { padding: 16px 18px; }
+  :root:not(.native) body.mobile #view .rs-askitem, :root:not(.native) body.mobile #view .rs-askq { font-size: 17px; }
+}
+@media (min-width: 700px) and (min-height: 560px) {
+  :root:not(.native) body.mobile #view .rset-split {
+    display: grid; grid-template-columns: minmax(270px, 340px) minmax(0, 1fr); column-gap: 28px; align-items: start;
+  }
+  :root:not(.native) body.mobile #view .rset-side {
+    display: flex; flex-direction: column; gap: 22px; align-self: start;
+    position: sticky; top: calc(var(--mtop-real, 74px) + 4px);
+    max-height: calc(100dvh - var(--mtop-real, 74px) - var(--native-tabs-h, 64px) - var(--safe-b, 0px) - 28px);
+    overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none;
+    padding: 0 0 12px; margin: 0 -6px; padding-inline: 6px;
+  }
+  :root:not(.native) body.mobile #view .rset-side::-webkit-scrollbar { display: none; }
+  :root:not(.native) body.mobile #view .rset-side > .pagehead { margin: 0; }
+  :root:not(.native) body.mobile #view .rset-side .rset-chev { display: none; }
+  :root:not(.native) body.mobile #view .rset-side .rset-row { min-height: 50px; padding: 6px 12px; gap: 12px; }
+  :root:not(.native) body.mobile #view .rset-side .rset-v { max-width: 42%; font-size: 15px; }
+  :root:not(.native) body.mobile #view .rset-side button.rset-row.sel { background: var(--action-fill); color: var(--on-accent); }
+  :root:not(.native) body.mobile #view .rset-side button.rset-row.sel .rset-v { color: color-mix(in srgb, var(--on-accent) 82%, transparent); }
+  :root:not(.native) body.mobile #view .rset-side button.rset-row.sel::before,
+  :root:not(.native) body.mobile #view .rset-side button.rset-row.sel + .rset-row::before { opacity: 0; }
+  :root:not(.native) body.mobile #view .rset-detail { display: flex; flex-direction: column; gap: 16px; min-width: 0; max-width: 760px; padding-top: 6px; }
+  :root:not(.native) body.mobile #view .rset-detail > .pagehead h1 { font-size: 30px; line-height: 38px; min-height: 0; padding: 0; }
+  :root:not(.native) body.mobile #view .rset-detail > .pagehead { margin: 0 0 4px; }
+  :root:not(.lite-motion):not(.native) body.mobile #view .rset-detail { animation: rset-settle .5s var(--spring-soft) both; }
+}
+/* The split's list is a fixed-height column that scrolls; its groups must keep their height,
+   or each one shrank to fit and cut its last row in half (2026-09-30 sweep). */
+:root body.mobile #view .rset-side > * { flex-shrink: 0; }
+/* In a workout on the web, toasts sit above the controls, not over Pause and Set done (2026-09-30). */
+:root:not(.native) body.mobile.in-player #toast-root { bottom: calc(150px + var(--safe-b)); }

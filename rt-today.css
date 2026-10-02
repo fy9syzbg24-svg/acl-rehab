@@ -1,0 +1,1045 @@
+/* Rehab Test v3: today screens (2026-09-30). Loaded after rt.css.
+   Owner: the Today builder (views/today.js, views/exsheet.js). Why each piece looks as it does
+   is in design-pass/v3/today-notes.md; the short version: the list starts at the top (M6),
+   the picture carries the row (M1), one primary action (Start), words on solid ground, no grey
+   caps, rounded numerals, his colour contract (turquoise action, green done, blue L, orange R,
+   gold only at a finish). Scoped under .today.td so nothing leaks to other screens. */
+
+/* ================================================================== page === */
+:root body.mobile #view .today.td { gap: 14px; }
+:root body.mobile #view .today.td > .daystatus.empty { display: none; }
+
+/* ------------------------------------------------------------------ head --- */
+:root body.mobile #view .today.td > header.td-head { gap: 0; margin: 0; }
+/* His app name and post-op weeks, beside the bar's glass buttons (K22). Sentence case, never
+   grey caps; the weeks as a blue L and an orange R. */
+:root body.mobile #view .today.td .td-appline {
+  min-height: 44px; padding-right: 116px; gap: 6px; text-transform: none; letter-spacing: 0;
+}
+:root body.mobile #view .today.td .td-appline b {
+  font-family: var(--round); font-size: 17px; line-height: 22px; font-weight: 800; color: var(--accent);
+  letter-spacing: -.2px; margin-right: 2px;
+}
+:root body.mobile #view .today.td .td-leg {
+  display: inline-flex; align-items: baseline; gap: 2px; padding: 2px 7px; border-radius: 999px;
+  font-family: var(--round); font-size: 13px; line-height: 17px; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+:root body.mobile #view .today.td .td-leg b { font-weight: 800; }
+:root body.mobile #view .today.td .td-leg.L { color: var(--left); background: color-mix(in srgb, var(--left-fill) 13%, transparent); }
+:root body.mobile #view .today.td .td-leg.R { color: var(--right); background: color-mix(in srgb, var(--right-fill) 15%, transparent); }
+
+/* The hero: ring | date, count, minutes | Start. Grown sideways, never down (R9). */
+:root body.mobile #view .today.td .td-hero {
+  display: grid; grid-template-columns: 84px minmax(0, 1fr) 60px; align-items: center; gap: 14px;
+  margin-top: 4px; touch-action: pan-y;
+}
+:root body.mobile #view .today.td .td-ring { display: grid; place-items: center; width: 84px; height: 84px; }
+:root body.mobile #view .today.td .td-ring .dayring2 { --dr: 84px; }
+:root body.mobile #view .today.td .td-sum { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+:root body.mobile #view .today.td .td-dateline { display: flex; align-items: center; gap: 6px; min-width: 0; }
+:root body.mobile #view .today.td .td-date { flex: 0 1 auto; min-width: 0; }
+:root body.mobile #view .today.td .td-date h1 {
+  font-size: 22px; line-height: 28px; font-weight: 700; letter-spacing: -.26px; margin: 0; padding: 0; min-height: 0;
+  white-space: nowrap; color: var(--ink);
+}
+:root body.mobile #view .today.td .td-date input[type=date] { inset: -6px -4px; }
+:root body.mobile #view .today.td .td-more {
+  flex: none; width: 30px; height: 30px; border-radius: 50%; border: 0; padding: 0; display: grid; place-items: center;
+  background: var(--fill); color: var(--ink); position: relative;
+  transition: transform .4s var(--spring);
+}
+:root body.mobile #view .today.td .td-more::after { content: ""; position: absolute; inset: -7px; }
+:root body.mobile #view .today.td .td-more:active { transform: scale(.88); }
+:root body.mobile #view .today.td .td-more svg { width: 18px; height: 18px; fill: currentColor; }
+:root body.mobile #view .today.td .td-today {
+  flex: none; border: 0; border-radius: 999px; padding: 4px 10px; min-height: 26px;
+  background: var(--accent-soft); color: var(--accent); font-size: 13px; line-height: 18px; font-weight: 700;
+}
+:root body.mobile #view .today.td .td-countline { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
+:root body.mobile #view .today.td .td-nw { white-space: nowrap; }
+:root body.mobile #view .today.td .td-count {
+  font-family: var(--round); font-size: 20px; line-height: 36px; font-weight: 700; color: var(--ink-2);
+  white-space: nowrap; letter-spacing: -.2px;
+}
+:root body.mobile #view .today.td .td-count b {
+  font-size: 34px; font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; letter-spacing: -.6px;
+  display: inline-block;
+}
+:root body.mobile #view .today.td .td-count .td-rest { font-size: 26px; font-weight: 800; color: var(--ink); }
+:root body.mobile #view .today.td .td-count.won .sum-won { font-size: 30px; font-weight: 800; color: var(--gold); }
+:root body.mobile #view .today.td .td-est {
+  font-size: 15px; line-height: 20px; font-weight: 500; color: var(--ink-2); letter-spacing: -.24px;
+}
+
+/* Start: a round play button, the page's one primary action. */
+:root body.mobile #view .today.td .td-start {
+  position: relative; width: 60px; height: 60px; min-height: 0; padding: 0; margin: 0; border: 0; border-radius: 50%;
+  display: grid; place-items: center; color: var(--on-accent); cursor: pointer;
+  background: linear-gradient(180deg, var(--action-fill), var(--action-end));
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--action-fill) 34%, transparent), inset 0 1px 0 rgba(255, 255, 255, .25);
+  transition: transform .45s var(--spring), box-shadow .3s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+:root body.mobile #view .today.td .td-start svg { width: 28px; height: 28px; fill: currentColor; margin-left: 3px; }
+:root body.mobile #view .today.td .td-start.resume svg { margin-left: 0; }
+:root body.mobile #view .today.td .td-start:active { transform: scale(.9); }
+:root body.mobile #view .today.td .td-start input.hap { position: absolute; inset: 0; opacity: 0; pointer-events: none; }
+:root body.mobile #view .today.td .td-start.breathing { animation: tdbreathe 2.8s ease-in-out infinite; }
+@keyframes tdbreathe {
+  50% { transform: scale(1.06); box-shadow: 0 10px 28px color-mix(in srgb, var(--action-fill) 48%, transparent), inset 0 1px 0 rgba(255, 255, 255, .25); }
+}
+:root body.mobile #view .today.td .td-start-slot { width: 60px; height: 60px; }
+
+/* The status slot: only when a workout is open, or a future day's Start logs on today. */
+:root body.mobile #view .today.td > .daystatus {
+  display: flex; flex-wrap: wrap; gap: 2px 6px; align-items: baseline; margin: -4px 0 0; padding: 9px 14px;
+  border-radius: 16px; background: var(--panel); font-size: 15px; line-height: 20px; color: var(--ink-2);
+}
+:root body.mobile #view .today.td > .daystatus.resume { background: var(--accent-soft); color: var(--ink); }
+:root body.mobile #view .today.td > .daystatus.resume b { color: var(--accent); }
+
+/* ----------------------------------------------------- section headers --- */
+/* Title 3, sentence case (DESIGN-LANGUAGE, Never 1). "Rest of workout" carries the six hour
+   window as a live line with its track. */
+:root body.mobile #view .today.td .recovery-line.td-sec,
+:root body.mobile #view .today.td .recovery-line.td-sec * { text-decoration: none; }
+:root body.mobile #view .today.td .recovery-line.td-sec.open .rl-fill { display: none; }
+:root body.mobile #view .today.td .recovery-line.td-sec {
+  align-self: stretch; display: flex; flex-wrap: wrap; align-items: center; align-content: center; justify-content: space-between;
+  gap: 2px 10px; width: auto; min-height: 44px; margin: -4px 0 -10px; padding: 0; border: 0; border-radius: 0;
+  background: none; color: var(--ink); text-align: left; font: inherit; box-shadow: none;
+}
+:root body.mobile #view .today.td .td-sec .rl-h,
+:root body.mobile #view .today.td .td-sec-h {
+  font-size: 20px; line-height: 25px; font-weight: 700; letter-spacing: .38px; color: var(--ink); margin: 0;
+}
+:root body.mobile #view .today.td .td-sec-h { margin: 6px 0 -6px; }
+:root body.mobile #view .today.td .td-sec .rl-state {
+  display: inline-flex; align-items: baseline; gap: 4px; font-size: 15px; line-height: 20px; font-weight: 600; color: var(--ink-2);
+}
+:root body.mobile #view .today.td .td-sec .rl-state b { font-family: var(--round); font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+:root body.mobile #view .today.td .td-sec .rl-at { font-weight: 500; }
+:root body.mobile #view .today.td .td-sec.done .rl-state { color: var(--good); align-items: center; }
+:root body.mobile #view .today.td .td-sec.done .rl-state svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+:root body.mobile #view .today.td .td-sec.open .rl-state { color: var(--accent); }
+:root body.mobile #view .today.td .td-sec .rl-fill {
+  flex-basis: 100%; height: 4px; margin-top: 5px; border-radius: 2px; background: var(--track); overflow: hidden;
+}
+:root body.mobile #view .today.td .td-sec .rl-fill > i {
+  display: block; height: 100%; border-radius: inherit; background: var(--ink-3); transform-origin: left center;
+  transition: transform .8s var(--ease-out);
+}
+
+/* ----------------------------------------------------------------- lists --- */
+/* Full width bands (not the same white card on grey everywhere, Never 5): the rows get the
+   whole 393 pt, the picture and the full title the width. */
+:root body.mobile #view .today.td .td-list {
+  margin: 0 calc(-1 * var(--gutter)); padding: 0; background: var(--panel); border-radius: 0;
+  box-shadow: 0 -.5px 0 var(--line-2), 0 .5px 0 var(--line-2); overflow: visible;
+}
+:root body.mobile #view .today.td .td-list .checklist { gap: 0; }
+
+/* The row: picture 64 | full title, category, prescription | minutes | Apple's circle. */
+:root body.mobile #view .today.td .crow.trow {
+  position: relative; isolation: isolate; padding: 0; margin: 0; border: 0; border-radius: 0; background: none; box-shadow: none;
+}
+:root body.mobile #view .today.td .checklist > * + .crow.trow {
+  background: linear-gradient(var(--line-2), var(--line-2)) 92px 0 / calc(100% - 92px) .5px no-repeat;
+}
+:root body.mobile #view .today.td .crow.trow::after { display: none; }
+:root body.mobile #view .today.td .crow.trow > .crow-head {
+  display: flex; align-items: center; gap: 10px; min-height: 84px; padding: 9px 6px 9px 16px;
+  transform: none; background: none;
+}
+:root body.mobile #view .today.td .crow.trow > .crow-head:active { transform: none; }
+:root body.mobile #view .today.td .trow .td-shot {
+  flex: none; width: 64px; height: 64px; padding: 0; margin: 0; border: 0; border-radius: 16px; background: none;
+  display: grid; place-items: center; overflow: visible; cursor: pointer;
+  transition: transform .4s var(--spring); -webkit-tap-highlight-color: transparent;
+}
+:root body.mobile #view .today.td .trow button.td-shot:active { transform: scale(.93); }
+:root body.mobile #view .today.td .trow .td-shot .frame-tile { box-shadow: 0 1px 2px rgba(0, 0, 0, .10); }
+:root body.mobile #view .today.td .trow .td-icon { display: grid; place-items: center; width: 64px; height: 64px; border-radius: 16px; overflow: hidden; }
+:root body.mobile #view .today.td .trow .td-icon > .icon-tile { width: 64px !important; height: 64px !important; border-radius: 16px; display: grid; place-items: center; padding: 0; }
+:root body.mobile #view .today.td .trow .td-icon > .icon-tile svg { width: 44px; height: 44px; }
+/* The custom workout's own picture on his blue grey tile (his pick, 2026-09-18). */
+:root body.mobile #view .today.td .trow .cw-shot { border-radius: 16px; background: #D3DBE2; overflow: hidden; }
+:root body.mobile #view .today.td .trow .cw-shot .thumb { width: 60px !important; height: 34px !important; background: none; padding: 0; }
+
+:root body.mobile #view .today.td .trow .crow-main {
+  flex: 1; min-width: 0; display: flex; flex-direction: row; align-items: center; gap: 8px; padding: 0; min-height: 44px;
+  background: none; border: 0; text-align: left; color: inherit;
+}
+:root body.mobile #view .today.td .trow .crow-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+:root body.mobile #view .today.td .trow .crow-name {
+  font-size: 16px; line-height: 20px; font-weight: 600; letter-spacing: -.32px; color: var(--ink);
+  overflow-wrap: normal; word-break: normal;
+}   /* never clamped: full exercise titles (his rule, K2) */
+:root body.mobile #view .today.td .trow .crow-name .band-mark { margin-left: 5px; vertical-align: -2px; }
+:root body.mobile #view .today.td .trow .crow-sub {
+  display: block; margin: 0;
+  font-size: 13px; line-height: 17px; color: var(--ink-2); letter-spacing: -.08px;
+}
+:root body.mobile #view .today.td .trow .crow-sub::before { display: none; }
+:root body.mobile #view .today.td .td-cat {
+  display: inline-flex; align-items: center; gap: 3px; font-weight: 600; margin-right: 6px; vertical-align: -2px;
+  color: color-mix(in srgb, var(--cat, var(--ink-2)) 78%, var(--ink));
+}
+:root body.mobile #view .today.td .td-cat .cat-glyph { flex: none; }
+:root body.mobile #view .today.td .trow .crow-sub .sumchip { display: inline-flex; margin: 1px 6px 1px 0; vertical-align: middle; }
+:root body.mobile #view .today.td .trow .crow-sub .srcnote { display: inline; }
+:root body.mobile #view .today.td .td-rx { display: inline; }
+:root body.mobile #view .today.td .td-rx > span { display: inline; }
+:root body.mobile #view .today.td .td-rx .dot { margin: 0 4px; opacity: .55; }
+:root body.mobile #view .today.td .trow .crow-note { white-space: normal; font-size: 13px; line-height: 17px; }
+:root body.mobile #view .today.td .trow .sumchip { font-family: var(--round); font-variant-numeric: tabular-nums; }
+:root body.mobile #view .today.td .trow .crow-mins {
+  flex: none; width: 34px; min-width: 0; display: flex; flex-direction: column; align-items: center; line-height: 1;
+}
+:root body.mobile #view .today.td .trow .crow-mins b {
+  font-family: var(--round); font-size: 24px; line-height: 26px; font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums;
+}
+:root body.mobile #view .today.td .trow .crow-mins small {
+  font-size: 12px; line-height: 14px; font-weight: 600; color: var(--ink-2); text-transform: none; letter-spacing: 0; margin: 0;
+}
+:root body.mobile #view .today.td .trow .crow-chev { display: none; }
+/* Apple's circle, trailing, a 44 pt target around the 30 pt ring. */
+:root body.mobile #view .today.td .trow .crow-head > .tick { flex: none; width: 30px; height: 30px; margin: 0 5px 0 2px; }
+:root body.mobile #view .today.td .trow .td-tickslot { flex: none; width: 37px; display: grid; place-items: center; color: var(--ink-3); pointer-events: none; }
+/* His "little subtle prompt" that the custom workout opens to be set up (2026-09-18). */
+:root body.mobile #view .today.td .trow .td-tickslot svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Done: his green wash across the whole row, the minutes green; the picture stays in colour. */
+:root body.mobile #view .today.td .crow.trow.done::before {
+  content: ""; position: absolute; inset: 4px 8px; border-radius: 20px; background: var(--good-soft); z-index: -1;
+}
+:root body.mobile #view .today.td .crow.trow.done .crow-name { color: var(--ink); }
+:root body.mobile #view .today.td .crow.trow.done .crow-mins b,
+:root body.mobile #view .today.td .crow.trow.done .crow-mins small { color: var(--good); }
+:root body.mobile #view .today.td .checklist > .crow.trow.done + .crow.trow,
+:root body.mobile #view .today.td .checklist > * + .crow.trow.done { background-image: none; }
+:root body.mobile #view .today.td .crow.trow.open > .crow-head { background: color-mix(in srgb, var(--action-fill) 7%, transparent); }
+:root body.mobile #view .today.td .crow.trow .crow-body { padding: 0 16px 14px 16px; }
+
+/* The routine hour on the tendon loading row: a live line, never a sentence. */
+:root body.mobile #view .today.td .td-routine {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px 5px; margin-top: 2px;
+  font-size: 13px; line-height: 17px; font-weight: 600; color: var(--ink-2);
+}
+:root body.mobile #view .today.td .td-routine > svg { flex: none; width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; }
+:root body.mobile #view .today.td .td-routine b { font-family: var(--round); font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; }
+:root body.mobile #view .today.td .td-routine.now,
+:root body.mobile #view .today.td .td-routine.now b { color: var(--accent); }
+:root body.mobile #view .today.td .td-rbar {
+  flex-basis: 100%; max-width: 170px; height: 4px; border-radius: 2px; background: var(--track); overflow: hidden;
+}
+:root body.mobile #view .today.td .td-rbar > i {
+  display: block; height: 100%; border-radius: inherit; background: var(--action-fill); transform-origin: left center;
+  transition: transform .8s var(--ease-out);
+}
+
+/* Add, the folds and the week foot inside or after the band. */
+:root body.mobile #view .today.td .td-list .list-add { padding-left: 16px; min-height: 52px; }
+:root body.mobile #view .today.td .td-list details.fold { margin: 0; border-radius: 0; }
+:root body.mobile #view .today.td .td-list details.fold > summary { padding-left: 16px; padding-right: 16px; }
+
+/* ========================================================= day menu sheet === */
+/* The web fallback for the native day menu: iOS's grouped action rows, no sub lines. */
+:root body.mobile #modal-root .modal.td-menu-sheet > header h2 {
+  position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+}
+:root body.mobile #modal-root .modal.td-menu-sheet .mbody { padding: 4px 16px 12px; }
+:root body.mobile .td-menu { display: flex; flex-direction: column; gap: 12px; }
+:root body.mobile .td-menu-g { display: flex; flex-direction: column; border-radius: 16px; background: var(--fill-2); overflow: hidden; }
+:root body.mobile .td-menu-i {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 50px; padding: 0 16px;
+  border: 0; background: none; color: var(--ink); font-size: 17px; line-height: 22px; text-align: left;
+}
+:root body.mobile .td-menu-i + .td-menu-i { box-shadow: inset 0 .5px 0 var(--line-2); }
+:root body.mobile .td-menu-i:active { background: var(--fill); }
+:root body.mobile .td-menu-i.danger { color: var(--bad); }
+:root body.mobile .td-menu-i .td-menu-check { width: 20px; height: 20px; fill: none; stroke: var(--accent); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ====================================================== the exercise sheet === */
+/* views/exsheet.js. The title is said once, big, in the body; the sheet's own header keeps it
+   for VoiceOver only. */
+:root body.mobile #modal-root .modal.exs > header h2 {
+  position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+}
+:root body.mobile #modal-root .modal.exs > header {
+  position: absolute; top: 0; left: 0; right: 0; z-index: 3; pointer-events: none; padding-top: 1.6rem; padding-left: 1.6rem;
+}
+:root body.mobile #modal-root .modal.exs > header [data-close] { pointer-events: auto; }
+:root body.mobile #modal-root .modal.exs .mbody { padding: 22px 16px 14px; }
+:root body.mobile #modal-root .modal.exs > footer { padding: 6px 16px 14px; }
+:root body.mobile #modal-root .modal.exs .exs-begin { width: 100%; min-height: 54px; border-radius: 27px; font-size: 17px; font-weight: 700; }
+
+/* The frames: a swipeable carousel, one frame per page, on a white tile in both
+   appearances (the pictures are white; never inverted). */
+:root body.mobile .exs-car {
+  display: flex; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; scrollbar-width: none;
+  margin: 0 -16px; padding: 0; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch;
+}
+:root body.mobile .exs-car::-webkit-scrollbar { display: none; }
+:root body.mobile .exs-slide { flex: 0 0 100%; scroll-snap-align: center; scroll-snap-stop: always; padding: 0 16px; box-sizing: border-box; }
+:root body.mobile .exs-tile {
+  position: relative; display: block; width: 100%; aspect-ratio: 1.35; overflow: hidden; border-radius: 22px;
+  background: #fff; color-scheme: light; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .06);
+}
+:root body.mobile .exs-tile.dark { background: #111; }
+:root body.mobile .exs-tile .vid-el { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; }
+:root body.mobile .exs-tile img.vid-poster { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+:root body.mobile .exs-dots { display: flex; justify-content: center; gap: 4px; margin: 8px 0 2px; }
+:root body.mobile .exs-dots button {
+  width: 22px; height: 22px; padding: 0; border: 0; background: none; display: grid; place-items: center;
+}
+:root body.mobile .exs-dots button::before {
+  content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--ink-3); opacity: .35;
+  transition: transform .35s var(--spring), opacity .2s ease, background .2s ease;
+}
+:root body.mobile .exs-dots button.on::before { opacity: 1; background: var(--ink); transform: scale(1.15); }
+:root body.mobile .exs-dots button.vid::before {
+  width: 0; height: 0; border-radius: 0; background: none; opacity: .45;
+  border-left: 7px solid var(--ink-3); border-top: 4.5px solid transparent; border-bottom: 4.5px solid transparent;
+}
+:root body.mobile .exs-dots button.vid.on::before { opacity: 1; border-left-color: var(--ink); }
+
+:root body.mobile .exs-head { display: flex; flex-direction: column; gap: 3px; margin: 10px 0 12px; }
+:root body.mobile .exs-cat {
+  display: inline-flex; align-items: center; gap: 4px; font-size: 13px; line-height: 18px; font-weight: 700;
+  color: color-mix(in srgb, var(--cat, var(--ink-2)) 78%, var(--ink));
+}
+:root body.mobile .exs-title { font-size: 22px; line-height: 28px; font-weight: 700; letter-spacing: -.26px; margin: 0; color: var(--ink); }
+
+/* The prescription as a few filled facts, the band as its drawn loop. */
+:root body.mobile .exs-facts { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 14px; }
+:root body.mobile .exs-fact {
+  display: inline-flex; align-items: center; gap: 5px; min-height: 34px; padding: 0 13px; border-radius: 999px;
+  background: var(--fill); color: var(--ink-2); font-size: 15px; line-height: 20px; font-weight: 500;
+}
+:root body.mobile .exs-fact b { font-family: var(--round); font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; }
+:root body.mobile .exs-fact .band-mark { display: inline-flex; }
+:root body.mobile .exs-fact .exs-left { color: var(--left); font-weight: 700; }
+:root body.mobile .exs-fact .exs-right { color: var(--right); font-weight: 700; }
+
+:root body.mobile .exs-level,
+:root body.mobile .exs-offer {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; padding: 12px 14px; margin: 0 0 12px;
+  border-radius: 18px; background: var(--fill-2); font-size: 15px; line-height: 20px;
+}
+:root body.mobile .exs-k { font-weight: 700; color: var(--ink); }
+:root body.mobile .exs-v { color: var(--ink); }
+:root body.mobile .exs-v .step-by { color: var(--ink-2); }
+:root body.mobile .exs-offer { background: var(--accent-soft); }
+:root body.mobile .exs-offer-btns { flex-basis: 100%; display: flex; gap: 8px; justify-content: flex-end; margin-top: 6px; }
+
+/* Guided: one switch; the steps only when it is on. */
+:root body.mobile .exs-guide { border-radius: 18px; background: var(--fill-2); padding: 0 14px; }
+:root body.mobile .exs-switch { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 52px; font-size: 17px; font-weight: 600; color: var(--ink); }
+:root body.mobile .exs-sw-t { display: inline-flex; align-items: center; gap: 8px; }
+:root body.mobile .exs-new {
+  padding: 2px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-size: 12px; line-height: 16px; font-weight: 700;
+}
+:root body.mobile .exs-switch input[switch] { flex: none; transform: scale(1.12); accent-color: var(--action-fill); }
+:root body.mobile .exs-guide-body { padding: 0 0 14px; border-top: .5px solid var(--line-2); }
+:root body.mobile .exs-pre { margin: 12px 0 0; font-size: 15px; line-height: 20px; color: var(--ink); }
+:root body.mobile .exs-steps { margin: 10px 0 0; padding-left: 22px; display: flex; flex-direction: column; gap: 8px; font-size: 16px; line-height: 22px; color: var(--ink); }
+:root body.mobile .exs-steps li::marker { font-family: var(--round); font-weight: 800; color: var(--accent); }
+:root body.mobile .exs-note, :root body.mobile .exs-notes { margin: 10px 0 0; font-size: 15px; line-height: 20px; color: var(--ink-2); }
+
+/* The shared element: the row's picture grows into the sheet; the rest of the sheet rises.
+   Never a crossfade of the page underneath (root does not animate). */
+html.exs-vt::view-transition-old(root),
+html.exs-vt::view-transition-new(root) { animation: none; }
+::view-transition-group(rt-expic) { animation-duration: .46s; animation-timing-function: cubic-bezier(.2, 1.02, .3, 1); z-index: 10; }
+::view-transition-old(rt-expic),
+::view-transition-new(rt-expic) { animation-duration: .46s; height: 100%; object-fit: contain; }
+/* Entering and leaving use their own names: WebKit (iOS 18) ran an entering element's
+   ::view-transition-old rule on it when both were written for one name. */
+::view-transition-new(rt-exsheet) { animation: exsrise .46s cubic-bezier(.2, 1.1, .32, 1) both; }
+::view-transition-old(rt-exsheetout) { animation: exsdrop .3s cubic-bezier(.4, 0, 1, 1) both; }
+::view-transition-group(rt-exsheet), ::view-transition-group(rt-exsheetout) { animation: none; }
+@keyframes exsrise { from { transform: translateY(100%); } }
+@keyframes exsdrop { to { transform: translateY(100%); } }
+html.exs-vt body.mobile #modal-root .modal, html.native.exs-vt body.mobile #modal-root .modal { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
+}
+
+:root body.mobile #modal-root .modal.td-menu-sheet:focus,
+:root body.mobile #modal-root .modal.exs:focus,
+:root body.mobile #modal-root .modal.td-menu-sheet:focus-visible,
+:root body.mobile #modal-root .modal.exs:focus-visible { outline: none; }
+/* During the shared element transition the dimmed backdrop is its own layer, above the page
+   (which vt.js names rt-page), so the page dims as the picture grows instead of snapping dim
+   at the end. A dim fading in is not a screen crossfade. */
+html.exs-in #modal-root .modal-back.exs-back { view-transition-name: rt-exback; }
+html.exs-out #modal-root .modal-back.exs-back { view-transition-name: rt-exbackout; }
+::view-transition-new(rt-exback) { animation: exsdim .3s ease both; }
+::view-transition-old(rt-exbackout) { animation: exsdim .25s ease reverse both; }
+@keyframes exsdim { from { opacity: 0; } }
+
+/* This week, under the day: a real header (Title 3, sentence case) instead of small grey caps. */
+:root body.mobile #view .today.td .today-foot .wf-head {
+  display: flex; align-items: center; gap: 4px; margin: 0 0 10px; text-align: left;
+  font-size: 20px; line-height: 25px; font-weight: 700; letter-spacing: .38px; text-transform: none; color: var(--ink);
+}
+:root body.mobile #view .today.td .today-foot .wf-go { color: var(--ink-3); font-weight: 600; }
+:root body.mobile #view .today.td .today-foot { padding: 0 0 12px; text-align: left; }
+
+/* ======================================================= fix pass 2026-09-30 === */
+/* design-pass/v3/fix-today.md has the finding behind each rule. */
+
+/* T16: the date centred in the hero (RUBRIC 1, V1); the "..." trails it without moving it.
+   His app name is words, not a control: ink, never the action colour (C8). */
+:root body.mobile #view .today.td .td-appline b { color: var(--ink); }
+:root body.mobile #view .today.td .td-sum { align-items: center; text-align: center; }
+:root body.mobile #view .today.td .td-dateline { justify-content: center; }
+:root body.mobile #view .today.td .td-dateline .td-more { margin-right: -36px; }
+:root body.mobile #view .today.td .td-countline { justify-content: center; }
+
+/* B9: an open workout is said in the est line and on its row; the status band keeps only
+   the words VoiceOver reads. */
+:root body.mobile #view .today.td > .daystatus.srline {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+}
+:root body.mobile #view .today.td .td-routine.open,
+:root body.mobile #view .today.td .td-routine.open b { color: var(--ink); }
+
+/* b-runtime-05: the tick and the day menu button each answer a full 44 x 44 pt square. */
+:root body.mobile #view .today.td .crow-head > .tick { position: relative; }
+:root body.mobile #view .today.td .crow:not(.pop) > .crow-head > .tick::before {
+  content: ""; position: absolute; inset: auto; left: 50%; top: 50%; width: 46px; height: 46px; margin: -23px 0 0 -23px;
+  border-radius: 12px; animation: none; border: 0;
+}
+:root body.mobile #view .today.td .td-more::after { inset: auto; left: 50%; top: 50%; width: 44px; height: 44px; margin: -22px 0 0 -22px; }
+
+/* T12: the other tendon loading on a day one was done: the slot is covered, drawn as a
+   green outline with its check (green = done), still tappable to log this one too. */
+:root body.mobile #view .today.td .crow.trow.slotdone .crow-head > .tick { border-color: var(--good); background: transparent; }
+:root body.mobile #view .today.td .crow.trow.slotdone .crow-head > .tick::after { opacity: 1; border-color: var(--good); }
+:root body.mobile #view .today.td .crow.trow.slotdone .crow-mins b,
+:root body.mobile #view .today.td .crow.trow.slotdone .crow-mins small { color: var(--ink-3); }
+
+/* T10: five rows above the tab bar in every morning state (07 4.8). The row keeps its 64 pt
+   picture; the air around it tightens (84 to 76 pt rows), the text lines sit closer, and the
+   "Rest of workout" header costs 44 pt instead of 58. */
+:root body.mobile #view .today.td .crow.trow > .crow-head { min-height: 76px; padding-top: 6px; padding-bottom: 6px; }
+:root body.mobile #view .today.td .trow .crow-text { gap: 2px; }
+:root body.mobile #view .today.td .trow .crow-name { line-height: 19px; }
+:root body.mobile #view .today.td .recovery-line.td-sec { margin: -8px 0 -16px; min-height: 44px; }
+:root body.mobile #view .today.td .td-routine { margin-top: 1px; }
+
+/* T3, T4: this week's targets. One fold; the targets as filled pills that pick which list
+   shows; the list in v3 rows. */
+:root body.mobile #view .today.td .td-goalbox { padding: 0; }
+:root body.mobile #view .today.td .td-gpills {
+  display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding: 4px 16px 12px; margin: 0;
+  -webkit-overflow-scrolling: touch; scroll-padding: 0 16px;
+}
+:root body.mobile #view .today.td .td-gpills::-webkit-scrollbar { display: none; }
+:root body.mobile #view .today.td .td-gpill {
+  flex: none; display: grid; grid-template-columns: auto auto; align-items: baseline; gap: 2px 10px;
+  min-height: 52px; padding: 8px 12px 9px; border: 0; border-radius: 14px; background: var(--fill); color: var(--ink);
+  text-align: left; transition: transform .4s var(--spring), background-color .2s ease;
+}
+:root body.mobile #view .today.td .td-gpill:active { transform: scale(.95); }
+:root body.mobile #view .today.td .td-gpill .gp-k {
+  display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; font-size: 15px; line-height: 20px; font-weight: 600;
+}
+:root body.mobile #view .today.td .td-gpill .gp-k .cat-glyph { color: color-mix(in srgb, var(--c) 78%, var(--ink)); }
+:root body.mobile #view .today.td .td-gpill .gp-v {
+  justify-self: end; font-family: var(--round); font-size: 15px; line-height: 20px; font-weight: 600; color: var(--ink-2);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+:root body.mobile #view .today.td .td-gpill .gp-v b { font-weight: 800; color: var(--ink); }
+:root body.mobile #view .today.td .td-gpill .gp-bar {
+  grid-column: 1 / -1; height: 4px; border-radius: 2px; background: color-mix(in srgb, var(--ink-3) 22%, transparent); overflow: hidden;
+}
+:root body.mobile #view .today.td .td-gpill .gp-bar > i { display: block; height: 100%; border-radius: inherit; background: var(--c); }
+:root body.mobile #view .today.td .td-gpill.met .gp-bar > i { background: var(--good); }
+:root body.mobile #view .today.td .td-gpill.on { background: var(--accent-soft); box-shadow: inset 0 0 0 2px var(--action-fill); }
+:root body.mobile #view .today.td .td-goallist { border-top: .5px solid var(--line-2); }
+:root body.mobile #view .today.td .td-goallist > .crow:first-child { border-top: 0; }
+:root body.mobile #view .today.td .td-goallist .td-goalall { color: var(--accent); font-weight: 600; }
+
+/* T3: the foot keeps only the plan streak, one line. */
+:root body.mobile #view .today.td .today-foot.td-streak {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%;
+  min-height: 52px; padding: 0 16px; border: 0; border-radius: 16px; background: var(--panel); color: var(--ink);
+}
+:root body.mobile #view .today.td .today-foot.td-streak .wf-head { margin: 0; font-size: 17px; line-height: 22px; font-weight: 600; letter-spacing: 0; }
+:root body.mobile #view .today.td .today-foot.td-streak .wf-streak { display: inline-flex; align-items: baseline; gap: 4px; font-size: 15px; color: var(--ink-2); }
+:root body.mobile #view .today.td .today-foot.td-streak .wf-streak b { font-family: var(--round); font-size: 20px; font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; }
+:root body.mobile #view .today.td .today-foot.td-streak .wf-go { margin-left: 6px; color: var(--ink-3); font-weight: 600; }
+
+/* T24, B18: the knee check-in as iOS grouped rows, each a label and its value in a menu. */
+:root body.mobile #view .today.td .td-knee { display: flex; flex-direction: column; gap: 12px; }
+:root body.mobile #view .today.td .td-kgroup { display: flex; flex-direction: column; border-radius: 14px; background: var(--fill-2); overflow: hidden; }
+:root body.mobile #view .today.td .td-krow {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 48px; padding: 0 14px;
+  border: 0; background: none; color: var(--ink); font-size: 17px; line-height: 22px; text-align: left;
+}
+:root body.mobile #view .today.td .td-krow + .td-krow { box-shadow: inset 0 .5px 0 var(--line-2); }
+:root body.mobile #view .today.td .td-krow:active { background: var(--fill); }
+:root body.mobile #view .today.td .td-kl { display: inline-flex; align-items: center; gap: 8px; }
+:root body.mobile #view .today.td .td-kl .sidetag { min-width: 24px; text-align: center; }
+:root body.mobile #view .today.td .td-kv {
+  display: inline-flex; align-items: center; gap: 4px; font-family: var(--round); font-weight: 600; color: var(--ink);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+:root body.mobile #view .today.td .td-kv.unset { font-family: inherit; font-weight: 400; color: var(--ink-3); }
+:root body.mobile #view .today.td .td-kv svg { width: 15px; height: 15px; fill: none; stroke: var(--ink-3); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+:root body.mobile #view .today.td .td-knotes { display: flex; flex-direction: column; gap: 6px; font-size: 15px; font-weight: 600; color: var(--ink); }
+:root body.mobile #view .today.td .td-knotes textarea { min-height: 64px; border-radius: 14px; }
+:root body.mobile #view .today.td details.td-goals > .fold-body { grid-template-columns: minmax(0, 1fr); }
+:root body.mobile #view .today.td details.td-goals .fold-clip,
+:root body.mobile #view .today.td .td-goalbox { min-width: 0; max-width: 100%; }
+
+/* T5: one set of columns for every list on Today. The main list's checklist had a 12 pt
+   inset the folds did not, so pictures sat at 28 vs 16 and ticks at 340 vs 352; now every
+   row runs the band's full width with the 16 pt gutter inside the row. */
+:root body.mobile #view .today.td .td-list .checklist { padding: 0; }
+
+/* T13: the finished day. The starburst reaches about 55 pt from the ring's centre, so its
+   column is 110 pt (rays from x 16) and the empty Start slot goes, leaving the words room
+   for one line, 14 pt clear of the rays. */
+:root body.mobile #view .today.td .td-hero.won { grid-template-columns: 110px minmax(0, 1fr); }
+:root body.mobile #view .today.td .td-hero.won .td-ring { justify-self: center; }
+
+/* T14: a clinic day draws as its own state: the clinic's crown in the ring. */
+:root body.mobile #view .today.td .td-ring .dr-custom { position: absolute; inset: 0; display: grid; place-items: center; }
+:root body.mobile #view .today.td .td-ring .td-crown { width: 34px; height: 34px; border-radius: 9px; }
+
+/* T9: the exercise sheet. The close X sits in the sheet's own header row, above the picture,
+   never over the exercise; the step numbers are ink (turquoise is for actions, C8); the list
+   fades into the Begin bar instead of being cut hard. */
+:root body.mobile #modal-root .modal.exs > header {
+  position: relative; top: auto; left: auto; right: auto; padding: 14px 16px 8px; pointer-events: auto;
+}
+:root body.mobile #modal-root .modal.exs .mbody {
+  padding-top: 0; padding-bottom: 30px;
+  -webkit-mask-image: linear-gradient(#000 calc(100% - 26px), transparent);
+  mask-image: linear-gradient(#000 calc(100% - 26px), transparent);
+}
+:root body.mobile #modal-root .modal.exs:not(:has(> footer .exs-begin)) .mbody { -webkit-mask-image: none; mask-image: none; }
+:root body.mobile .exs-steps li::marker { color: var(--ink-2); }
+
+/* ============================================================ round 3, 2026-09-30 === */
+/* design-pass/v3/r3-today-notes.md has the why of each rule. */
+
+/* The hero: the ring with Start nested at its edge | the date, count, minutes | last night. */
+:root body.mobile #view .today.td .td-hero { grid-template-columns: 96px minmax(0, 1fr); gap: 12px; }
+:root body.mobile #view .today.td .td-hero.has-sleep { grid-template-columns: 96px minmax(0, 1fr) 66px; }
+:root body.mobile #view .today.td .td-hero.won { grid-template-columns: 110px minmax(0, 1fr); }
+:root body.mobile #view .today.td .td-hero.won.has-sleep { grid-template-columns: 110px minmax(0, 1fr) 66px; }
+:root body.mobile #view .today.td .td-ring { position: relative; justify-self: start; }
+:root body.mobile #view .today.td .td-hero.won .td-ring { justify-self: center; }
+:root body.mobile #view .today.td .td-ring > .td-start-slot { display: none; }
+/* Start sits on the ring at half past four, ringed in the page colour so it reads as nested,
+   still the one turquoise play button and still a 46 pt target. */
+:root body.mobile #view .today.td .td-ring > .td-start {
+  position: absolute; right: -14px; bottom: -14px; width: 44px; height: 44px; z-index: 2;
+  box-shadow: 0 0 0 3px var(--bg), 0 6px 16px color-mix(in srgb, var(--action-fill) 38%, transparent), inset 0 1px 0 rgba(255, 255, 255, .25);
+}
+:root body.mobile #view .today.td .td-ring > .td-start svg { width: 21px; height: 21px; margin-left: 2px; }
+:root body.mobile #view .today.td .td-ring > .td-start.resume svg { margin-left: 0; width: 26px; height: 26px; }
+:root body.mobile #view .today.td .td-ring > .td-start::after { content: ""; position: absolute; inset: -4px; border-radius: 50%; }
+
+/* The living empty ring: every planned segment faint in its own category colour (25 percent),
+   never a dead grey track; the marks outside stay full. Before the first tick of today it
+   breathes, 3.4 s, in step with Start. */
+:root body.mobile #view .today.td .td-ring .dr-seg:not(.on) { stroke: color-mix(in srgb, var(--seg, var(--ink-3)) 25%, var(--track)); }
+:root body.mobile #view .today.td .td-ring.breathe .dayring2 svg { animation: tdringbreathe 3.4s ease-in-out infinite; transform-origin: 50% 50%; }
+:root body.mobile #view .today.td .td-ring.breathe .dr-seg:not(.on) { animation: tdsegbreathe 3.4s ease-in-out infinite; }
+:root body.mobile #view .today.td .td-ring.breathe > .td-start.breathing { animation: tdbreathe 3.4s ease-in-out infinite; }
+@keyframes tdringbreathe { 50% { transform: scale(1.035); } }
+@keyframes tdsegbreathe { 50% { stroke: color-mix(in srgb, var(--seg, var(--ink-3)) 42%, var(--track)); } }
+@media (prefers-reduced-motion: reduce) {
+  :root body.mobile #view .today.td .td-ring.breathe .dayring2 svg,
+  :root body.mobile #view .today.td .td-ring.breathe .dr-seg:not(.on),
+  :root body.mobile #view .today.td .td-ring > .td-start.breathing { animation: none; }
+}
+
+/* Last night, one fact: the moon (the ring's indigo, never a leg), the time asleep, which night. */
+:root body.mobile #view .today.td .td-sleep {
+  justify-self: end; align-self: center; width: 66px; min-height: 80px; padding: 8px 2px 7px; margin: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+  border: 0; border-radius: 20px; color: var(--ink); text-align: center; cursor: pointer;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--sleep) 16%, var(--panel)), color-mix(in srgb, var(--sleep) 7%, var(--panel)));
+  box-shadow: inset 0 0 0 .5px color-mix(in srgb, var(--sleep) 30%, transparent);
+  transition: transform .4s var(--spring); -webkit-tap-highlight-color: transparent;
+}
+:root body.mobile #view .today.td .td-sleep:active { transform: scale(.93); }
+:root body.mobile #view .today.td .td-sleep .tds-moon { width: 17px; height: 17px; fill: var(--sleep); margin-bottom: 2px; }
+:root body.mobile #view .today.td .td-sleep .tds-t {
+  position: relative; font-family: var(--round); font-size: 18px; line-height: 21px; font-weight: 800; letter-spacing: -.3px;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+:root body.mobile #view .today.td .td-sleep .tds-t small { font-size: 12px; font-weight: 700; color: var(--ink-2); margin: 0 1px 0 .5px; }
+:root body.mobile #view .today.td .td-sleep .tds-est {
+  position: absolute; right: -7px; top: 2px; width: 5px; height: 5px; border-radius: 50%; box-shadow: inset 0 0 0 1.2px var(--sleep);
+}
+:root body.mobile #view .today.td .td-sleep .tds-l { font-size: 11px; line-height: 13px; font-weight: 600; color: var(--ink-2); white-space: nowrap; }
+
+/* A8: the finished day points at the stage. One quiet line, plain count, the stage glyph. */
+:root body.mobile #view .today.td .td-stageline {
+  display: block; margin-top: 3px; max-width: 100%; text-wrap: balance;
+  font-size: 13px; line-height: 17px; font-weight: 600; color: var(--ink-2); text-align: center;
+}
+:root body.mobile #view .today.td .td-stageline .show-glyph { display: inline-block; vertical-align: -2px; margin-right: 3px; color: var(--ink); }
+:root body.mobile #view .today.td .td-stageline b { font-family: var(--round); font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; }
+
+/* Done rows recede by height (08 lesson 7): 76 to 52 pt with a spring, the picture 64 to 40
+   in the same column, the green wash and the full title kept. Never faded, never grey. */
+:root body.mobile #view .today.td .crow.trow > .crow-head { transition: min-height .55s var(--spring-soft), padding .55s var(--spring-soft); }
+:root body.mobile #view .today.td .trow .td-shot { transition: transform .4s var(--spring), width .55s var(--spring-soft), height .55s var(--spring-soft), margin .55s var(--spring-soft); }
+:root body.mobile #view .today.td .trow .td-shot .frame-tile { transition: width .55s var(--spring-soft), height .55s var(--spring-soft), border-radius .55s var(--spring-soft); }
+:root body.mobile #view .today.td .crow.trow.done:not(.open) > .crow-head { min-height: 52px; padding-top: 5px; padding-bottom: 5px; }
+:root body.mobile #view .today.td .crow.trow.done:not(.open) .td-shot { width: 40px; height: 40px; margin: 0 12px; }
+:root body.mobile #view .today.td .crow.trow.done:not(.open) .td-shot .frame-tile { width: 40px !important; height: 40px !important; border-radius: 11px !important; }
+:root body.mobile #view .today.td .crow.trow.done:not(.open) .td-icon,
+:root body.mobile #view .today.td .crow.trow.done:not(.open) .td-icon > .icon-tile { width: 40px !important; height: 40px !important; border-radius: 11px; }
+:root body.mobile #view .today.td .crow.trow.done:not(.open) .td-icon > .icon-tile svg { width: 28px; height: 28px; }
+:root body.mobile #view .today.td .crow.trow.done:not(.open) .crow-mins b { font-size: 18px; line-height: 20px; }
+:root body.mobile #view .today.td .crow.trow.done:not(.open) .crow-mins small { font-size: 11px; line-height: 12px; }
+:root body.mobile #view .today.td .crow.trow.done::before { inset: 3px 8px; border-radius: 16px; }
+
+/* The picture peek (peek.js): hold to turn the tile over to the other key position. */
+:root body.mobile #view .today.td .trow .td-shot.pk { position: relative; perspective: 500px; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+:root body.mobile #view .today.td .trow .td-shot.pk > .frame-tile { backface-visibility: hidden; transition: transform .42s var(--spring), width .55s var(--spring-soft), height .55s var(--spring-soft); }
+:root body.mobile #view .today.td .trow .td-shot .pk-back {
+  position: absolute; left: 50%; top: 50%; width: 64px; height: 64px; margin: -32px 0 0 -32px; border-radius: 16px; overflow: hidden;
+  background: #fff; color-scheme: light; box-shadow: 0 1px 2px rgba(0, 0, 0, .1), inset 0 0 0 1px rgba(0, 0, 0, .07);
+  backface-visibility: hidden; transform: rotateY(-180deg); transition: transform .42s var(--spring); pointer-events: none;
+}
+:root body.mobile #view .today.td .trow .td-shot .pk-lab {
+  position: absolute; left: 4px; bottom: 4px; padding: 1px 6px; border-radius: 999px; background: rgba(0, 0, 0, .72); color: #fff;
+  font-size: 10px; line-height: 14px; font-weight: 700;
+}
+:root body.mobile #view .today.td .trow .td-shot.pk-on > .frame-tile { transform: rotateY(180deg); }
+:root body.mobile #view .today.td .trow .td-shot.pk-on > .pk-back { transform: rotateY(0deg); }
+:root body.mobile #view .today.td .trow .td-shot.pk-flat > .frame-tile,
+:root body.mobile #view .today.td .trow .td-shot.pk-flat > .pk-back { transition: none; }
+:root body.mobile #view .today.td .crow.trow.done:not(.open) .td-shot .pk-back { width: 40px; height: 40px; margin: -20px 0 0 -20px; border-radius: 11px; }
+
+/* A12: the next step's card, the side that turns over (exsheet.js revealStep). */
+:root body.mobile .exs-offer[data-step-key], :root body.mobile #view .today.td .prog-suggest[data-step-key] { backface-visibility: hidden; }
+
+/* The spark where a tick lands on the ring (web; the app plays its own). */
+.tick-spark { position: fixed; z-index: 60; width: 0; height: 0; pointer-events: none; }
+.tick-spark i {
+  position: absolute; left: -2.5px; top: -2.5px; width: 5px; height: 5px; border-radius: 50%; background: var(--c);
+  animation: tickspark .55s cubic-bezier(.2, .8, .3, 1) both;
+}
+.tick-spark i:nth-child(1) { --a: 0deg; } .tick-spark i:nth-child(2) { --a: 60deg; } .tick-spark i:nth-child(3) { --a: 120deg; }
+.tick-spark i:nth-child(4) { --a: 180deg; } .tick-spark i:nth-child(5) { --a: 240deg; } .tick-spark i:nth-child(6) { --a: 300deg; }
+@keyframes tickspark {
+  from { transform: rotate(var(--a)) translateX(2px) scale(1); opacity: 1; }
+  to { transform: rotate(var(--a)) translateX(15px) scale(.3); opacity: 0; }
+}
+
+/* A1: the show row. The stage glyph on a black tile, so it reads apart from every exercise. */
+:root body.mobile #view .today.td .td-showlist { margin-top: -2px; }
+:root body.mobile #view .today.td .trow .td-stage {
+  background: #0B0B0D; color: #fff; border-radius: 16px; box-shadow: inset 0 0 0 .5px rgba(255, 255, 255, .12);
+}
+:root body.mobile #view .today.td .crow.trow.done:not(.open) .td-stage .show-glyph { width: 26px; height: 26px; }
+:root body.mobile #view .today.td .td-showrow .td-addtime { color: var(--accent); font-weight: 600; }
+:root body.mobile #view .today.td .td-showrow .crow-head > .tick { margin-right: 5px; }
+
+/* A9: the clinic card, one slim row under the head on a clinic day. */
+:root body.mobile #view .today.td > .td-clinic {
+  display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; margin: -4px 0 -2px; padding: 0 12px 0 14px;
+  border: 0; border-radius: 14px; background: var(--panel); color: var(--ink); text-align: left; font: inherit;
+  box-shadow: inset 0 0 0 .5px var(--line-2); transition: transform .4s var(--spring); -webkit-tap-highlight-color: transparent;
+}
+:root body.mobile #view .today.td > .td-clinic:active { transform: scale(.97); }
+:root body.mobile #view .today.td .td-clinic .tdc-glyph { width: 20px; height: 20px; flex: none; color: var(--ink); }
+:root body.mobile #view .today.td .td-clinic .tdc-glyph svg { width: 20px; height: 20px; }
+:root body.mobile #view .today.td .td-clinic .tdc-t { flex: 1; min-width: 0; font-size: 15px; line-height: 20px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+:root body.mobile #view .today.td .td-clinic .tdc-ask {
+  flex: none; padding: 3px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent);
+  font-size: 13px; line-height: 18px; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+:root body.mobile #view .today.td .td-clinic .tdc-ask.plain { background: none; padding: 0; color: var(--accent); font-weight: 600; }
+:root body.mobile #view .today.td .td-clinic .tdc-chev { width: 16px; height: 16px; flex: none; fill: none; stroke: var(--ink-3); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+
+/* The clinic sheet and Show (clinic.js). */
+:root body.mobile #modal-root .modal.cl-modal .mbody { padding-top: 4px; }
+/* r3fix TS-04: the sheet header's trailing column fits the Show pill, so it sits inside the
+   gutter (it was 72 pt in a 44 pt column, clipped by the sheet and 6 pt off the screen). The
+   two side columns stay equal so the title stays centred. */
+:root body.mobile #modal-root .modal.cl-modal > header { grid-template-columns: 72px minmax(0, 1fr) 72px; }
+:root body.mobile #modal-root .modal.cl-modal > header .cl-showbtn { grid-column: 3; grid-row: 1; justify-self: end; margin: 0; }
+:root body.mobile .cl-showbtn {
+  display: block; margin: 0 0 0 auto; min-height: 36px; max-width: 72px; padding: 0 14px; border: 0; border-radius: 999px; flex: none;
+  position: relative;
+  background: var(--glass); color: var(--accent); font-size: 15px; font-weight: 700;
+  box-shadow: var(--glass-shadow), inset 0 0 0 .5px var(--glass-rim); -webkit-backdrop-filter: blur(20px) saturate(1.6); backdrop-filter: blur(20px) saturate(1.6);
+}
+:root body.mobile .cl-showbtn::after { content: ""; position: absolute; inset: -4px 0; }
+:root body.mobile .cl-h { font-size: 20px; line-height: 25px; font-weight: 700; margin: 0 0 10px; color: var(--ink); }
+:root body.mobile .cl-sub { font-size: 17px; line-height: 22px; font-weight: 600; margin: 16px 0 6px; color: var(--ink); }
+:root body.mobile .cl-empty { margin: 0 0 8px; color: var(--ink-2); font-size: 15px; }
+:root body.mobile .cl-tendon { display: flex; align-items: baseline; gap: 6px; margin: 0 0 10px; padding: 10px 14px; border-radius: 16px; background: var(--fill-2); }
+:root body.mobile .cl-tendon b { font-family: var(--round); font-size: 30px; line-height: 34px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--ink); }
+:root body.mobile .cl-tendon span { font-family: var(--round); font-size: 17px; font-weight: 700; color: var(--ink-2); }
+:root body.mobile .cl-tendon small { margin-left: auto; font-size: 15px; font-weight: 600; color: var(--ink); }
+:root body.mobile .cl-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+:root body.mobile .cl-list > li { display: flex; align-items: center; gap: 10px; padding: 8px 0; box-shadow: inset 0 -.5px 0 var(--line-2); }
+:root body.mobile .cl-list > li:last-child { box-shadow: none; }
+:root body.mobile .cl-ext { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+:root body.mobile .cl-exn, :root body.mobile .cl-testn { font-size: 15px; line-height: 19px; font-weight: 600; color: var(--ink); }
+:root body.mobile .cl-exn .band-mark { margin-left: 4px; vertical-align: -2px; }
+:root body.mobile .cl-exs, :root body.mobile .cl-tests { font-size: 13px; line-height: 17px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+:root body.mobile .cl-test { flex-direction: column; align-items: flex-start !important; gap: 1px !important; }
+:root body.mobile .cl-tests b { font-family: var(--round); color: var(--ink); }
+:root body.mobile .cl-l, :root body.mobile .cl-r { display: inline-block; padding: 0 6px; margin-right: 4px; border-radius: 999px; font-weight: 800; font-size: 12px; line-height: 16px; }
+:root body.mobile .cl-l { color: var(--left); background: color-mix(in srgb, var(--left-fill) 13%, transparent); }
+:root body.mobile .cl-r { color: var(--right); background: color-mix(in srgb, var(--right-fill) 15%, transparent); }
+:root body.mobile .cl-note { flex-direction: column; align-items: flex-start !important; gap: 2px !important; }
+:root body.mobile .cl-noted { font-size: 13px; font-weight: 600; color: var(--ink-2); }
+:root body.mobile .cl-note q { font-size: 15px; line-height: 20px; color: var(--ink); }
+:root body.mobile .cl-asks { margin-top: 20px; }
+:root body.mobile .ask-field {
+  width: 100%; min-height: 44px; padding: 0 14px; border: 0; border-radius: 14px; background: var(--fill-2); color: var(--ink);
+  font-size: 17px; box-sizing: border-box;
+}
+:root body.mobile .cl-alist { list-style: none; margin: 8px 0 0; padding: 0; }
+:root body.mobile .cl-ask { display: flex; align-items: flex-start; gap: 12px; padding: 10px 0; box-shadow: inset 0 -.5px 0 var(--line-2); }
+:root body.mobile .cl-ask > .tick { flex: none; margin-top: 1px; }
+:root body.mobile .cl-askt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+:root body.mobile .cl-askq { display: flex; align-items: center; gap: 8px; font-size: 17px; line-height: 22px; color: var(--ink); }
+:root body.mobile .cl-ask.asked .cl-askq { color: var(--ink-2); }
+:root body.mobile .cl-ans { min-height: 36px; padding: 0 12px; border: 0; border-radius: 10px; background: var(--fill-2); color: var(--ink); font-size: 15px; }
+:root body.mobile .ask-ref { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; font-size: 15px; font-weight: 600; color: var(--ink); }
+:root body.mobile #modal-root .modal.ask-modal .ask-add { width: 100%; min-height: 50px; border-radius: 25px; }
+:root body.mobile #modal-root .modal-back.cl-showback { padding: 0 !important; }
+:root body.mobile #modal-root .modal.cl-showmodal {
+  position: fixed !important; inset: 0 !important; width: 100% !important; max-width: none !important; height: 100% !important;
+  max-height: none !important; margin: 0 !important; border-radius: 0 !important; padding-top: env(safe-area-inset-top, 47px) !important;
+  box-sizing: border-box;
+}
+:root body.mobile #modal-root .modal.cl-showmodal .mbody { padding: 8px 20px 40px; }
+:root body.mobile .cl-since.big .cl-h { font-size: 28px; line-height: 34px; }
+:root body.mobile .cl-since.big .cl-exn, :root body.mobile .cl-since.big .cl-testn { font-size: 19px; line-height: 24px; }
+:root body.mobile .cl-since.big .cl-exs, :root body.mobile .cl-since.big .cl-tests { font-size: 16px; line-height: 21px; }
+:root body.mobile .cl-since.big .cl-tendon b { font-size: 44px; line-height: 48px; }
+
+/* The show sheet (show.js). */
+:root body.mobile .show-hero { display: flex; align-items: center; gap: 12px; margin: 0 0 14px; }
+:root body.mobile .show-tile { display: grid; place-items: center; width: 56px; height: 56px; border-radius: 16px; background: #0B0B0D; color: #fff; }
+:root body.mobile .show-when { font-size: 22px; line-height: 28px; font-weight: 700; color: var(--ink); }
+:root body.mobile .show-group { display: flex; flex-direction: column; border-radius: 16px; background: var(--fill-2); overflow: hidden; }
+:root body.mobile .show-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 50px; padding: 0 14px; font-size: 17px; color: var(--ink); }
+:root body.mobile .show-row + .show-row { box-shadow: inset 0 .5px 0 var(--line-2); }
+:root body.mobile #modal-root .show-row input {
+  border: 0 !important; background: none !important; box-shadow: none !important; outline: none; min-height: 44px; padding: 0 !important;
+  color: var(--ink); font-size: 17px; text-align: right; font-family: var(--round); font-weight: 600; min-width: 0; width: 55%; max-width: 60%;
+}
+:root body.mobile #modal-root .show-row input:focus { color: var(--accent); }
+:root body.mobile #modal-root .show-row input[type=time] { width: auto; min-width: 96px; }
+/* r3fix TS-05: an empty time reads "Add the time" in the action colour (the Today row's words);
+   the wheel's input lies over it, transparent, so the tap still opens it. Minutes and Note
+   carry an "Add" placeholder in the same colour, so no row is a label and blank space. */
+:root body.mobile #modal-root .show-timebox { position: relative; display: inline-grid; justify-items: end; align-items: center; min-width: 96px; min-height: 44px; }
+:root body.mobile #modal-root .show-timebox > * { grid-area: 1 / 1; }
+:root body.mobile #modal-root .show-timebox .show-add { display: none; color: var(--accent); font-weight: 600; white-space: nowrap; pointer-events: none; }
+:root body.mobile #modal-root .show-timebox[data-empty] .show-add { display: block; }
+:root body.mobile #modal-root .show-timebox[data-empty] input[type=time] { opacity: .02; width: 100%; max-width: none; }
+:root body.mobile #modal-root .show-row input::placeholder { color: var(--accent); opacity: 1; font-family: inherit; font-weight: 600; }
+:root body.mobile #modal-root .show-row input[type=time]:invalid, :root body.mobile #modal-root .show-row input[type=time]:placeholder-shown { color: var(--accent); }
+:root body.mobile #modal-root .modal.show-modal:focus { outline: none; }
+:root body.mobile #modal-root .modal.cl-modal:focus { outline: none; }
+:root body.mobile #modal-root .show-row input[type=text] { font-family: inherit; font-weight: 400; }
+:root body.mobile .show-step { display: inline-flex; align-items: center; gap: 4px; }
+:root body.mobile .show-step button { width: 36px; height: 32px; border: 0; border-radius: 9px; background: var(--fill); color: var(--ink); font-size: 20px; line-height: 1; }
+:root body.mobile .show-step b { min-width: 26px; text-align: center; font-family: var(--round); font-size: 19px; font-weight: 800; font-variant-numeric: tabular-nums; }
+:root body.mobile .show-remove { display: block; margin: 16px auto 0; min-height: 44px; border: 0; background: none; color: var(--bad); font-size: 17px; }
+
+/* The first show back, web fallback (show.js houseLightsWeb): the room dims to a soft edged
+   follow spot on the ring, a white shimmer circles it once, then the lights come up. */
+.house-lights { position: fixed; inset: 0; z-index: 80; pointer-events: none; opacity: 0; transition: opacity .6s ease; }
+.house-lights .hl-spot {
+  position: absolute; inset: 0;
+  background: radial-gradient(circle at var(--cx) var(--cy), transparent calc(var(--r) - 2px), rgba(0, 0, 0, var(--dim)) calc(var(--r) + 24px));
+}
+.house-lights .hl-shimmer {
+  position: absolute; left: calc(var(--cx) - var(--r)); top: calc(var(--cy) - var(--r)); width: calc(var(--r) * 2); height: calc(var(--r) * 2);
+  border-radius: 50%; background: conic-gradient(from 0deg, transparent 0 70%, rgba(255, 255, 255, .95) 86%, transparent 100%);
+  -webkit-mask: radial-gradient(circle, transparent calc(var(--r) - 3px), #000 calc(var(--r) - 2px));
+  mask: radial-gradient(circle, transparent calc(var(--r) - 3px), #000 calc(var(--r) - 2px));
+  opacity: 0;
+}
+.house-lights.on { opacity: 1; }
+.house-lights.on .hl-shimmer { animation: hlshimmer 1.3s cubic-bezier(.45, 0, .2, 1) .6s both; }
+.house-lights.up { opacity: 0; transition-duration: .6s; }
+.house-lights.still, .house-lights.still.up { transition: none; }
+.house-lights.still .hl-shimmer { display: none; }
+@keyframes hlshimmer { 0% { opacity: 1; transform: rotate(0deg); } 85% { opacity: 1; } 100% { opacity: 0; transform: rotate(360deg); } }
+
+/* The exercise sheet's "Ask at the clinic". */
+:root body.mobile .exs-ask {
+  display: flex; align-items: center; gap: 8px; width: 100%; min-height: 48px; margin: 12px 0 0; padding: 0 14px;
+  border: 0; border-radius: 16px; background: var(--fill-2); color: var(--accent); font-size: 17px; font-weight: 600; text-align: left;
+}
+:root body.mobile .exs-ask svg { width: 20px; height: 20px; }
+/* A done row carries its picture, its full title and what he did; the category word goes
+   (the picture and the ring already carry it), the title a size down, so most rows fit 52 pt. */
+:root body.mobile #view .today.td .crow.trow.done:not(.open) .crow-name { font-size: 15px; line-height: 18px; letter-spacing: -.24px; }
+:root body.mobile #view .today.td .crow.trow.done:not(.open) .crow-sub .td-cat { display: none; }
+:root body.mobile #view .today.td .crow.trow.done:not(.open) .crow-sub .sumchip { margin-top: 0; margin-bottom: 0; }
+
+/* ======================================================= r3 fix pass 2026-09-30 === */
+/* design-pass/v3/r3fix-today.md has the finding behind each rule. */
+
+/* TS-11: the "..." never reaches the last night chip. The date line is three columns: the date
+   centred while there is room, the right column at least the menu's 34 pt, so a wide date moves
+   left by what the menu needs instead of the menu running into the chip. The menu's 44 pt
+   target grows left, up and down from its 30 pt disc, never right, so the grid's 12 pt gap
+   stays between the two targets. */
+:root body.mobile #view .today.td .td-dateline {
+  display: grid; grid-template-columns: minmax(0, 1fr) max-content minmax(34px, 1fr);
+  align-self: stretch; width: 100%; gap: 0;
+}
+:root body.mobile #view .today.td .td-dateline > .td-date { grid-column: 2; }
+:root body.mobile #view .today.td .td-dateline > .td-more { grid-column: 3; justify-self: start; margin: 0 0 0 4px; }
+:root body.mobile #view .today.td .td-dateline > .td-more::after { inset: -7px 0 -7px -14px; }
+
+/* TS-09: "Clinic day" is the way into the clinic sheet on a clinic day with home work left.
+   The words stay ink (a headline, C8); the open questions trail in a small turquoise capsule
+   with a speech bubble, or a chevron when there are none. 44 pt tall target. */
+:root body.mobile #view .today.td .td-clinicword {
+  position: relative; display: inline-flex; align-items: center; gap: 6px; border: 0; padding: 0; margin: 0;
+  background: none; color: var(--ink); font: inherit; letter-spacing: inherit; cursor: pointer;
+  transition: transform .4s var(--spring); -webkit-tap-highlight-color: transparent;
+}
+:root body.mobile #view .today.td .td-clinicword::after { content: ""; position: absolute; inset: -4px -6px; }
+:root body.mobile #view .today.td .td-clinicword:active { transform: scale(.95); }
+:root body.mobile #view .today.td .td-clinicword .tdc-chev { width: 16px; height: 16px; flex: none; fill: none; stroke: var(--ink-3); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+:root body.mobile #view .today.td .td-clinicword .tdc-n {
+  display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px 2px 6px; border-radius: 999px;
+  background: var(--accent-soft); color: var(--accent); font-size: 14px; line-height: 18px; font-weight: 800; font-variant-numeric: tabular-nums;
+}
+:root body.mobile #view .today.td .td-clinicword .tdc-n svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linejoin: round; }
+
+/* TS-09: the show row, slim (the done row's size): 52 pt, the stage glyph on a 40 pt black
+   tile, first in the tendon list with a hairline under it, no section gap. */
+:root body.mobile #view .today.td .crow.td-showrow.slim > .crow-head { min-height: 52px; padding-top: 5px; padding-bottom: 5px; }
+:root body.mobile #view .today.td .crow.td-showrow.slim .td-stage { width: 40px; height: 40px; margin: 0 12px; border-radius: 11px; }
+:root body.mobile #view .today.td .crow.td-showrow.slim .crow-name { font-size: 16px; line-height: 20px; }
+:root body.mobile #view .today.td .crow.td-showrow.slim .crow-sub { font-size: 14px; line-height: 18px; }
+
+/* TS-07: the collagen line is a link into Supplements (Morning): turquoise words, a 44 pt tall
+   target that grows up and down from the 17 pt line. */
+:root body.mobile #view .today.td .td-routine.quiet.tap { position: relative; color: var(--accent); cursor: pointer; }
+:root body.mobile #view .today.td .td-routine.quiet.tap::after { content: ""; position: absolute; inset: -13px -8px -13px -4px; }
+:root body.mobile #view .today.td .td-routine.quiet.tap:active { opacity: .6; }
+
+/* TS-08 (A7): Tonight's Evening row, the clinic row's shape with the moon in the ring's
+   indigo (never a leg: a moon, not an L). Only while the root carries rt-night. */
+:root body.mobile #view .today.td > .td-evening {
+  display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; margin: -4px 0 -2px; padding: 0 12px 0 14px;
+  border: 0; border-radius: 14px; background: var(--panel); color: var(--ink); text-align: left; font: inherit;
+  box-shadow: inset 0 0 0 .5px color-mix(in srgb, var(--sleep) 30%, var(--line-2)); transition: transform .4s var(--spring); -webkit-tap-highlight-color: transparent;
+}
+:root:not(.rt-night) body.mobile #view .today.td > .td-evening { display: none; }
+:root body.mobile #view .today.td > .td-evening:active { transform: scale(.97); }
+:root body.mobile #view .today.td .td-evening .tde-moon { width: 18px; height: 18px; flex: none; fill: var(--sleep); }
+:root body.mobile #view .today.td .td-evening .tdc-t { flex: 1; min-width: 0; font-size: 15px; line-height: 20px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+:root body.mobile #view .today.td .td-evening .tdc-ask {
+  flex: none; padding: 3px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent);
+  font-size: 13px; line-height: 18px; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+:root body.mobile #view .today.td .td-evening .tdc-chev { width: 16px; height: 16px; flex: none; fill: none; stroke: var(--ink-3); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ================================================= iPad, regular width === */
+/* 2026-09-30, the iPad builder. His words: "the iPad layout should probably be a bit more robust and
+   capable than the iPhone one, or at least show things at a lot easier flow because it's such a
+   big screen." His 11 inch M1 iPad Pro is 834 x 1194 pt upright and 1194 x 834 on its side.
+   RULES for this block (design-pass/v3/ipad-today-player-notes.md has the why):
+   1. Every rule sits inside the query below, which no iPhone ever matches: 700 pt wide AND 600 pt
+      tall (a phone on its side is at most 440 tall). The phone layout is byte for byte what it was.
+   2. It SHOWS more at once: the list keeps the leading two thirds with a 96 pt single frame per
+      row, and the selected exercise (its sheet content, plus history and Begin) sits in a pane on
+      the trailing third instead of a sheet. The pane is the detail of the list, not a second
+      navigation (the native tab bar stays the only one).
+   3. The layout answers to the width it is given, not to the device: one column ratio serves the
+      834 pt upright page (about 470 | 320) and the 1194 pt landscape page (about 690 | 440), and
+      also the 962 pt content when a rail margin is still applied at 900 pt and over. */
+:root body.mobile #view .today.td .td-cols,
+:root body.mobile #view .today.td .td-lead { display: contents; }
+:root body.mobile #view .today.td .td-pane { display: none; }
+
+@media (min-width: 700px) and (min-height: 600px) {
+  :root body.mobile #view .today.td { gap: 20px; max-width: none; }
+
+  /* ---- the hero: a roomier ring, the day said big, last night's chip larger. */
+  :root body.mobile #view .today.td .td-hero { grid-template-columns: 148px minmax(0, 1fr); gap: 28px; margin-top: 10px; padding: 6px 4px 4px; }
+  :root body.mobile #view .today.td .td-hero.has-sleep { grid-template-columns: 148px minmax(0, 1fr) 118px; }
+  :root body.mobile #view .today.td .td-hero.won { grid-template-columns: 184px minmax(0, 1fr); }
+  :root body.mobile #view .today.td .td-hero.won.has-sleep { grid-template-columns: 184px minmax(0, 1fr) 118px; }
+  :root body.mobile #view .today.td .td-ring { width: 132px; height: 132px; }
+  :root body.mobile #view .today.td .td-ring .dayring2 { --dr: 132px !important; }
+  :root body.mobile #view .today.td .td-ring .dr-custom .td-crown { width: 54px; height: 54px; border-radius: 14px; }
+  :root body.mobile #view .today.td .td-ring > .td-start { right: -20px; bottom: -20px; width: 60px; height: 60px; }
+  :root body.mobile #view .today.td .td-ring > .td-start svg { width: 28px; height: 28px; margin-left: 3px; }
+  :root body.mobile #view .today.td .td-ring > .td-start.resume svg { width: 34px; height: 34px; margin-left: 0; }
+  :root body.mobile #view .today.td .td-date h1 { font-size: 32px; line-height: 38px; letter-spacing: -.4px; }
+  :root body.mobile #view .today.td .td-more { width: 36px; height: 36px; }
+  :root body.mobile #view .today.td .td-more svg { width: 22px; height: 22px; }
+  :root body.mobile #view .today.td .td-count { font-size: 26px; line-height: 52px; }
+  :root body.mobile #view .today.td .td-count b { font-size: 52px; letter-spacing: -1px; }
+  :root body.mobile #view .today.td .td-count .td-rest { font-size: 38px; }
+  :root body.mobile #view .today.td .td-count.won .sum-won { font-size: 42px; }
+  :root body.mobile #view .today.td .td-est { font-size: 18px; line-height: 24px; }
+  :root body.mobile #view .today.td .td-stageline { font-size: 15px; line-height: 20px; }
+  :root body.mobile #view .today.td .td-sleep { width: 118px; min-height: 124px; border-radius: 26px; gap: 3px; padding: 12px 4px 10px; }
+  :root body.mobile #view .today.td .td-sleep .tds-moon { width: 24px; height: 24px; margin-bottom: 4px; }
+  :root body.mobile #view .today.td .td-sleep .tds-t { font-size: 27px; line-height: 31px; }
+  :root body.mobile #view .today.td .td-sleep .tds-t small { font-size: 15px; }
+  :root body.mobile #view .today.td .td-sleep .tds-l { font-size: 14px; line-height: 17px; }
+  :root body.mobile #view .today.td .td-sleep .tds-est { width: 6px; height: 6px; right: -9px; top: 4px; }
+
+  /* ---- two columns: the list leads, the exercise pane trails. */
+  :root body.mobile #view .today.td .td-cols {
+    display: grid; grid-template-columns: minmax(0, 1.75fr) minmax(320px, 1fr); column-gap: 24px; align-items: start;
+  }
+  :root body.mobile #view .today.td .td-cols:not(.has-pane) { grid-template-columns: minmax(0, 1fr); }
+  :root body.mobile #view .today.td .td-lead { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+
+  /* The lists are cards here (there is room to group), not bands to the screen's edge. */
+  :root body.mobile #view .today.td .td-list {
+    margin: 0; border-radius: 28px; overflow: hidden; box-shadow: inset 0 0 0 .5px var(--line-2);
+  }
+  :root body.mobile #view .today.td .recovery-line.td-sec { margin: 4px 0 -6px; padding: 0 6px; }
+  :root body.mobile #view .today.td .td-sec .rl-h, :root body.mobile #view .today.td .td-sec-h { font-size: 22px; line-height: 28px; }
+
+  /* The row: the single frame at 96 pt, the full title at 19 pt, the minutes big. */
+  :root body.mobile #view .today.td .crow.trow > .crow-head { min-height: 116px; padding: 10px 10px 10px 16px; gap: 16px; }
+  :root body.mobile #view .today.td .checklist > * + .crow.trow {
+    background: linear-gradient(var(--line-2), var(--line-2)) 128px 0 / calc(100% - 128px) .5px no-repeat;
+  }
+  :root body.mobile #view .today.td .checklist > .crow.trow.done + .crow.trow,
+  :root body.mobile #view .today.td .checklist > * + .crow.trow.done { background-image: none; }
+  :root body.mobile #view .today.td .trow .td-shot { width: 96px; height: 96px; border-radius: 22px; }
+  :root body.mobile #view .today.td .trow .td-shot .frame-tile { width: 96px !important; height: 96px !important; border-radius: 22px !important; }
+  :root body.mobile #view .today.td .trow .td-icon { width: 96px; height: 96px; border-radius: 22px; }
+  :root body.mobile #view .today.td .trow .td-icon > .icon-tile { width: 96px !important; height: 96px !important; border-radius: 22px; }
+  :root body.mobile #view .today.td .trow .td-icon > .icon-tile svg { width: 64px; height: 64px; }
+  :root body.mobile #view .today.td .trow .cw-shot { border-radius: 22px; }
+  :root body.mobile #view .today.td .trow .cw-shot .thumb { width: 84px !important; height: 48px !important; }
+  :root body.mobile #view .today.td .trow .crow-text { gap: 4px; }
+  :root body.mobile #view .today.td .trow .crow-name { font-size: 19px; line-height: 24px; letter-spacing: -.4px; }
+  :root body.mobile #view .today.td .trow .crow-sub { font-size: 15px; line-height: 20px; }
+  :root body.mobile #view .today.td .td-routine { font-size: 15px; line-height: 20px; }
+  :root body.mobile #view .today.td .td-routine > svg { width: 16px; height: 16px; }
+  :root body.mobile #view .today.td .trow .crow-mins { width: 48px; }
+  :root body.mobile #view .today.td .trow .crow-mins b { font-size: 32px; line-height: 34px; }
+  :root body.mobile #view .today.td .trow .crow-mins small { font-size: 13px; line-height: 16px; }
+  :root body.mobile #view .today.td .trow .crow-head > .tick { width: 34px; height: 34px; margin: 0 8px 0 4px; }
+  :root body.mobile #view .today.td .crow.trow .crow-body { padding: 0 24px 20px 24px; }
+  :root body.mobile #view .today.td .td-list .list-add { padding-left: 24px; min-height: 60px; }
+  :root body.mobile #view .today.td .td-list details.fold > summary { padding-left: 24px; padding-right: 24px; }
+  :root body.mobile #view .today.td .trow .td-shot .pk-back { width: 96px; height: 96px; margin: -48px 0 0 -48px; border-radius: 22px; }
+
+  /* Done rows recede here too, to a 68 pt row with a 56 pt picture. */
+  :root body.mobile #view .today.td .crow.trow.done:not(.open) > .crow-head { min-height: 68px; padding-top: 6px; padding-bottom: 6px; }
+  :root body.mobile #view .today.td .crow.trow.done:not(.open) .td-shot { width: 56px; height: 56px; margin: 0 20px; }
+  :root body.mobile #view .today.td .crow.trow.done:not(.open) .td-shot .frame-tile { width: 56px !important; height: 56px !important; border-radius: 15px !important; }
+  :root body.mobile #view .today.td .crow.trow.done:not(.open) .td-icon,
+  :root body.mobile #view .today.td .crow.trow.done:not(.open) .td-icon > .icon-tile { width: 56px !important; height: 56px !important; border-radius: 15px; }
+  :root body.mobile #view .today.td .crow.trow.done:not(.open) .td-icon > .icon-tile svg { width: 38px; height: 38px; }
+  :root body.mobile #view .today.td .crow.trow.done:not(.open) .td-shot .pk-back { width: 56px; height: 56px; margin: -28px 0 0 -28px; border-radius: 15px; }
+  :root body.mobile #view .today.td .crow.trow.done:not(.open) .crow-name { font-size: 17px; line-height: 22px; }
+  :root body.mobile #view .today.td .crow.trow.done:not(.open) .crow-mins b { font-size: 22px; line-height: 24px; }
+  :root body.mobile #view .today.td .crow.trow.done:not(.open) .crow-mins small { font-size: 12px; line-height: 14px; }
+  :root body.mobile #view .today.td .crow.trow.done::before { inset: 4px 10px; border-radius: 20px; }
+  :root body.mobile #view .today.td .crow.td-showrow.slim > .crow-head { min-height: 68px; }
+  :root body.mobile #view .today.td .crow.td-showrow.slim .td-stage { width: 56px; height: 56px; margin: 0 20px; border-radius: 15px; }
+
+  /* The selected row (turquoise = selected): a tint and a bar on the leading edge. */
+  :root body.mobile #view .today.td .crow.trow.sel > .crow-head {
+    background: color-mix(in srgb, var(--action-fill) 9%, transparent); box-shadow: inset 4px 0 0 var(--action-fill);
+  }
+
+  /* The other blocks under the list line up with it. */
+  :root body.mobile #view .today.td .td-knee, :root body.mobile #view .today.td .td-knotes { max-width: none; }
+
+  /* ---- the pane: the sheet's content, in place. It stays in view while the list scrolls. */
+  :root body.mobile #view .today.td .td-pane {
+    display: block; position: sticky; top: 44px; align-self: start; box-sizing: border-box;
+    max-height: calc(100svh - 44px - 124px); overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain;
+    scrollbar-width: none; -webkit-overflow-scrolling: touch;
+    padding: 18px 16px 18px; border-radius: 28px; background: var(--panel);
+    box-shadow: inset 0 0 0 .5px var(--line-2), 0 2px 10px rgba(0, 0, 0, .05);
+  }
+  :root body.mobile #view .today.td .td-pane::-webkit-scrollbar { display: none; }
+  :root body.mobile #view .td-pane .exs-pane-in { display: block; will-change: transform; }
+  :root body.mobile #view .td-pane .exs-tile { border-radius: 22px; background: #fff; }
+  :root body.mobile #view .td-pane .exs-head { margin: 12px 0 12px; }
+  :root body.mobile #view .td-pane .exs-title { font-size: 24px; line-height: 30px; }
+  :root body.mobile #view .td-pane .exs-begin-pane {
+    display: flex; width: 100%; min-height: 54px; margin: 0 0 14px; border-radius: 27px; font-size: 17px; font-weight: 700; justify-content: center;
+  }
+  :root body.mobile #view .td-pane .exs-hist { margin: 0 0 12px; padding: 12px 14px; border-radius: 18px; background: var(--fill-2); }
+  :root body.mobile #view .td-pane .exs-hist .exhist { margin: 0; padding: 0; background: none; gap: 6px; }
+  :root body.mobile #view .td-pane .exs-hist .exh-line { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 10px; align-items: baseline; font-size: 15px; line-height: 21px; }
+  :root body.mobile #view .td-pane .exs-hist .exh-k { font-size: 15px; font-weight: 700; letter-spacing: 0; text-transform: none; color: var(--ink); white-space: normal; }
+  :root body.mobile #view .td-pane .exs-hist .exh-v { min-width: 0; color: var(--ink-2); }
+  :root body.mobile #view .td-pane .exs-hist details.exh-more { margin-top: 6px; }
+  :root body.mobile #view .td-pane .exs-hist details.exh-more > summary { font-size: 15px; font-weight: 600; color: var(--accent); }
+  :root body.mobile #view .td-pane .exs-hist .exh-list { margin: 6px 0 0; padding: 0; list-style: none; font-size: 14px; line-height: 20px; color: var(--ink-2); }
+  :root body.mobile #view .td-pane .exs-hist .exh-list li { padding: 2px 0; }
+}
+
+/* iPad on its side (834 pt tall): the hero gives back some height so the list and the pane
+   start higher and more of both show at once. Same layout, a smaller ring and type. */
+@media (min-width: 900px) and (min-height: 600px) and (max-height: 900px) and (orientation: landscape) {
+  :root body.mobile #view .today.td { gap: 14px; }
+  :root body.mobile #view .today.td .td-hero { grid-template-columns: 116px minmax(0, 1fr); gap: 24px; margin-top: 4px; padding: 0 4px; }
+  :root body.mobile #view .today.td .td-hero.has-sleep { grid-template-columns: 116px minmax(0, 1fr) 104px; }
+  :root body.mobile #view .today.td .td-hero.won { grid-template-columns: 150px minmax(0, 1fr); }
+  :root body.mobile #view .today.td .td-hero.won.has-sleep { grid-template-columns: 150px minmax(0, 1fr) 104px; }
+  :root body.mobile #view .today.td .td-ring { width: 108px; height: 108px; }
+  :root body.mobile #view .today.td .td-ring .dayring2 { --dr: 108px !important; }
+  :root body.mobile #view .today.td .td-ring .dr-custom .td-crown { width: 44px; height: 44px; }
+  :root body.mobile #view .today.td .td-ring > .td-start { right: -16px; bottom: -16px; width: 52px; height: 52px; }
+  :root body.mobile #view .today.td .td-date h1 { font-size: 28px; line-height: 34px; }
+  :root body.mobile #view .today.td .td-count { line-height: 44px; }
+  :root body.mobile #view .today.td .td-count b { font-size: 44px; }
+  :root body.mobile #view .today.td .td-sleep { width: 104px; min-height: 104px; padding: 8px 4px 8px; }
+  :root body.mobile #view .today.td .td-sleep .tds-t { font-size: 24px; line-height: 28px; }
+  :root body.mobile #view .today.td .td-pane { max-height: calc(100svh - 44px - 116px); }
+}
+
+/* Day arrows beside the date, for a mouse or trackpad only (2026-09-30 sweep). */
+:root body.mobile #view .today.td .td-daynav { display: none; }
+@media (hover: hover) and (pointer: fine) {
+  :root body.mobile #view .today.td .td-daynav { display: inline-flex; gap: 4px; margin-left: 2px; }
+  :root body.mobile #view .today.td .td-darr {
+    width: 30px; height: 30px; border-radius: 15px; border: 0; padding: 0; display: inline-flex; align-items: center; justify-content: center;
+    background: var(--panel); color: var(--accent); cursor: pointer; box-shadow: 0 1px 3px rgba(0, 0, 0, .08);
+  }
+  :root body.mobile #view .today.td .td-darr svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+}
+
+/* Add exercise: the clinic lists at the top (2026-09-30), one fold per clinic. */
+#modal-root .picker-clinic { margin: 0 0 10px; }
+#modal-root .picker-clinic > summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 8px; color: var(--accent); font-weight: 700; }
+#modal-root .picker-clinic > summary::-webkit-details-marker { display: none; }
+#modal-root .picker-clinic > summary::before { content: '›'; display: inline-block; transition: transform .2s var(--ease); font-size: 1.2em; line-height: 1; }
+#modal-root .picker-clinic[open] > summary::before { transform: rotate(90deg); }
+#modal-root .picker-sub { display: block; font-size: 13px; font-weight: 500; color: var(--ink-2); margin-top: 2px; }
+
+/* BFR templates in the custom workout's setup (2026-09-30): one chip per BFR exercise from his
+   clinic's list, what it loads written under its name. */
+:root body.mobile #view .cw-tpls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 4px 0 10px; }
+:root body.mobile #view .cw-tpls-h { flex: 0 0 100%; font-size: 13px; font-weight: 700; color: var(--ink-2); }
+:root body.mobile #view .cw-tpl {
+  display: inline-flex; flex-direction: column; align-items: flex-start; gap: 1px; min-height: 44px; padding: 6px 12px;
+  border: 0; border-radius: 14px; background: var(--panel-2, var(--line-2)); color: var(--ink); font: inherit; font-size: 15px; font-weight: 600; cursor: pointer; text-align: left;
+}
+:root body.mobile #view .cw-tpl small { font-size: 12px; font-weight: 500; color: var(--ink-2); }
+:root body.mobile #view .cw-tpl.on { background: var(--accent-soft); color: var(--accent); }

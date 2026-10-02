@@ -1,0 +1,27 @@
+{
+ "default": "glass",
+ "sets": [
+  {
+   "id": "glass",
+   "name": "Glass",
+   "desc": "Crystal, felt and wood. Recorded tones",
+   "files": {
+    "pip": "glass/pip-tuned.wav",
+    "now": "glass/now-tuned.wav",
+    "countin": "glass/countin.wav",
+    "rest": "glass/rest.wav",
+    "restend": "glass/restend-tuned.wav",
+    "saved": "glass/saved.wav",
+    "set": "glass/set-tuned.wav",
+    "day": "glass/day.wav",
+    "paused": "glass/paused-tuned.wav",
+    "halfway": "glass/halfway.wav",
+    "metro": "glass/metro.wav",
+    "goal": "glass/goal.wav",
+    "check": "glass/check.wav",
+    "tick": "glass/tick.wav",
+    "logsaved": "glass/logsaved.wav"
+   }
+  }
+ ]
+}

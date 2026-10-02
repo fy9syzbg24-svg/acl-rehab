@@ -1,0 +1,114 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Haptic probe</title>
+<!-- B6-1, 2026-09-23. Which taps can his iPhone feel? Not linked from the app
+     and not in the service worker's list: he opens it by its address. Each tile
+     toggles a switch a different way; he taps each one and notes which buzz.
+     The app's controls use the third way (a label around a hidden switch). -->
+<style>
+  :root { color-scheme: light dark; --line: #8884; --on: #00616C; }
+  @media (prefers-color-scheme: dark) { :root { --on: #7CE0E7; } }
+  body { font: 15px/1.45 -apple-system, system-ui, sans-serif; margin: 0; padding: 16px calc(16px + env(safe-area-inset-left)) calc(24px + env(safe-area-inset-bottom)); }
+  h1 { font-size: 1.1rem; margin: 0 0 .2rem; }
+  p.sub { margin: 0 0 1rem; opacity: .7; }
+  #tiles { display: grid; gap: 12px; }
+  [data-tile] { display: flex; flex-direction: column; justify-content: center; gap: .15rem; min-height: 88px; padding: 12px 16px;
+    border: 1px solid var(--line); border-radius: 14px; background: #8881; font: inherit; color: inherit; text-align: left;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; cursor: pointer; position: relative; }
+  [data-tile]:active { background: #8883; }
+  [data-tile] b { font-size: 1.05rem; }
+  [data-tile] span { opacity: .7; font-size: .85rem; }
+  [data-tile] i { font-style: normal; font-size: .8rem; color: var(--on); font-variant-numeric: tabular-nums; }
+  /* Hidden exactly as the app hides its switch: clipped in place, never under a finger. */
+  .hap { position: absolute; top: 0; left: 0; width: 1px; height: 1px; margin: 0; padding: 0; border: 0; clip-path: inset(50%); overflow: hidden; pointer-events: none; }
+  pre { background: #8881; border-radius: 10px; padding: 10px; overflow-x: auto; font-size: 12px; white-space: pre-wrap; margin-top: 16px; }
+</style>
+
+<h1>Haptic probe</h1>
+<p class="sub">Tap each tile once. Note which ones you feel.</p>
+<p class="sub" id="ios"></p>
+
+<div id="tiles">
+  <button data-tile id="flip" type="button">
+    <b>Script flip</b><span>A script sets checked on a hidden switch</span><i data-n>not tapped yet</i>
+  </button>
+  <button data-tile id="click" type="button">
+    <b>Script label.click()</b><span>A script clicks a label around a hidden switch</span><i data-n>not tapped yet</i>
+  </button>
+  <label data-tile id="real">
+    <input type="checkbox" switch class="hap" tabindex="-1" aria-hidden="true">
+    <b>Real label</b><span>Your finger on a label around a hidden switch, as the app does it</span><i data-n>not tapped yet</i>
+  </label>
+  <label data-tile id="gone">
+    <input type="checkbox" switch class="hap" tabindex="-1" aria-hidden="true">
+    <b>Real label, replaced in the tap</b><span>As Start and the last Set done do: the tile is redrawn by the tap itself</span><i data-n>not tapped yet</i>
+  </label>
+</div>
+
+<pre id="out"></pre>
+
+<script>
+const out = document.getElementById('out');
+const log = [];
+function note(s) { log.unshift(new Date().toLocaleTimeString() + '  ' + s); out.textContent = log.slice(0, 12).join('\n'); }
+
+// The iOS version from the user agent ("OS 26_5 like Mac OS X").
+const ua = navigator.userAgent || '';
+const m = ua.match(/OS (\d+)[_.](\d+)(?:[_.](\d+))? like Mac OS X/);
+const hasSwitch = 'switch' in document.createElement('input');
+document.getElementById('ios').textContent = (m ? `iOS ${m[1]}.${m[2]}${m[3] ? '.' + m[3] : ''}` : 'Not an iPhone or iPad user agent')
+  + (hasSwitch ? ', switch supported' : ', no switch here');
+
+const counts = { flip: 0, click: 0, real: 0, gone: 0 };
+function counted(id) {
+  counts[id] += 1;
+  document.querySelector(`#${id} [data-n]`).textContent = `tapped ${counts[id]} time${counts[id] === 1 ? '' : 's'}`;
+  note(`${id} tapped`);
+}
+
+// 1. A hidden switch whose checked is flipped by script (what feedback.js buzz() does).
+const flipSw = document.createElement('input');
+flipSw.type = 'checkbox'; flipSw.setAttribute('switch', ''); flipSw.className = 'hap'; flipSw.tabIndex = -1;
+flipSw.setAttribute('aria-hidden', 'true');
+document.getElementById('flip').appendChild(flipSw);
+document.getElementById('flip').addEventListener('click', () => { flipSw.checked = !flipSw.checked; counted('flip'); });
+
+// 2. A hidden label around a hidden switch, clicked by script.
+const hidLabel = document.createElement('label');
+hidLabel.setAttribute('aria-hidden', 'true');
+hidLabel.style.cssText = 'position:absolute;width:1px;height:1px;clip-path:inset(50%);overflow:hidden;pointer-events:none';
+const clickSw = document.createElement('input');
+clickSw.type = 'checkbox'; clickSw.setAttribute('switch', ''); clickSw.tabIndex = -1;
+hidLabel.appendChild(clickSw);
+document.body.appendChild(hidLabel);
+document.getElementById('click').addEventListener('click', () => {
+  hidLabel.click();
+  counted('click');
+});
+
+// 3. His finger on a label around a hidden switch. The forwarded second click
+// (target: the switch) is not a tap.
+document.getElementById('real').addEventListener('click', (ev) => {
+  if (ev.target.matches('input.hap')) return;
+  counted('real');
+});
+
+// 4. The same label, but the tap replaces it at once with a fresh copy, the way
+// Start opens the workout and the last Set done opens the next exercise: the
+// switch his finger toggled has left the page before iOS could answer it.
+function bindGone(tile) {
+  tile.addEventListener('click', (ev) => {
+    if (ev.target.matches('input.hap')) return;
+    const fresh = tile.cloneNode(true);
+    fresh.querySelector('input.hap').checked = false;
+    tile.replaceWith(fresh);
+    bindGone(fresh);
+    counted('gone');
+  });
+}
+bindGone(document.getElementById('gone'));
+
+note('ready');
+</script>
